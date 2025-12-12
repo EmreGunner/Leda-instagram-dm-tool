@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "DMflow - Instagram Session Grabber",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Automatically connect your Instagram account to DMflow with one click",
   "permissions": [
     "cookies",
@@ -13,6 +13,7 @@
     "https://instagram.com/*",
     "http://localhost:3000/*",
     "http://localhost:3001/*",
+    "https://dmflow-saas.netlify.app/*",
     "https://*.netlify.app/*",
     "https://*.netlify.com/*"
   ],

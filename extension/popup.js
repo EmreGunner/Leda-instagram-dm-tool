@@ -1,20 +1,111 @@
 // DMflow Instagram Session Grabber
 // This extension extracts Instagram cookies and sends them to DMflow
 
-// Get URLs from storage or use defaults
-let APP_URL = 'http://localhost:3000';
-let BACKEND_URL = 'http://localhost:3001';
+// Production URLs
+const PRODUCTION_APP_URL = 'https://dmflow-saas.netlify.app';
+const PRODUCTION_BACKEND_URL = 'https://dmflow-saas.netlify.app'; // Update this when backend is deployed
+
+// Development URLs
+const DEV_APP_URL = 'http://localhost:3000';
+const DEV_BACKEND_URL = 'http://localhost:3001';
+
+// Get URLs from storage or use smart defaults
+let APP_URL = PRODUCTION_APP_URL;
+let BACKEND_URL = PRODUCTION_BACKEND_URL;
 
 // Load config from storage
-chrome.storage.sync.get(['appUrl', 'backendUrl'], (result) => {
-  if (result.appUrl) APP_URL = result.appUrl;
-  if (result.backendUrl) BACKEND_URL = result.backendUrl;
+chrome.storage.sync.get(['appUrl', 'backendUrl', 'useProduction'], (result) => {
+  if (result.appUrl) {
+    APP_URL = result.appUrl;
+  } else if (result.useProduction === false) {
+    // Use localhost if explicitly set to false
+    APP_URL = DEV_APP_URL;
+  }
+  
+  if (result.backendUrl) {
+    BACKEND_URL = result.backendUrl;
+  } else if (result.useProduction === false) {
+    // Use localhost if explicitly set to false
+    BACKEND_URL = DEV_BACKEND_URL;
+  }
+  
+  // Auto-detect: Try to ping production, fallback to localhost
+  if (!result.appUrl && !result.useProduction) {
+    detectEnvironment();
+  }
+});
+
+// Auto-detect environment (production vs localhost)
+async function detectEnvironment() {
+  try {
+    // Try to fetch from production
+    const response = await fetch(`${PRODUCTION_APP_URL}/api/health`, {
+      method: 'HEAD',
+      mode: 'no-cors',
+      cache: 'no-cache'
+    });
+    // If we can reach production, use it
+    APP_URL = PRODUCTION_APP_URL;
+    BACKEND_URL = PRODUCTION_BACKEND_URL;
+    chrome.storage.sync.set({ useProduction: true });
+    updateEnvIndicator(true);
+  } catch (error) {
+    // Production not available, try localhost
+    try {
+      const localResponse = await fetch(`${DEV_APP_URL}/api/health`, {
+        method: 'HEAD',
+        mode: 'no-cors',
+        cache: 'no-cache'
+      });
+      APP_URL = DEV_APP_URL;
+      BACKEND_URL = DEV_BACKEND_URL;
+      chrome.storage.sync.set({ useProduction: false });
+      updateEnvIndicator(false);
+    } catch (localError) {
+      // Neither available, default to production
+      APP_URL = PRODUCTION_APP_URL;
+      BACKEND_URL = PRODUCTION_BACKEND_URL;
+      updateEnvIndicator(true);
+    }
+  }
+}
+
+// Update environment indicator
+function updateEnvIndicator(isProduction) {
+  if (envText) {
+    if (isProduction) {
+      envText.textContent = `🌐 Connected to: ${PRODUCTION_APP_URL}`;
+      envText.style.color = '#22c55e';
+    } else {
+      envText.textContent = `💻 Connected to: ${DEV_APP_URL} (Local)`;
+      envText.style.color = '#eab308';
+    }
+  }
+}
+
+// Update indicator on load
+chrome.storage.sync.get(['useProduction', 'appUrl'], (result) => {
+  if (result.appUrl) {
+    const isProd = result.appUrl.includes('netlify.app');
+    updateEnvIndicator(isProd);
+  } else {
+    updateEnvIndicator(result.useProduction !== false);
+  }
 });
 
 // Listen for config updates
 chrome.storage.onChanged.addListener((changes) => {
   if (changes.appUrl) APP_URL = changes.appUrl.newValue;
   if (changes.backendUrl) BACKEND_URL = changes.backendUrl.newValue;
+  if (changes.useProduction !== undefined) {
+    if (changes.useProduction.newValue === false) {
+      APP_URL = DEV_APP_URL;
+      BACKEND_URL = DEV_BACKEND_URL;
+    } else {
+      APP_URL = PRODUCTION_APP_URL;
+      BACKEND_URL = PRODUCTION_BACKEND_URL;
+    }
+  }
 });
 
 // DOM Elements
@@ -33,6 +124,8 @@ const statusSuccess = document.getElementById('status-success');
 const statusError = document.getElementById('status-error');
 const statusConnecting = document.getElementById('status-connecting');
 const errorMessage = document.getElementById('error-message');
+const envIndicator = document.getElementById('env-indicator');
+const envText = document.getElementById('env-text');
 
 // Hide all status messages
 function hideAllStatus() {
@@ -138,10 +231,29 @@ async function grabSession() {
       verifyResult = await verifySession(cookies);
     } catch (fetchError) {
       showStatus(statusError);
-      errorMessage.textContent = 'Cannot connect to backend. Make sure it is running on port 3001.';
-      grabBtn.disabled = false;
-      instructions.classList.remove('hidden');
-      return;
+      // Try to switch to localhost if production fails
+      if (APP_URL === PRODUCTION_APP_URL) {
+        console.log('Production backend failed, trying localhost...');
+        APP_URL = DEV_APP_URL;
+        BACKEND_URL = DEV_BACKEND_URL;
+        chrome.storage.sync.set({ useProduction: false });
+        updateEnvIndicator(false);
+        
+        // Retry with localhost
+        try {
+          verifyResult = await verifySession(cookies);
+        } catch (localError) {
+          errorMessage.textContent = `Cannot connect to backend. Tried both production and localhost. Make sure backend is running.`;
+          grabBtn.disabled = false;
+          instructions.classList.remove('hidden');
+          return;
+        }
+      } else {
+        errorMessage.textContent = 'Cannot connect to backend. Make sure it is running on port 3001.';
+        grabBtn.disabled = false;
+        instructions.classList.remove('hidden');
+        return;
+      }
     }
     
     if (!verifyResult.success) {
@@ -195,9 +307,9 @@ async function grabSession() {
       // Open DMflow app with account data in URL
       const encodedAccount = btoa(JSON.stringify(accountData));
       setTimeout(() => {
-        chrome.tabs.create({ 
-          url: `${APP_URL}/settings/instagram?connected=${encodedAccount}` 
-        });
+        const redirectUrl = `${APP_URL}/settings/instagram?connected=${encodedAccount}`;
+        console.log('Opening DMflow at:', redirectUrl);
+        chrome.tabs.create({ url: redirectUrl });
       }, 1500);
     } else {
       showStatus(statusError);

@@ -1,13 +1,20 @@
 // DMflow Background Service Worker
 // Handles cookie access and communication
 
-// Get backend URL from storage or use default
-let BACKEND_URL = 'http://localhost:3001';
+// Production URLs
+const PRODUCTION_BACKEND_URL = 'https://dmflow-saas.netlify.app'; // Update this when backend is deployed
+const DEV_BACKEND_URL = 'http://localhost:3001';
+
+// Get backend URL from storage or use smart default
+let BACKEND_URL = PRODUCTION_BACKEND_URL;
 
 // Load config from storage on startup
-chrome.storage.sync.get(['backendUrl'], (result) => {
+chrome.storage.sync.get(['backendUrl', 'useProduction'], (result) => {
   if (result.backendUrl) {
     BACKEND_URL = result.backendUrl;
+  } else if (result.useProduction === false) {
+    // Use localhost if explicitly set to false
+    BACKEND_URL = DEV_BACKEND_URL;
   }
 });
 
@@ -15,6 +22,13 @@ chrome.storage.sync.get(['backendUrl'], (result) => {
 chrome.storage.onChanged.addListener((changes) => {
   if (changes.backendUrl) {
     BACKEND_URL = changes.backendUrl.newValue;
+  }
+  if (changes.useProduction !== undefined) {
+    if (changes.useProduction.newValue === false) {
+      BACKEND_URL = DEV_BACKEND_URL;
+    } else {
+      BACKEND_URL = PRODUCTION_BACKEND_URL;
+    }
   }
 });
 
