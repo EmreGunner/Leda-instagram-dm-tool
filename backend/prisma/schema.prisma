@@ -34,15 +34,16 @@ model Workspace {
 }
 
 model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
-  passwordHash  String?   @map("password_hash")
-  name          String?
-  emailVerified DateTime? @map("email_verified")
-  magicToken    String?   @map("magic_token")
-  magicTokenExp DateTime? @map("magic_token_exp")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  id              String    @id @default(uuid())
+  email           String    @unique
+  supabaseAuthId String?   @unique @map("supabase_auth_id") // Links to Supabase auth.users.id
+  passwordHash    String?   @map("password_hash")
+  name            String?
+  emailVerified   DateTime? @map("email_verified")
+  magicToken      String?   @map("magic_token")
+  magicTokenExp   DateTime? @map("magic_token_exp")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
 
   workspaceId String    @map("workspace_id")
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -52,6 +53,7 @@ model User {
   notifications           Notification[]
 
   @@index([workspaceId])
+  @@index([supabaseAuthId])
   @@map("users")
 }
 

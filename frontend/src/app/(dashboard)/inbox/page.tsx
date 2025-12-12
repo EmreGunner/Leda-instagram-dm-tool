@@ -364,15 +364,31 @@ export default function InboxPage() {
       const result = await response.json();
       
       if (result.success) {
-        // Create or find contact in database
-        const workspaceId = '11111111-1111-1111-1111-111111111111';
+        // Get current user's workspace
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (!authUser) {
+          alert('Please log in');
+          return;
+        }
+
+        const { data: user } = await supabase
+          .from('users')
+          .select('workspace_id')
+          .eq('supabase_auth_id', authUser.id)
+          .single();
+
+        if (!user?.workspace_id) {
+          alert('No workspace found');
+          return;
+        }
+
         const recipientUserId = recipientInfo?.pk || result.recipientId || `user_${username}`;
         
-        // Upsert contact
+        // Upsert contact (RLS will verify workspace_id)
         const { data: contact } = await supabase
           .from('contacts')
           .upsert({
-            workspace_id: workspaceId,
+            workspace_id: user.workspace_id,
             ig_user_id: String(recipientUserId),
             ig_username: username,
             name: recipientInfo?.fullName || username,

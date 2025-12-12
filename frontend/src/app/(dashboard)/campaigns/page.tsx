@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, Play, Pause, MoreVertical, Users, Send, MessageCircle, Instagram, AlertCircle, X, Trash2, Check } from 'lucide-react';
 import { Header } from '@/components/layout/header';
@@ -157,25 +159,32 @@ export default function CampaignsPage() {
     try {
       const supabase = createClient();
       
-      // Get workspace
-      const { data: workspaces } = await supabase
-        .from('workspaces')
-        .select('id')
-        .limit(1)
-        .single();
-
-      if (!workspaces?.id) {
-        console.error('No workspace found');
+      // Get current user's workspace (RLS will ensure it's the correct one)
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) {
+        alert('Please log in to create a campaign');
         return;
       }
 
-      // Create campaign
+      const { data: user } = await supabase
+        .from('users')
+        .select('workspace_id')
+        .eq('supabase_auth_id', authUser.id)
+        .single();
+
+      if (!user?.workspace_id) {
+        console.error('No workspace found');
+        alert('No workspace found. Please contact support.');
+        return;
+      }
+
+      // Create campaign (RLS will verify workspace_id matches user's workspace)
       const { data: campaignData, error: campaignError } = await supabase
         .from('campaigns')
         .insert({
           name: newCampaign.name,
           description: newCampaign.description,
-          workspace_id: workspaces.id,
+          workspace_id: user.workspace_id,
           instagram_account_id: newCampaign.accountId,
           status: 'DRAFT',
           total_recipients: totalRecipients,
@@ -232,7 +241,7 @@ export default function CampaignsPage() {
             const { data: newContact, error: contactError } = await supabase
               .from('contacts')
               .insert({
-                workspace_id: workspaces.id,
+                workspace_id: user.workspace_id,
                 ig_user_id: lead.igUserId,
                 ig_username: lead.igUsername,
                 name: lead.name,

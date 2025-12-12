@@ -137,18 +137,27 @@ export async function GET(request: Request) {
       }
     );
 
-    // Get a workspace
-    const { data: workspace } = await supabase
-      .from('workspaces')
-      .select('id')
-      .limit(1)
-      .single();
-
-    if (!workspace) {
+    // Get current user's workspace
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) {
       return NextResponse.redirect(
-        `${origin}/settings/instagram?error=no_workspace&message=${encodeURIComponent('No workspace found. Please create a workspace first.')}`
+        `${origin}/settings/instagram?error=not_authenticated&message=${encodeURIComponent('Please log in first.')}`
       );
     }
+
+    const { data: user } = await supabase
+      .from('users')
+      .select('workspace_id')
+      .eq('supabase_auth_id', authUser.id)
+      .single();
+
+    if (!user?.workspace_id) {
+      return NextResponse.redirect(
+        `${origin}/settings/instagram?error=no_workspace&message=${encodeURIComponent('No workspace found. Please contact support.')}`
+      );
+    }
+
+    const workspace = { id: user.workspace_id };
 
     // Calculate token expiration
     const expiresAt = new Date();

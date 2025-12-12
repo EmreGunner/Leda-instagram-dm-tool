@@ -38,25 +38,42 @@ export function useSupabaseQuery<T>(
   return { data, isLoading, error, refetch };
 }
 
-// Workspace hook
+// Workspace hook - gets current user's workspace
 export function useWorkspace() {
-  return useSupabaseQuery<Tables['workspaces']['Row'][]>(
-    async (supabase) => supabase.from('workspaces').select('*').limit(1),
+  return useSupabaseQuery<Tables['workspaces']['Row'] | null>(
+    async (supabase) => {
+      // Get current authenticated user
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return { data: null, error: null };
+
+      // Get user's workspace
+      const { data: user } = await supabase
+        .from('users')
+        .select('workspace_id, workspace:workspaces(*)')
+        .eq('supabase_auth_id', authUser.id)
+        .single();
+
+      if (!user || !user.workspace) return { data: null, error: null };
+      
+      return { data: user.workspace as Tables['workspaces']['Row'], error: null };
+    },
     []
   );
 }
 
-// Instagram accounts hook
-export function useInstagramAccounts(workspaceId?: string) {
+// Instagram accounts hook - automatically filters by user's workspace
+export function useInstagramAccounts() {
   return useSupabaseQuery<Tables['instagram_accounts']['Row'][]>(
     async (supabase) => {
-      let query = supabase.from('instagram_accounts').select('*');
-      if (workspaceId) {
-        query = query.eq('workspace_id', workspaceId);
-      }
-      return query.order('created_at', { ascending: false });
+      // RLS policies will automatically filter by user's workspace
+      const { data, error } = await supabase
+        .from('instagram_accounts')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      return { data: data || [], error };
     },
-    [workspaceId]
+    []
   );
 }
 
@@ -96,31 +113,35 @@ export function useMessages(conversationId: string) {
   );
 }
 
-// Campaigns hook
-export function useCampaigns(workspaceId?: string) {
+// Campaigns hook - automatically filters by user's workspace
+export function useCampaigns() {
   return useSupabaseQuery<Tables['campaigns']['Row'][]>(
     async (supabase) => {
-      let query = supabase.from('campaigns').select('*');
-      if (workspaceId) {
-        query = query.eq('workspace_id', workspaceId);
-      }
-      return query.order('created_at', { ascending: false });
+      // RLS policies will automatically filter by user's workspace
+      const { data, error } = await supabase
+        .from('campaigns')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      return { data: data || [], error };
     },
-    [workspaceId]
+    []
   );
 }
 
-// Contacts hook
-export function useContacts(workspaceId?: string) {
+// Contacts hook - automatically filters by user's workspace
+export function useContacts() {
   return useSupabaseQuery<Tables['contacts']['Row'][]>(
     async (supabase) => {
-      let query = supabase.from('contacts').select('*');
-      if (workspaceId) {
-        query = query.eq('workspace_id', workspaceId);
-      }
-      return query.order('created_at', { ascending: false });
+      // RLS policies will automatically filter by user's workspace
+      const { data, error } = await supabase
+        .from('contacts')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      return { data: data || [], error };
     },
-    [workspaceId]
+    []
   );
 }
 

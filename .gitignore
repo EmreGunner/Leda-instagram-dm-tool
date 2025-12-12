@@ -86,3 +86,6 @@ next-env.d.ts
 .branches/
 .temp/
 
+
+# Local Netlify folder
+.netlify

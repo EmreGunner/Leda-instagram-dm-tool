@@ -1,9 +1,9 @@
 'use client';
 
 import posthog from 'posthog-js';
-import { useEffect } from 'react';
+import { useEffect, ReactNode } from 'react';
 
-export function PostHogProvider({ children }: { children: React.ReactNode }) {
+export function PostHogProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Only initialize PostHog on the client side
     if (typeof window !== 'undefined') {
@@ -16,7 +16,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
           person_profiles: 'identified_only', // Only create profiles for identified users
           capture_pageview: true, // Automatically capture pageviews
           capture_pageleave: true, // Capture pageleave events
-          loaded: (posthog) => {
+          loaded: () => {
             if (process.env.NODE_ENV === 'development') {
               console.log('PostHog initialized');
             }

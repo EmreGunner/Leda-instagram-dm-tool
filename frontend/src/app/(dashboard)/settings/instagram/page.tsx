@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect, useCallback } from 'react';
 import { 
   Instagram, 
@@ -166,8 +168,25 @@ export default function InstagramSettingsPage() {
           // Save to Supabase database
           const supabase = createClient();
           
-          // Use fixed workspace ID (from seed data)
-          const workspaceId = '11111111-1111-1111-1111-111111111111';
+          // Get current user's workspace
+          const { data: { user: authUser } } = await supabase.auth.getUser();
+          if (!authUser) {
+            setErrorMessage('Please log in');
+            return;
+          }
+
+          const { data: user } = await supabase
+            .from('users')
+            .select('workspace_id')
+            .eq('supabase_auth_id', authUser.id)
+            .single();
+
+          if (!user?.workspace_id) {
+            setErrorMessage('No workspace found');
+            return;
+          }
+
+          const workspaceId = user.workspace_id;
           
           // Check if account already exists
           const { data: existingAccount } = await supabase
@@ -374,24 +393,47 @@ export default function InstagramSettingsPage() {
 
     try {
       const supabase = createClient();
-      const { data: workspaces } = await supabase
-        .from('workspaces')
-        .select('id')
-        .limit(1)
+      
+      // Get current user's workspace
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) {
+        setErrorMessage('Please log in');
+        setIsVerifyingCookies(false);
+        return;
+      }
+
+      const { data: user } = await supabase
+        .from('users')
+        .select('workspace_id')
+        .eq('supabase_auth_id', authUser.id)
         .single();
+
+      if (!user?.workspace_id) {
+        setErrorMessage('No workspace found');
+        setIsVerifyingCookies(false);
+        return;
+      }
 
       const response = await fetch(`${BACKEND_URL}/api/instagram/cookie/connect`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           cookies,
-          workspaceId: workspaces?.id 
+          workspaceId: user.workspace_id 
         }),
       });
 
       const data = await response.json();
 
       if (data.success) {
+        // Check if account already exists
+        const { data: existingAccount } = await supabase
+          .from('instagram_accounts')
+          .select('id')
+          .eq('ig_user_id', data.account.pk)
+          .eq('workspace_id', user.workspace_id)
+          .single();
+
         // Track Instagram account connection
         capture('instagram_account_connected', {
           method: 'cookie',
@@ -403,7 +445,7 @@ export default function InstagramSettingsPage() {
         const { data: savedAccount, error } = await supabase
           .from('instagram_accounts')
           .upsert({
-            workspace_id: workspaces?.id,
+            workspace_id: user.workspace_id,
             ig_user_id: data.account.pk,
             ig_username: data.account.username,
             profile_picture_url: data.account.profilePicUrl,

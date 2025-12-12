@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect, useCallback } from 'react';
 import { 
   Search, 
@@ -494,7 +496,25 @@ export default function LeadsPage() {
     keywords = [...keywords, ...customKeywords];
     
     const supabase = createClient();
-    const workspaceId = '11111111-1111-1111-1111-111111111111';
+    // Get current user's workspace
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) {
+      alert('Please log in');
+      return;
+    }
+
+    const { data: user } = await supabase
+      .from('users')
+      .select('workspace_id')
+      .eq('supabase_auth_id', authUser.id)
+      .single();
+
+    if (!user?.workspace_id) {
+      alert('No workspace found');
+      return;
+    }
+
+    const workspaceId = user.workspace_id;
 
     let addedCount = 0;
     let matchedCount = 0;
@@ -503,19 +523,19 @@ export default function LeadsPage() {
     // Show progress
     alert(`Starting to scan ${users.length} users for matching bios...`);
 
-    for (const user of users) {
+    for (const userProfile of users) {
       try {
         scannedCount++;
         
         // Fetch full profile with bio
-        const profileRes = await fetch(`${BACKEND_URL}/api/instagram/cookie/user/${user.username}/profile`, {
+        const profileRes = await fetch(`${BACKEND_URL}/api/instagram/cookie/user/${userProfile.username}/profile`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ cookies }),
         });
         const profileData = await profileRes.json();
         
-        const profile = profileData.success ? profileData.profile : user;
+        const profile = profileData.success ? profileData.profile : userProfile;
         const bio = profile.bio || '';
         
         // Use smart keyword matching
@@ -528,7 +548,7 @@ export default function LeadsPage() {
 
         matchedCount++;
 
-        // Insert into database
+        // Insert into database (RLS will verify workspace_id)
         await supabase.from('leads').upsert({
           workspace_id: workspaceId,
           instagram_account_id: selectedAccount.id,

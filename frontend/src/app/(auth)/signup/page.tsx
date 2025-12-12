@@ -1,5 +1,7 @@
 'use client';
 
+export const dynamic = 'force-dynamic';
+
 import { useState } from 'react';
 import Link from 'next/link';
 import { Instagram, Mail, Lock, User, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react';
@@ -245,7 +247,6 @@ export default function SignupPage() {
               onChange={(e) => setPassword(e.target.value)}
               leftIcon={<Lock className="h-4 w-4" />}
               required
-              helperText="Minimum 6 characters"
             />
             
             <Button type="submit" className="w-full" size="lg" isLoading={isLoading}>
