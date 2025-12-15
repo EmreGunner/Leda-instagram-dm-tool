@@ -133,7 +133,31 @@ export default function InstagramSettingsPage() {
 
       setAccounts(transformedAccounts);
       
-      // Check cookies after loading accounts
+      // Load cookies from Supabase and restore to localStorage
+      const accountsWithValidCookies = new Set<string>();
+      for (const acc of data || []) {
+        if (acc.cookies && typeof acc.cookies === 'object') {
+          try {
+            // Restore cookies to localStorage if not already there
+            const localStorageKey = `bulkdm_cookies_${acc.ig_user_id}`;
+            if (!localStorage.getItem(localStorageKey)) {
+              localStorage.setItem(localStorageKey, JSON.stringify(acc.cookies));
+              console.log(`✓ Restored cookies from Supabase for @${acc.ig_username}`);
+            }
+            
+            // Check if cookies are valid
+            if (acc.cookies.sessionId && acc.cookies.csrfToken && acc.cookies.dsUserId) {
+              accountsWithValidCookies.add(acc.id);
+            }
+          } catch (e) {
+            console.error('Failed to restore cookies for account:', acc.ig_username, e);
+          }
+        }
+      }
+      
+      setAccountsWithCookies(accountsWithValidCookies);
+      
+      // Also check localStorage cookies (for backward compatibility)
       setTimeout(() => {
         checkAccountCookies(transformedAccounts);
       }, 100);
@@ -143,7 +167,7 @@ export default function InstagramSettingsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [checkAccountCookies]);
 
   useEffect(() => {
     fetchAccounts();
@@ -195,13 +219,14 @@ export default function InstagramSettingsPage() {
           const encryptedCookies = btoa(JSON.stringify(accountData.cookies));
           
           if (existingAccount) {
-            // Update existing account
+            // Update existing account with cookies
             const { error: updateError } = await supabase
               .from('instagram_accounts')
               .update({
                 ig_username: accountData.username,
                 profile_picture_url: accountData.profilePicUrl,
                 access_token: encryptedCookies,
+                cookies: accountData.cookies, // Save cookies to Supabase
                 access_token_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
                 is_active: true,
               })
@@ -214,7 +239,7 @@ export default function InstagramSettingsPage() {
               console.log('Account updated successfully');
             }
           } else {
-            // Insert new account
+            // Insert new account with cookies
             const { error: insertError } = await supabase
               .from('instagram_accounts')
               .insert({
@@ -223,6 +248,7 @@ export default function InstagramSettingsPage() {
                 ig_username: accountData.username,
                 profile_picture_url: accountData.profilePicUrl,
                 access_token: encryptedCookies,
+                cookies: accountData.cookies, // Save cookies to Supabase
                 access_token_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
                 is_active: true,
                 daily_dm_limit: 100,
@@ -438,7 +464,7 @@ export default function InstagramSettingsPage() {
           is_new_account: !existingAccount,
         });
 
-        // Also save to Supabase for UI
+        // Also save to Supabase for UI with cookies
         const { data: savedAccount, error } = await supabase
           .from('instagram_accounts')
           .upsert({
@@ -448,6 +474,7 @@ export default function InstagramSettingsPage() {
             profile_picture_url: data.account.profilePicUrl,
             access_token: 'cookie_auth',
             access_token_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            cookies: cookies, // Save cookies to Supabase
             is_active: true,
             daily_dm_limit: 100,
             dms_sent_today: 0,
@@ -458,6 +485,9 @@ export default function InstagramSettingsPage() {
           .single();
 
         if (!error && savedAccount) {
+          // Save cookies to localStorage for quick access
+          localStorage.setItem(`bulkdm_cookies_${data.account.pk}`, JSON.stringify(cookies));
+          
           const newAccount: InstagramAccount = {
             id: savedAccount.id,
             igUserId: savedAccount.ig_user_id,
@@ -472,6 +502,9 @@ export default function InstagramSettingsPage() {
             const filtered = prev.filter(a => a.igUserId !== newAccount.igUserId);
             return [newAccount, ...filtered];
           });
+          
+          // Update accountsWithCookies to show as active
+          setAccountsWithCookies(prev => new Set([...prev, newAccount.id]));
         }
 
         setSuccessMessage(`Connected @${data.account.username} successfully!`);
@@ -718,8 +751,11 @@ export default function InstagramSettingsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <h4 className="font-semibold text-foreground">@{account.igUsername}</h4>
-                        {account.isActive ? (
+                        {/* Only show badge if account is active AND has valid cookies */}
+                        {account.isActive && accountsWithCookies.has(account.id) ? (
                           <Badge variant="success">Active</Badge>
+                        ) : account.isActive ? (
+                          <Badge variant="warning">Needs Reconnect</Badge>
                         ) : (
                           <Badge variant="error">Inactive</Badge>
                         )}
@@ -759,21 +795,22 @@ export default function InstagramSettingsPage() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      {accountsWithCookies.has(account.id) ? (
+                      {/* Show only one status: Active if connected, Reconnect if not */}
+                      {account.isActive && accountsWithCookies.has(account.id) ? (
                         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
                           <CheckCircle className="h-4 w-4" />
-                          <span className="text-sm font-medium">Session Active</span>
+                          <span className="text-sm font-medium">Connected</span>
                         </div>
                       ) : (
                         <Button
                           variant="secondary"
                           size="sm"
                           onClick={() => handleReconnect(account)}
-                          title="Refresh session cookies"
+                          title="Connect or refresh session cookies"
                           className="text-amber-400 border-amber-500/20 hover:bg-amber-500/10"
                         >
                           <RefreshCw className="h-4 w-4 mr-1" />
-                          Reconnect
+                          {account.isActive ? 'Reconnect' : 'Connect'}
                         </Button>
                       )}
                       <Button
