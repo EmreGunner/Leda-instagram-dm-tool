@@ -4,9 +4,6 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-# Install Next.js plugin if not already installed
-# This plugin handles Next.js routing and serverless functions automatically
-
 [build.environment]
   NODE_VERSION = "20"
 
