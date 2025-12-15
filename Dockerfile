@@ -24,5 +24,6 @@ RUN npm run build
 EXPOSE 3001
 
 # Start the application
-CMD ["npm", "run", "start:prod"]
+# Use shell form to ensure proper execution
+CMD npm run start:prod
 
