@@ -72,33 +72,62 @@ async function getInstagramCookies() {
 
 // Verify session with backend
 async function verifySession(cookies) {
-  const response = await fetch(`${BACKEND_URL}/api/proxy/instagram/cookie/verify`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ cookies })
-  });
-  
-  const data = await response.json();
-  
-  // Handle error responses
-  if (!response.ok) {
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/proxy/instagram/cookie/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cookies })
+    });
+    
+    // Check if response is ok before parsing
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ 
+        error: `HTTP ${response.status}: ${response.statusText}` 
+      }));
+      return {
+        success: false,
+        message: errorData.message || errorData.error || `Server error: ${response.status}`
+      };
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Verify session error:', error);
     return {
       success: false,
-      message: data.message || data.error || `Server error: ${response.status}`
+      message: `Network error: ${error.message || 'Failed to connect to server'}`
     };
   }
-  
-  return data;
 }
 
 // Connect account
 async function connectAccount(cookies) {
-  const response = await fetch(`${BACKEND_URL}/api/proxy/instagram/cookie/connect`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ cookies })
-  });
-  return response.json();
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/proxy/instagram/cookie/connect`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cookies })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ 
+        error: `HTTP ${response.status}: ${response.statusText}` 
+      }));
+      return {
+        success: false,
+        message: errorData.message || errorData.error || `Server error: ${response.status}`
+      };
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Connect account error:', error);
+    return {
+      success: false,
+      message: `Network error: ${error.message || 'Failed to connect to server'}`
+    };
+  }
 }
 
 // Main grab session function
