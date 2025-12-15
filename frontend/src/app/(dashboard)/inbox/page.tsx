@@ -200,7 +200,7 @@ export default function InboxPage() {
       const supabase = createClient();
       
       // Get cookies from localStorage
-      const cookiesStr = localStorage.getItem(`dmflow_cookies_${selectedAccount.igUserId}`);
+      const cookiesStr = localStorage.getItem(`bulkdm_cookies_${selectedAccount.igUserId}`);
       
       // Check if this is the first message
       const { data: existingMessages } = await supabase
@@ -324,7 +324,7 @@ export default function InboxPage() {
       const username = newDmUsername.replace('@', '').trim();
       
       // Get cookies from localStorage
-      const cookiesStr = localStorage.getItem(`dmflow_cookies_${selectedAccount.igUserId}`);
+      const cookiesStr = localStorage.getItem(`bulkdm_cookies_${selectedAccount.igUserId}`);
       
       if (!cookiesStr) {
         alert('Session expired. Please reconnect your Instagram account.');
@@ -516,7 +516,7 @@ export default function InboxPage() {
   // Get cookies helper
   const getCookies = () => {
     if (!selectedAccount) return null;
-    const cookiesStr = localStorage.getItem(`dmflow_cookies_${selectedAccount.igUserId}`);
+    const cookiesStr = localStorage.getItem(`bulkdm_cookies_${selectedAccount.igUserId}`);
     return cookiesStr ? JSON.parse(cookiesStr) : null;
   };
 

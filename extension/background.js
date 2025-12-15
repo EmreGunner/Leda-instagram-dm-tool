@@ -1,4 +1,4 @@
-// DMflow Background Service Worker
+// BulkDM Background Service Worker
 // Handles cookie access and communication
 
 // Production URLs
@@ -80,6 +80,6 @@ async function verifySession(cookies) {
 
 // Extension installed
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('DMflow Instagram Session Grabber installed');
+  console.log('BulkDM Instagram Session Grabber installed');
 });
 

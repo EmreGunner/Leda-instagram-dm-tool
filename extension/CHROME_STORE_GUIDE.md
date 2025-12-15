@@ -1,6 +1,6 @@
 # Chrome Web Store Publishing Guide
 
-Complete guide to publish the DMflow Chrome Extension to Chrome Web Store.
+Complete guide to publish the BulkDM Chrome Extension to Chrome Web Store.
 
 ## 📋 Prerequisites
 
@@ -64,7 +64,7 @@ Make sure your `manifest.json` includes your production domain:
 3. **Create ZIP**:
    ```bash
    cd extension
-   zip -r ../dmflow-extension-v1.0.0.zip . -x "*.git*" "*.md" "*.DS_Store"
+   zip -r ../bulkdm-extension-v1.0.0.zip . -x "*.git*" "*.md" "*.DS_Store"
    ```
 
 ## 🚀 Step 3: Upload to Chrome Web Store
@@ -81,11 +81,11 @@ Make sure your `manifest.json` includes your production domain:
 
    **Required Information:**
    
-   - **Name**: `DMflow - Instagram Session Grabber`
-   - **Summary**: `One-click Instagram account connection for DMflow SaaS platform`
+   - **Name**: `BulkDM - Instagram Session Grabber`
+   - **Summary**: `One-click Instagram account connection for BulkDM SaaS platform`
    - **Description**: 
      ```
-     DMflow Extension makes it easy to connect your Instagram account to the DMflow platform.
+     BulkDM Extension makes it easy to connect your Instagram account to the BulkDM platform.
      
      Features:
      • One-click Instagram session extraction
@@ -102,7 +102,7 @@ Make sure your `manifest.json` includes your production domain:
      5. Your account connects automatically!
      
      Privacy:
-     • Cookies are only sent to your DMflow backend
+     • Cookies are only sent to your BulkDM backend
      • No data is stored by the extension
      • All communication is encrypted
      ```
@@ -150,7 +150,7 @@ Make sure your `manifest.json` includes your production domain:
 
    - **Notes for reviewers**:
      ```
-     This extension connects Instagram accounts to the DMflow SaaS platform.
+     This extension connects Instagram accounts to the BulkDM SaaS platform.
      
      Testing instructions:
      1. Install the extension
@@ -215,21 +215,21 @@ For easier user experience, hardcode production URLs in the extension code befor
 Create a privacy policy page at `/privacy` on your frontend:
 
 ```html
-Privacy Policy for DMflow Extension
+Privacy Policy for BulkDM Extension
 
 1. Data Collection
    - We collect Instagram session cookies only
-   - Cookies are sent directly to your DMflow backend
+   - Cookies are sent directly to your BulkDM backend
    - No data is stored by the extension itself
 
 2. Cookie Usage
    - Cookies are used solely for Instagram API authentication
    - Cookies are encrypted before transmission
-   - Cookies are stored securely in your DMflow account
+   - Cookies are stored securely in your BulkDM account
 
 3. Data Storage
    - Extension does not store any user data
-   - All data is stored in your DMflow account
+   - All data is stored in your BulkDM account
    - You can delete your data anytime
 
 4. Security

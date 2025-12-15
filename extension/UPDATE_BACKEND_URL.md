@@ -34,8 +34,8 @@ When you deploy the backend separately (Railway, Render, Fly.io, etc.), update t
 
 ## Current Configuration
 
-- **Frontend**: `https://dmflow-saas.netlify.app` ✅
-- **Backend**: `https://dmflow-saas.netlify.app` ⚠️ (Update when backend is deployed separately)
+- **Frontend**: `https://bulkdm-saas.netlify.app` ✅
+- **Backend**: `https://bulkdm-saas.netlify.app` ⚠️ (Update when backend is deployed separately)
 
 ## Testing
 

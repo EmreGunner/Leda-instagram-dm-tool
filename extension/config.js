@@ -1,4 +1,4 @@
-// DMflow Extension Configuration
+// BulkDM Extension Configuration
 // Update these URLs when deploying to production
 
 const CONFIG = {

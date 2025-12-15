@@ -1,6 +1,6 @@
 # Netlify Deployment Guide
 
-Complete guide to deploy DMflow to Netlify.
+Complete guide to deploy BulkDM to Netlify.
 
 ## 🚀 Quick Deploy
 

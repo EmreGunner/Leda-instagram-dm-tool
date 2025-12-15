@@ -268,8 +268,8 @@ export default function LeadsPage() {
     }
     // Try different possible cookie keys
     const possibleKeys = [
-      `dmflow_cookies_${selectedAccount.igUserId}`,
-      `dmflow_cookies_${selectedAccount.igUsername}`,
+      `bulkdm_cookies_${selectedAccount.igUserId}`,
+      `bulkdm_cookies_${selectedAccount.igUsername}`,
       `instagram_cookies_${selectedAccount.igUserId}`,
     ];
     
@@ -281,7 +281,7 @@ export default function LeadsPage() {
       }
     }
     
-    console.log('getCookies: No cookies found. Available keys:', Object.keys(localStorage).filter(k => k.includes('cookie') || k.includes('dmflow')));
+    console.log('getCookies: No cookies found. Available keys:', Object.keys(localStorage).filter(k => k.includes('cookie') || k.includes('bulkdm')));
     return null;
   };
   

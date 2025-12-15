@@ -1,16 +1,16 @@
 #!/bin/bash
 
-# Build script for DMflow Chrome Extension
+# Build script for BulkDM Chrome Extension
 # Creates a production-ready ZIP file
 
-echo "🚀 Building DMflow Chrome Extension..."
+echo "🚀 Building BulkDM Chrome Extension..."
 
 # Get version from manifest.json
 VERSION=$(grep -o '"version": "[^"]*"' manifest.json | cut -d'"' -f4)
 
 # Create build directory
 BUILD_DIR="build"
-ZIP_NAME="dmflow-extension-v${VERSION}.zip"
+ZIP_NAME="bulkdm-extension-v${VERSION}.zip"
 
 # Clean previous build
 rm -rf "$BUILD_DIR"

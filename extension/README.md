@@ -1,6 +1,6 @@
-# DMflow Chrome Extension
+# BulkDM Chrome Extension
 
-Chrome extension for one-click Instagram account connection to DMflow.
+Chrome extension for one-click Instagram account connection to BulkDM.
 
 ## Features
 
@@ -13,8 +13,8 @@ Chrome extension for one-click Instagram account connection to DMflow.
 ## URLs
 
 ### Production (Default)
-- **Frontend**: `https://dmflow-saas.netlify.app`
-- **Backend**: `https://dmflow-saas.netlify.app` (Update when backend is deployed separately)
+- **Frontend**: `https://bulkdm-saas.netlify.app`
+- **Backend**: `https://bulkdm-saas.netlify.app` (Update when backend is deployed separately)
 
 ### Development (Fallback)
 - **Frontend**: `http://localhost:3000`
@@ -50,7 +50,7 @@ When you deploy the backend separately (Railway, Render, etc.):
 
 ## Installation
 
-1. Download `dmflow-extension-v1.0.1.zip`
+1. Download `bulkdm-extension-v1.0.1.zip`
 2. Extract the ZIP file
 3. Open Chrome and go to `chrome://extensions/`
 4. Enable "Developer mode"

@@ -82,7 +82,7 @@ export default function InstagramSettingsPage() {
     const accountsWithValidCookies = new Set<string>();
     
     accountsList.forEach(account => {
-      const cookiesStr = localStorage.getItem(`dmflow_cookies_${account.igUserId}`);
+      const cookiesStr = localStorage.getItem(`bulkdm_cookies_${account.igUserId}`);
       console.log(`Checking cookies for account ${account.igUsername} (ID: ${account.igUserId}):`, cookiesStr ? 'FOUND' : 'NOT FOUND');
       if (cookiesStr) {
         try {
@@ -238,7 +238,7 @@ export default function InstagramSettingsPage() {
           }
           
           // Save cookies to localStorage for quick DM sending
-          localStorage.setItem(`dmflow_cookies_${accountData.pk}`, JSON.stringify(accountData.cookies));
+          localStorage.setItem(`bulkdm_cookies_${accountData.pk}`, JSON.stringify(accountData.cookies));
           
           setSuccessMessage(`Successfully connected @${accountData.username}!`);
           
@@ -337,7 +337,7 @@ export default function InstagramSettingsPage() {
   const handleReconnect = (account: InstagramAccount) => {
     // Open Instagram in a new tab and show instructions to use the extension
     window.open('https://www.instagram.com/', '_blank');
-    alert(`To reconnect @${account.igUsername}:\n\n1. Make sure you're logged in to @${account.igUsername} on Instagram\n2. Click the DMflow extension icon\n3. Click "Grab Instagram Session"\n\nYour cookies will be updated automatically.`);
+    alert(`To reconnect @${account.igUsername}:\n\n1. Make sure you're logged in to @${account.igUsername} on Instagram\n2. Click the BulkDM extension icon\n3. Click "Grab Instagram Session"\n\nYour cookies will be updated automatically.`);
   };
 
   const copyToClipboard = (text: string, key: string) => {
@@ -1184,7 +1184,7 @@ export default function InstagramSettingsPage() {
                 <div className="flex-1">
                   <h3 className="font-medium text-foreground mb-1">Click Extension → Grab Session</h3>
                   <p className="text-sm text-foreground-muted">
-                    While on Instagram, click the DMflow extension icon and hit &quot;Grab Instagram Session&quot;. 
+                    While on Instagram, click the BulkDM extension icon and hit &quot;Grab Instagram Session&quot;. 
                     Your account connects automatically! 🎉
                   </p>
                 </div>

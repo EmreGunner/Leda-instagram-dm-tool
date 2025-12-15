@@ -108,7 +108,7 @@ export default function SignupPage() {
             We sent a confirmation link to <span className="text-foreground font-medium">{email}</span>
           </p>
           <p className="text-sm text-foreground-muted mb-8">
-            Click the link in the email to activate your account and start using DMflow.
+            Click the link in the email to activate your account and start using BulkDM.
           </p>
           <Link href="/login">
             <Button variant="secondary">Back to login</Button>
@@ -133,7 +133,7 @@ export default function SignupPage() {
               <Instagram className="h-6 w-6 text-white" />
             </div>
             <span className="font-bold text-2xl tracking-tight">
-              DM<span className="text-accent">flow</span>
+              Bulk<span className="text-accent">DM</span>
             </span>
           </div>
           
@@ -144,7 +144,7 @@ export default function SignupPage() {
               today
             </h1>
             <p className="text-lg text-foreground-muted mb-8">
-              Join thousands of creators and businesses who scale their Instagram outreach with DMflow.
+              Join thousands of creators and businesses who scale their Instagram outreach with BulkDM.
             </p>
             
             <div className="grid grid-cols-3 gap-6">

@@ -1,6 +1,6 @@
 # 🚀 Deploy to Netlify - Quick Start
 
-Follow these steps to deploy your DMflow application to Netlify.
+Follow these steps to deploy your BulkDM application to Netlify.
 
 ## Step 1: Deploy Frontend to Netlify
 

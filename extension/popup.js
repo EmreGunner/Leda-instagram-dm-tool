@@ -1,5 +1,5 @@
-// DMflow Instagram Session Grabber
-// This extension extracts Instagram cookies and sends them to DMflow
+// BulkDM Instagram Session Grabber
+// This extension extracts Instagram cookies and sends them to BulkDM
 
 // Production URLs
 const PRODUCTION_APP_URL = 'https://dmflow-saas.netlify.app';
@@ -304,11 +304,11 @@ async function grabSession() {
       
       chrome.storage.local.set({ connectedAccount: accountData });
       
-      // Open DMflow app with account data in URL
+      // Open BulkDM app with account data in URL
       const encodedAccount = btoa(JSON.stringify(accountData));
       setTimeout(() => {
         const redirectUrl = `${APP_URL}/settings/instagram?connected=${encodedAccount}`;
-        console.log('Opening DMflow at:', redirectUrl);
+        console.log('Opening BulkDM at:', redirectUrl);
         chrome.tabs.create({ url: redirectUrl });
       }, 1500);
     } else {
@@ -320,7 +320,7 @@ async function grabSession() {
   } catch (error) {
     console.error('Error:', error);
     showStatus(statusError);
-    errorMessage.textContent = 'Network error. Make sure DMflow backend is running.';
+    errorMessage.textContent = 'Network error. Make sure BulkDM backend is running.';
     grabBtn.disabled = false;
     instructions.classList.remove('hidden');
   }
