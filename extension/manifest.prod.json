@@ -15,6 +15,9 @@
     "https://*.netlify.app/*",
     "https://*.netlify.com/*"
   ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://bulkdm-saas.netlify.app https://*.netlify.app https://*.netlify.com https://instagram-dm-saas-production.up.railway.app;"
+  },
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
