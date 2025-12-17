@@ -30,7 +30,7 @@ import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { usePostHog } from '@/hooks/use-posthog';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3001';
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
 
 interface Lead {
   id: string;
@@ -552,11 +552,11 @@ export default function LeadsPage() {
         await supabase.from('leads').upsert({
           workspace_id: workspaceId,
           instagram_account_id: selectedAccount.id,
-          ig_user_id: profile.pk || userProfile.pk,
-          ig_username: profile.username || userProfile.username,
-          full_name: profile.fullName || userProfile.fullName,
+          ig_user_id: profile.pk,
+          ig_username: profile.username,
+          full_name: profile.fullName,
           bio: profile.bio,
-          profile_pic_url: profile.profilePicUrl || userProfile.profilePicUrl,
+          profile_pic_url: profile.profilePicUrl,
           follower_count: profile.followerCount,
           following_count: profile.followingCount,
           post_count: profile.postCount,
