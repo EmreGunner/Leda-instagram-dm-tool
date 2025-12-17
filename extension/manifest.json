@@ -13,6 +13,8 @@
     "https://instagram.com/*",
     "http://localhost:3000/*",
     "http://localhost:3001/*",
+    "https://instagram-dm-saas-h94m.vercel.app/*",
+    "https://*.vercel.app/*",
     "https://bulkdm-saas.netlify.app/*",
     "https://*.netlify.app/*",
     "https://*.netlify.com/*"

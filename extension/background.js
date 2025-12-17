@@ -1,36 +1,15 @@
 // BulkDM Background Service Worker
 // Handles cookie access and communication
 
-// Production URLs
-const PRODUCTION_BACKEND_URL = 'https://bulkdm-saas.netlify.app'; // Update this when backend is deployed
-const DEV_BACKEND_URL = 'http://localhost:3001';
+// Import config
+importScripts('config.js');
 
-// Get backend URL from storage or use smart default
-let BACKEND_URL = PRODUCTION_BACKEND_URL;
-
-// Load config from storage on startup
-chrome.storage.sync.get(['backendUrl', 'useProduction'], (result) => {
-  if (result.backendUrl) {
-    BACKEND_URL = result.backendUrl;
-  } else if (result.useProduction === false) {
-    // Use localhost if explicitly set to false
-    BACKEND_URL = DEV_BACKEND_URL;
-  }
-});
-
-// Listen for config updates
-chrome.storage.onChanged.addListener((changes) => {
-  if (changes.backendUrl) {
-    BACKEND_URL = changes.backendUrl.newValue;
-  }
-  if (changes.useProduction !== undefined) {
-    if (changes.useProduction.newValue === false) {
-      BACKEND_URL = DEV_BACKEND_URL;
-    } else {
-      BACKEND_URL = PRODUCTION_BACKEND_URL;
-    }
-  }
-});
+// Helper function to build API URL safely (removes trailing slashes)
+function buildApiUrl(baseUrl, path) {
+  const cleanBase = baseUrl.replace(/\/+$/, '');
+  const cleanPath = path.replace(/^\/+/, '');
+  return `${cleanBase}/${cleanPath}`;
+}
 
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -67,14 +46,24 @@ async function getInstagramCookies() {
 // Verify session with backend
 async function verifySession(cookies) {
   try {
-    const response = await fetch(`${BACKEND_URL}/api/instagram/cookie/verify`, {
+    // Get current backend URL from config
+    const config = await CONFIG.getCurrent();
+    const url = buildApiUrl(config.BACKEND_URL, 'api/instagram/cookie/verify');
+    
+    const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ cookies })
     });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
     return response.json();
   } catch (error) {
-    return { success: false, error: error.message };
+    console.error('Verify session error:', error);
+    return { success: false, error: error.message || 'Failed to connect to backend' };
   }
 }
 

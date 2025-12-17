@@ -14,9 +14,9 @@ const CONFIG = {
   
   // Development URLs (localhost)
   LOCAL: {
-    APP_URL: 'http://localhost:3003',
+    APP_URL: 'http://localhost:3000',
     // Since we're using Next.js API routes, backend is on the same domain
-    BACKEND_URL: 'http://localhost:3003',
+    BACKEND_URL: 'http://localhost:3000',
   },
   
   // Version

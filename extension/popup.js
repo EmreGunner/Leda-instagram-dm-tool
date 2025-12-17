@@ -1,36 +1,18 @@
 // BulkDM Instagram Session Grabber
 // This extension extracts Instagram cookies and sends them to BulkDM
 
-// Production URLs
-const PRODUCTION_APP_URL = 'https://bulkdm-saas.netlify.app';
-const PRODUCTION_BACKEND_URL = 'https://bulkdm-saas.netlify.app'; // Update this when backend is deployed
+// Config is loaded via script tag in popup.html
+// CONFIG is available globally from config.js
 
-// Development URLs
-const DEV_APP_URL = 'http://localhost:3000';
-const DEV_BACKEND_URL = 'http://localhost:3001';
+// Load config on startup and update indicator
+CONFIG.getCurrent().then((config) => {
+  updateEnvIndicator(config.isProduction, config.APP_URL);
+});
 
-// Get URLs from storage or use smart defaults
-let APP_URL = PRODUCTION_APP_URL;
-let BACKEND_URL = PRODUCTION_BACKEND_URL;
-
-// Load config from storage
-chrome.storage.sync.get(['appUrl', 'backendUrl', 'useProduction'], (result) => {
-  if (result.appUrl) {
-    APP_URL = result.appUrl;
-  } else if (result.useProduction === false) {
-    // Use localhost if explicitly set to false
-    APP_URL = DEV_APP_URL;
-  }
-  
-  if (result.backendUrl) {
-    BACKEND_URL = result.backendUrl;
-  } else if (result.useProduction === false) {
-    // Use localhost if explicitly set to false
-    BACKEND_URL = DEV_BACKEND_URL;
-  }
-  
-  // Auto-detect: Try to ping production, fallback to localhost
-  if (!result.appUrl && !result.useProduction) {
+// Auto-detect environment if in auto mode
+chrome.storage.sync.get(['envMode'], (result) => {
+  const envMode = result.envMode || CONFIG.ENV_MODE;
+  if (envMode === 'auto') {
     detectEnvironment();
   }
 });
@@ -39,73 +21,54 @@ chrome.storage.sync.get(['appUrl', 'backendUrl', 'useProduction'], (result) => {
 async function detectEnvironment() {
   try {
     // Try to fetch from production
-    const response = await fetch(`${PRODUCTION_APP_URL}/api/health`, {
-      method: 'HEAD',
-      mode: 'no-cors',
-      cache: 'no-cache'
+    const prodConfig = CONFIG.PRODUCTION;
+    const response = await fetch(`${prodConfig.APP_URL}/api/instagram/cookie/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cookies: { sessionId: 'test' } }),
+      signal: AbortSignal.timeout(3000) // 3 second timeout
     });
     // If we can reach production, use it
-    APP_URL = PRODUCTION_APP_URL;
-    BACKEND_URL = PRODUCTION_BACKEND_URL;
-    chrome.storage.sync.set({ useProduction: true });
-    updateEnvIndicator(true);
+    CONFIG.setMode('production');
+    updateEnvIndicator(true, prodConfig.APP_URL);
   } catch (error) {
     // Production not available, try localhost
     try {
-      const localResponse = await fetch(`${DEV_APP_URL}/api/health`, {
-        method: 'HEAD',
-        mode: 'no-cors',
-        cache: 'no-cache'
+      const localConfig = CONFIG.LOCAL;
+      const localResponse = await fetch(`${localConfig.APP_URL}/api/instagram/cookie/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cookies: { sessionId: 'test' } }),
+        signal: AbortSignal.timeout(3000) // 3 second timeout
       });
-      APP_URL = DEV_APP_URL;
-      BACKEND_URL = DEV_BACKEND_URL;
-      chrome.storage.sync.set({ useProduction: false });
-      updateEnvIndicator(false);
+      CONFIG.setMode('local');
+      updateEnvIndicator(false, localConfig.APP_URL);
     } catch (localError) {
       // Neither available, default to production
-      APP_URL = PRODUCTION_APP_URL;
-      BACKEND_URL = PRODUCTION_BACKEND_URL;
-      updateEnvIndicator(true);
+      const prodConfig = CONFIG.PRODUCTION;
+      updateEnvIndicator(true, prodConfig.APP_URL);
     }
   }
 }
 
 // Update environment indicator
-function updateEnvIndicator(isProduction) {
+function updateEnvIndicator(isProduction, url) {
   if (envText) {
     if (isProduction) {
-      envText.textContent = `🌐 Connected to: ${PRODUCTION_APP_URL}`;
+      envText.textContent = `🌐 Connected to: ${url}`;
       envText.style.color = '#22c55e';
     } else {
-      envText.textContent = `💻 Connected to: ${DEV_APP_URL} (Local)`;
+      envText.textContent = `💻 Connected to: ${url} (Local)`;
       envText.style.color = '#eab308';
     }
   }
 }
 
-// Update indicator on load
-chrome.storage.sync.get(['useProduction', 'appUrl'], (result) => {
-  if (result.appUrl) {
-    const isProd = result.appUrl.includes('netlify.app');
-    updateEnvIndicator(isProd);
-  } else {
-    updateEnvIndicator(result.useProduction !== false);
-  }
-});
-
 // Listen for config updates
-chrome.storage.onChanged.addListener((changes) => {
-  if (changes.appUrl) APP_URL = changes.appUrl.newValue;
-  if (changes.backendUrl) BACKEND_URL = changes.backendUrl.newValue;
-  if (changes.useProduction !== undefined) {
-    if (changes.useProduction.newValue === false) {
-      APP_URL = DEV_APP_URL;
-      BACKEND_URL = DEV_BACKEND_URL;
-    } else {
-      APP_URL = PRODUCTION_APP_URL;
-      BACKEND_URL = PRODUCTION_BACKEND_URL;
-    }
-  }
+chrome.storage.onChanged.addListener(() => {
+  CONFIG.getCurrent().then((config) => {
+    updateEnvIndicator(config.isProduction, config.APP_URL);
+  });
 });
 
 // DOM Elements
@@ -167,35 +130,69 @@ async function getInstagramCookies() {
   };
 }
 
+// Helper function to build API URL safely (removes trailing slashes)
+function buildApiUrl(baseUrl, path) {
+  const cleanBase = baseUrl.replace(/\/+$/, '');
+  const cleanPath = path.replace(/^\/+/, '');
+  return `${cleanBase}/${cleanPath}`;
+}
+
 // Verify session with backend
 async function verifySession(cookies) {
-  const response = await fetch(`${BACKEND_URL}/api/instagram/cookie/verify`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ cookies })
-  });
+  // Get current backend URL from config
+  const config = await CONFIG.getCurrent();
+  const url = buildApiUrl(config.BACKEND_URL, 'api/instagram/cookie/verify');
   
-  const data = await response.json();
-  
-  // Handle error responses
-  if (!response.ok) {
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cookies })
+    });
+    
+    const data = await response.json();
+    
+    // Handle error responses
+    if (!response.ok) {
+      return {
+        success: false,
+        message: data.message || data.error || `Server error: ${response.status}`
+      };
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Verify session error:', error);
     return {
       success: false,
-      message: data.message || data.error || `Server error: ${response.status}`
+      message: error.message || 'Failed to connect to backend'
     };
   }
-  
-  return data;
 }
 
 // Connect account
 async function connectAccount(cookies) {
-  const response = await fetch(`${BACKEND_URL}/api/instagram/cookie/connect`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ cookies })
-  });
-  return response.json();
+  // Get current backend URL from config
+  const config = await CONFIG.getCurrent();
+  const url = buildApiUrl(config.BACKEND_URL, 'api/instagram/cookie/connect');
+  
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cookies })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || errorData.error || `HTTP ${response.status}`);
+    }
+    
+    return response.json();
+  } catch (error) {
+    console.error('Connect account error:', error);
+    throw error;
+  }
 }
 
 // Main grab session function
@@ -231,25 +228,27 @@ async function grabSession() {
       verifyResult = await verifySession(cookies);
     } catch (fetchError) {
       showStatus(statusError);
+      const currentConfig = await CONFIG.getCurrent();
+      
       // Try to switch to localhost if production fails
-      if (APP_URL === PRODUCTION_APP_URL) {
+      if (currentConfig.isProduction) {
         console.log('Production backend failed, trying localhost...');
-        APP_URL = DEV_APP_URL;
-        BACKEND_URL = DEV_BACKEND_URL;
-        chrome.storage.sync.set({ useProduction: false });
-        updateEnvIndicator(false);
+        CONFIG.setMode('local');
+        const localConfig = await CONFIG.getCurrent();
+        updateEnvIndicator(false, localConfig.APP_URL);
         
         // Retry with localhost
         try {
           verifyResult = await verifySession(cookies);
         } catch (localError) {
-          errorMessage.textContent = `Cannot connect to backend. Tried both production and localhost. Make sure backend is running.`;
+          errorMessage.textContent = `Cannot connect to backend. Tried both production (${CONFIG.PRODUCTION.BACKEND_URL}) and localhost (${CONFIG.LOCAL.BACKEND_URL}). Make sure backend is running.`;
           grabBtn.disabled = false;
           instructions.classList.remove('hidden');
           return;
         }
       } else {
-        errorMessage.textContent = 'Cannot connect to backend. Make sure it is running on port 3001.';
+        const config = await CONFIG.getCurrent();
+        errorMessage.textContent = `Cannot connect to backend at ${config.BACKEND_URL}. Make sure it is running.`;
         grabBtn.disabled = false;
         instructions.classList.remove('hidden');
         return;
@@ -306,8 +305,10 @@ async function grabSession() {
       
       // Open BulkDM app with account data in URL
       const encodedAccount = btoa(JSON.stringify(accountData));
-      setTimeout(() => {
-        const redirectUrl = `${APP_URL}/settings/instagram?connected=${encodedAccount}`;
+      setTimeout(async () => {
+        const config = await CONFIG.getCurrent();
+        const cleanAppUrl = config.APP_URL.replace(/\/+$/, '');
+        const redirectUrl = `${cleanAppUrl}/settings/instagram?connected=${encodedAccount}`;
         console.log('Opening BulkDM at:', redirectUrl);
         chrome.tabs.create({ url: redirectUrl });
       }, 1500);
@@ -334,8 +335,10 @@ openInstagramBtn.addEventListener('click', () => {
   window.close();
 });
 
-openAppBtn.addEventListener('click', () => {
-  chrome.tabs.create({ url: `${APP_URL}/settings/instagram` });
+openAppBtn.addEventListener('click', async () => {
+  const config = await CONFIG.getCurrent();
+  const cleanAppUrl = config.APP_URL.replace(/\/+$/, '');
+  chrome.tabs.create({ url: `${cleanAppUrl}/settings/instagram` });
   window.close();
 });
 
