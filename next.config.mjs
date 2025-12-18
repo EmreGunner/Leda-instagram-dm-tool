@@ -25,34 +25,31 @@ const nextConfig = {
     missingSuspenseWithCSRBailout: false,
   },
   // Webpack configuration for Supabase and path aliases
-  webpack: (config, { isServer, defaultLoaders }) => {
+  webpack: (config, { isServer }) => {
     // Get the absolute path to src directory
-    // Try multiple methods to ensure it works in all environments
-    const projectRoot = process.cwd() || __dirname;
+    // Use process.cwd() which is reliable in Vercel builds
+    const projectRoot = process.cwd();
     const srcPath = path.resolve(projectRoot, 'src');
     
-    // Ensure resolve exists
-    if (!config.resolve) {
-      config.resolve = {};
-    }
-    
-    // Set alias - critical for @/ imports
-    // Use both the alias and ensure it's an absolute path
+    // CRITICAL: Set alias BEFORE any other resolve configuration
+    // This ensures webpack uses the alias for module resolution
+    config.resolve = config.resolve || {};
     config.resolve.alias = {
       ...(config.resolve.alias || {}),
       '@': srcPath,
     };
     
-    // Ensure extensions include .ts and .tsx
-    if (!config.resolve.extensions) {
-      config.resolve.extensions = [];
+    // Also add src to modules for additional resolution paths
+    config.resolve.modules = config.resolve.modules || [];
+    if (!config.resolve.modules.includes(srcPath)) {
+      config.resolve.modules.unshift(srcPath); // Add to beginning for priority
     }
-    const extensions = ['.ts', '.tsx', '.js', '.jsx', '.json'];
-    extensions.forEach(ext => {
-      if (!config.resolve.extensions.includes(ext)) {
-        config.resolve.extensions.push(ext);
-      }
-    });
+    
+    // Ensure node_modules is still in modules
+    const nodeModulesPath = path.resolve(projectRoot, 'node_modules');
+    if (!config.resolve.modules.includes(nodeModulesPath)) {
+      config.resolve.modules.push(nodeModulesPath);
+    }
 
     if (!isServer) {
       config.resolve.fallback = {
