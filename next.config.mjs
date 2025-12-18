@@ -1,3 +1,9 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Vercel doesn't need standalone output
@@ -18,8 +24,14 @@ const nextConfig = {
   experimental: {
     missingSuspenseWithCSRBailout: false,
   },
-  // Webpack configuration for Supabase
+  // Webpack configuration for Supabase and path aliases
   webpack: (config, { isServer }) => {
+    // Add path alias for @/ to src/
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': path.resolve(__dirname, 'src'),
+    };
+
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,

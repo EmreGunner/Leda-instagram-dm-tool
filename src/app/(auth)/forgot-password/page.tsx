@@ -72,7 +72,7 @@ export default function ForgotPasswordPage() {
               </Button>
             </Link>
             <Button
-              variant="outline"
+              variant="secondary"
               onClick={() => {
                 setSuccess(false);
                 setEmail('');

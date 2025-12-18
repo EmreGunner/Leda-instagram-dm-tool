@@ -263,11 +263,11 @@ export class InstagramBrowserService {
     const maxAge = 10 * 60 * 1000; // 10 minutes
     const now = Date.now();
 
-    for (const [sessionId, session] of this.sessions) {
+    Array.from(this.sessions.entries()).forEach(([sessionId, session]) => {
       if (now - session.createdAt.getTime() > maxAge) {
         this.cancelSession(sessionId);
       }
-    }
+    });
   }
 
   // ==========================================================================

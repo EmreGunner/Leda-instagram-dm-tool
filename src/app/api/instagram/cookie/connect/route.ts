@@ -36,8 +36,9 @@ export async function POST(request: NextRequest) {
         console.log(`✅ Got workspace ID from authenticated user: ${finalWorkspaceId}`);
       } else {
         // Try to get workspace ID from user workspace helper (server-side)
-        finalWorkspaceId = await getUserWorkspaceId();
-        if (finalWorkspaceId) {
+        const workspaceIdFromHelper = await getUserWorkspaceId();
+        if (workspaceIdFromHelper) {
+          finalWorkspaceId = workspaceIdFromHelper;
           console.log(`✅ Got workspace ID from server-side helper: ${finalWorkspaceId}`);
         }
       }
