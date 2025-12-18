@@ -25,30 +25,30 @@ const nextConfig = {
     missingSuspenseWithCSRBailout: false,
   },
   // Webpack configuration for Supabase and path aliases
-  webpack: (config) => {
-    // Get the absolute path to src directory
+  webpack: (config, { isServer }) => {
+    // Get the absolute path to src directory - use multiple methods for reliability
     const projectRoot = process.cwd();
     const srcPath = path.resolve(projectRoot, 'src');
     
-    // Set alias - must be absolute path
-    // Next.js should handle this automatically via tsconfig, but we ensure it here
-    if (!config.resolve) {
-      config.resolve = {};
-    }
-    if (!config.resolve.alias) {
-      config.resolve.alias = {};
-    }
+    // CRITICAL: Ensure resolve and alias exist
+    config.resolve = config.resolve || {};
+    config.resolve.alias = config.resolve.alias || {};
     
-    // Set the @ alias to point to src directory
-    config.resolve.alias['@'] = srcPath;
+    // Set the @ alias - this MUST be an absolute path
+    // Use Object.assign to ensure it's set correctly
+    Object.assign(config.resolve.alias, {
+      '@': srcPath,
+    });
     
-    // Ensure symlinks are resolved
-    config.resolve.symlinks = true;
+    // Debug: Log the alias in development (won't show in Vercel but helps locally)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Webpack alias @ set to:', srcPath);
+    }
 
     // Client-side fallbacks
-    if (config.resolve.fallback) {
+    if (!isServer) {
       config.resolve.fallback = {
-        ...config.resolve.fallback,
+        ...(config.resolve.fallback || {}),
         fs: false,
         net: false,
         tls: false,
