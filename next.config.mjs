@@ -25,20 +25,34 @@ const nextConfig = {
     missingSuspenseWithCSRBailout: false,
   },
   // Webpack configuration for Supabase and path aliases
-  webpack: (config, { isServer, dir }) => {
+  webpack: (config, { isServer, defaultLoaders }) => {
     // Get the absolute path to src directory
-    // Use 'dir' parameter which is the project directory, or fallback to __dirname
-    const projectRoot = dir || __dirname;
+    // Try multiple methods to ensure it works in all environments
+    const projectRoot = process.cwd() || __dirname;
     const srcPath = path.resolve(projectRoot, 'src');
     
     // Ensure resolve exists
-    config.resolve = config.resolve || {};
+    if (!config.resolve) {
+      config.resolve = {};
+    }
     
-    // Set alias - this is the key fix for Vercel
+    // Set alias - critical for @/ imports
+    // Use both the alias and ensure it's an absolute path
     config.resolve.alias = {
-      ...config.resolve.alias,
+      ...(config.resolve.alias || {}),
       '@': srcPath,
     };
+    
+    // Ensure extensions include .ts and .tsx
+    if (!config.resolve.extensions) {
+      config.resolve.extensions = [];
+    }
+    const extensions = ['.ts', '.tsx', '.js', '.jsx', '.json'];
+    extensions.forEach(ext => {
+      if (!config.resolve.extensions.includes(ext)) {
+        config.resolve.extensions.push(ext);
+      }
+    });
 
     if (!isServer) {
       config.resolve.fallback = {
