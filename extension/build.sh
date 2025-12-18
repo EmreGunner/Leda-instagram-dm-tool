@@ -25,6 +25,7 @@ cp popup.html build/
 cp popup.js build/
 cp background.js build/
 cp config.js build/
+cp content-script.js build/
 cp -r icons build/
 
 # Create unified ZIP

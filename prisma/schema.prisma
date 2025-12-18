@@ -29,6 +29,8 @@ model Workspace {
   notificationPreferences NotificationPreference[]
   notifications           Notification[]
   automations            Automation[]
+  leads                   Lead[]
+  leadLists               LeadList[]
 
   @@map("workspaces")
 }
@@ -97,6 +99,7 @@ model InstagramAccount {
   conversations Conversation[]
   campaigns     Campaign[]
   automations   Automation[]
+  leads         Lead[]
 
   @@unique([igUserId, workspaceId])
   @@index([workspaceId])
@@ -394,4 +397,100 @@ model Automation {
   @@index([instagramAccountId])
   @@index([isActive])
   @@map("automations")
+}
+
+// ============================================================================
+// Lead Generation Models
+// ============================================================================
+
+model Lead {
+  id                String   @id @default(uuid())
+  igUserId          String   @map("ig_user_id")
+  igUsername        String   @map("ig_username")
+  fullName          String?  @map("full_name")
+  bio               String?
+  profilePicUrl     String?  @map("profile_pic_url")
+  followerCount     Int?     @map("follower_count")
+  followingCount    Int?     @map("following_count")
+  postCount         Int?     @map("post_count")
+  isVerified        Boolean  @default(false) @map("is_verified")
+  isPrivate         Boolean  @default(false) @map("is_private")
+  isBusiness        Boolean  @default(false) @map("is_business")
+  externalUrl       String?  @map("external_url")
+  status            String   @default("new")
+  tags              String[]
+  notes             String?
+  source            String?  // e.g., "hashtag", "followers", "username"
+  sourceQuery       String?  @map("source_query")
+  matchedKeywords   String[] @map("matched_keywords")
+  
+  // Lead scoring and enrichment
+  leadScore         Float?   @map("lead_score") // AI-powered score 0-100
+  engagementRate    Float?   @map("engagement_rate") // Calculated engagement rate
+  accountAge        Int?     @map("account_age") // Account age in days
+  postFrequency     Float?   @map("post_frequency") // Posts per week
+  email             String?  // Enriched email if available
+  phone             String?  // Enriched phone if available
+  website           String?  // Enriched website if available
+  location          String?  // Location from profile
+  
+  // Lead history tracking
+  timesContacted    Int      @default(0) @map("times_contacted")
+  lastContactedAt   DateTime? @map("last_contacted_at")
+  lastInteractionAt DateTime? @map("last_interaction_at")
+  dmSentAt          DateTime? @map("dm_sent_at")
+  dmRepliedAt       DateTime? @map("dm_replied_at")
+  
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  workspaceId String    @map("workspace_id")
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  instagramAccountId String?          @map("instagram_account_id")
+  instagramAccount   InstagramAccount? @relation(fields: [instagramAccountId], references: [id], onDelete: SetNull)
+
+  listMembers LeadListMember[]
+
+  @@unique([igUserId, workspaceId])
+  @@index([workspaceId])
+  @@index([instagramAccountId])
+  @@index([status])
+  @@index([leadScore])
+  @@index([createdAt])
+  @@map("leads")
+}
+
+model LeadList {
+  id            String   @id @default(uuid())
+  name          String
+  description   String?
+  filterKeywords String[] @map("filter_keywords") // Keywords for auto-adding leads
+  autoAdd       Boolean  @default(false) @map("auto_add") // Auto-add leads matching keywords
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  workspaceId String    @map("workspace_id")
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  members LeadListMember[]
+
+  @@index([workspaceId])
+  @@map("lead_lists")
+}
+
+model LeadListMember {
+  id         String   @id @default(uuid())
+  addedAt    DateTime @default(now()) @map("added_at")
+
+  leadListId String   @map("lead_list_id")
+  leadList   LeadList @relation(fields: [leadListId], references: [id], onDelete: Cascade)
+
+  leadId String @map("lead_id")
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@unique([leadListId, leadId])
+  @@index([leadListId])
+  @@index([leadId])
+  @@map("lead_list_members")
 }

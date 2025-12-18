@@ -90,6 +90,11 @@ const errorMessage = document.getElementById('error-message');
 const envIndicator = document.getElementById('env-indicator');
 const envText = document.getElementById('env-text');
 
+// Consent dialog elements
+const consentDialog = document.getElementById('consent-dialog');
+const consentAccept = document.getElementById('consent-accept');
+const consentDecline = document.getElementById('consent-decline');
+
 // Hide all status messages
 function hideAllStatus() {
   statusNotInstagram.classList.add('hidden');
@@ -174,15 +179,54 @@ async function verifySession(cookies) {
 // No database storage is performed. Cookies are verified and passed to frontend
 // which saves them to localStorage.
 
+// Check if user has given consent
+async function hasConsent() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['bulkdm_consent'], (result) => {
+      resolve(result.bulkdm_consent === true);
+    });
+  });
+}
+
+// Save consent
+async function saveConsent() {
+  return new Promise((resolve) => {
+    chrome.storage.local.set({ bulkdm_consent: true }, () => {
+      resolve();
+    });
+  });
+}
+
+// Show consent dialog
+function showConsentDialog() {
+  return new Promise((resolve) => {
+    consentDialog.style.display = 'flex';
+    
+    consentAccept.onclick = async () => {
+      await saveConsent();
+      consentDialog.style.display = 'none';
+      resolve(true);
+    };
+    
+    consentDecline.onclick = () => {
+      consentDialog.style.display = 'none';
+      resolve(false);
+    };
+  });
+}
+
 // Main grab session function
 async function grabSession() {
   try {
+    // Save consent when user clicks grab (they've already seen the privacy policy notice)
+    await saveConsent();
+    
     // Check if on Instagram
     const isInstagram = await checkCurrentTab();
     if (!isInstagram) {
       showStatus(statusNotInstagram);
       openInstagramBtn.classList.remove('hidden');
-      grabBtn.disabled = true;
+      grabBtn.disabled = false; // Keep button enabled so they can try again
       return;
     }
 
@@ -196,7 +240,7 @@ async function grabSession() {
     // Check if logged in
     if (!cookies.sessionId || !cookies.dsUserId) {
       showStatus(statusNotLoggedIn);
-      grabBtn.disabled = false;
+      grabBtn.disabled = false; // Keep enabled
       instructions.classList.remove('hidden');
       return;
     }
@@ -221,14 +265,14 @@ async function grabSession() {
           verifyResult = await verifySession(cookies);
         } catch (localError) {
           errorMessage.textContent = `Cannot connect to backend. Tried both production (${CONFIG.PRODUCTION.BACKEND_URL}) and localhost (${CONFIG.LOCAL.BACKEND_URL}). Make sure backend is running.`;
-          grabBtn.disabled = false;
+          grabBtn.disabled = false; // Keep enabled for retry
           instructions.classList.remove('hidden');
           return;
         }
       } else {
         const config = await CONFIG.getCurrent();
         errorMessage.textContent = `Cannot connect to backend at ${config.BACKEND_URL}. Make sure it is running.`;
-        grabBtn.disabled = false;
+        grabBtn.disabled = false; // Keep enabled for retry
         instructions.classList.remove('hidden');
         return;
       }
@@ -237,7 +281,7 @@ async function grabSession() {
     if (!verifyResult.success) {
       showStatus(statusError);
       errorMessage.textContent = verifyResult.message || verifyResult.error || 'Session verification failed';
-      grabBtn.disabled = false;
+      grabBtn.disabled = false; // Keep enabled for retry
       instructions.classList.remove('hidden');
       return;
     }
@@ -261,7 +305,7 @@ async function grabSession() {
       grabBtn.textContent = '✅ Connected!';
       grabBtn.disabled = true;
       
-      // Save cookies to chrome.storage.local (will be transferred to page localStorage)
+      // Save cookies to chrome.storage.local FIRST (backup storage)
       const storageKey = `bulkdm_cookies_${user.pk}`;
       await chrome.storage.local.set({ [storageKey]: cookies });
       console.log(`✓ Cookies saved to chrome.storage.local (key: ${storageKey})`);
@@ -283,29 +327,98 @@ async function grabSession() {
         console.log('Opening BulkDM with user ID:', user.pk);
         console.log('Cookies stored in chrome.storage.local, will be transferred to page localStorage');
         
-        // Create tab and inject script to save cookies directly to page localStorage
+        // Create tab and send cookies via content script (more reliable)
         chrome.tabs.create({ url: redirectUrl }, (tab) => {
-          // Wait for tab to load, then inject script to save cookies to localStorage
-          chrome.tabs.onUpdated.addListener(function listener(tabId, info) {
-            if (tabId === tab.id && info.status === 'complete') {
-              chrome.tabs.onUpdated.removeListener(listener);
-              // Inject script to save cookies directly to page localStorage
-              chrome.scripting.executeScript({
-                target: { tabId: tab.id },
-                func: (userId, cookieData) => {
-                  // Save cookies directly to page localStorage
-                  const storageKey = `bulkdm_cookies_${userId}`;
+          console.log('Tab created, waiting for content script to be ready...');
+          
+          // Function to send cookies via content script message
+          const sendCookiesToPage = (tabId) => {
+            // Try sending message to content script first (most reliable)
+            chrome.tabs.sendMessage(tabId, {
+              type: 'SAVE_COOKIES',
+              userId: user.pk,
+              cookies: cookies
+            }, (response) => {
+              if (chrome.runtime.lastError) {
+                console.warn('Content script not ready yet:', chrome.runtime.lastError.message);
+                // Fallback to script injection
+                injectCookiesViaScript(tabId);
+              } else if (response && response.success) {
+                console.log('✓ Cookies sent via content script successfully');
+              } else {
+                console.warn('Content script responded but failed, trying script injection');
+                injectCookiesViaScript(tabId);
+              }
+            });
+          };
+          
+          // Fallback: Inject script directly
+          const injectCookiesViaScript = (tabId) => {
+            chrome.scripting.executeScript({
+              target: { tabId: tabId },
+              func: (userId, cookieData) => {
+                const storageKey = `bulkdm_cookies_${userId}`;
+                try {
                   localStorage.setItem(storageKey, JSON.stringify(cookieData));
-                  console.log(`✓ Cookies saved to page localStorage (key: ${storageKey})`);
+                  console.log(`✓ Cookies saved to page localStorage via script injection (key: ${storageKey})`);
+                  
+                  window.dispatchEvent(new CustomEvent('bulkdm_cookies_saved', { 
+                    detail: { userId, storageKey, cookies: cookieData } 
+                  }));
+                  
+                  window.postMessage({
+                    type: 'BULKDM_COOKIES_SAVED',
+                    userId: userId,
+                    cookies: cookieData,
+                    storageKey: storageKey
+                  }, window.location.origin);
+                  
                   return true;
-                },
-                args: [user.pk, cookies]
-              }).catch(err => {
-                console.error('Failed to inject script:', err);
-                // Fallback: cookies are in chrome.storage.local, frontend can request them
-              });
+                } catch (e) {
+                  console.error('Failed to save to localStorage:', e);
+                  return false;
+                }
+              },
+              args: [user.pk, cookies]
+            }).then(() => {
+              console.log('✓ Script injection successful');
+            }).catch(err => {
+              console.error('Failed to inject script:', err);
+            });
+          };
+          
+          // Listen for tab updates
+          let attempts = 0;
+          const maxAttempts = 10;
+          const listener = (tabId, changeInfo, tabInfo) => {
+            if (tabId === tab.id && changeInfo.status === 'complete') {
+              attempts++;
+              // Wait a bit for content script to initialize
+              setTimeout(() => {
+                sendCookiesToPage(tab.id);
+              }, 500 + (attempts * 200)); // Increasing delay for retries
+              
+              if (attempts >= maxAttempts) {
+                chrome.tabs.onUpdated.removeListener(listener);
+              }
+            }
+          };
+          
+          chrome.tabs.onUpdated.addListener(listener);
+          
+          // Also try immediately if tab is already loaded
+          chrome.tabs.get(tab.id, (tabInfo) => {
+            if (tabInfo && tabInfo.status === 'complete') {
+              setTimeout(() => {
+                sendCookiesToPage(tab.id);
+              }, 1000);
             }
           });
+          
+          // Clean up listener after 30 seconds
+          setTimeout(() => {
+            chrome.tabs.onUpdated.removeListener(listener);
+          }, 30000);
         });
       }, 1500);
     } else {
@@ -318,7 +431,7 @@ async function grabSession() {
     console.error('Error:', error);
     showStatus(statusError);
     errorMessage.textContent = 'Network error. Make sure BulkDM backend is running.';
-    grabBtn.disabled = false;
+    grabBtn.disabled = false; // Keep enabled for retry
     instructions.classList.remove('hidden');
   }
 }
@@ -344,13 +457,14 @@ openAppBtn.addEventListener('click', async () => {
   if (!isInstagram) {
     showStatus(statusNotInstagram);
     openInstagramBtn.classList.remove('hidden');
-    grabBtn.disabled = true;
+    grabBtn.disabled = false; // Keep enabled - user can still click to see instructions
   } else {
     // Check if already logged in
     const cookies = await getInstagramCookies();
     if (!cookies.sessionId) {
       showStatus(statusNotLoggedIn);
     }
+    grabBtn.disabled = false; // Ensure button is enabled
   }
 })();
 

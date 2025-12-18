@@ -11,7 +11,7 @@ function buildApiUrl(baseUrl, path) {
   return `${cleanBase}/${cleanPath}`;
 }
 
-// Listen for messages from popup
+// Listen for messages from popup and content scripts
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'GET_COOKIES') {
     getInstagramCookies().then(sendResponse);
@@ -20,6 +20,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   
   if (message.type === 'VERIFY_SESSION') {
     verifySession(message.cookies).then(sendResponse);
+    return true;
+  }
+  
+  // Handle request for cookies from page (fallback mechanism)
+  if (message.type === 'GET_STORED_COOKIES') {
+    const userId = message.userId;
+    const storageKey = `bulkdm_cookies_${userId}`;
+    chrome.storage.local.get([storageKey], (result) => {
+      sendResponse({ success: true, cookies: result[storageKey] || null });
+    });
     return true;
   }
 });

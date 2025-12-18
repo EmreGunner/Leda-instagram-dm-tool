@@ -3,6 +3,7 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useCallback } from 'react';
+import { toast } from 'sonner';
 import { 
   Instagram, 
   Plus, 
@@ -171,6 +172,60 @@ export default function InstagramSettingsPage() {
 
   useEffect(() => {
     fetchAccounts();
+    
+    // Listen for cookies saved event from extension
+    const handleCookiesSaved = (event: CustomEvent) => {
+      console.log('Received cookies saved event:', event.detail);
+      const { userId, storageKey, cookies } = event.detail;
+      
+      // If cookies are in the event, save them
+      if (cookies && userId) {
+        const localStorageKey = `bulkdm_cookies_${userId}`;
+        localStorage.setItem(localStorageKey, JSON.stringify(cookies));
+        console.log('✓ Cookies saved from event to localStorage');
+      }
+      
+      // Refresh accounts to show the new connection
+      setTimeout(() => {
+        fetchAccounts();
+      }, 500);
+    };
+    
+    // Listen for storage events (when localStorage is updated)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key && e.key.startsWith('bulkdm_cookies_')) {
+        console.log('Storage event detected for cookies:', e.key);
+        setTimeout(() => {
+          fetchAccounts();
+        }, 500);
+      }
+    };
+    
+    // Listen for window messages (fallback communication)
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'BULKDM_COOKIES_SAVED') {
+        console.log('Received cookies via postMessage:', event.data);
+        const { userId, cookies } = event.data;
+        if (cookies && userId) {
+          const localStorageKey = `bulkdm_cookies_${userId}`;
+          localStorage.setItem(localStorageKey, JSON.stringify(cookies));
+          console.log('✓ Cookies saved from postMessage to localStorage');
+          setTimeout(() => {
+            fetchAccounts();
+          }, 500);
+        }
+      }
+    };
+    
+    window.addEventListener('bulkdm_cookies_saved', handleCookiesSaved as EventListener);
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('message', handleMessage);
+    
+    return () => {
+      window.removeEventListener('bulkdm_cookies_saved', handleCookiesSaved as EventListener);
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('message', handleMessage);
+    };
   }, [fetchAccounts]);
 
   // Check for success/error from OAuth callback or extension
@@ -260,13 +315,15 @@ export default function InstagramSettingsPage() {
     // Show success message
     if (saveSuccess) {
       setErrorMessage(null);
-      setTimeout(() => {
-        setSuccessMessage(`Successfully connected @${accountMetadata.username || igUserId}! Cookies stored in localStorage only.`);
-        fetchAccounts();
-      }, 100);
+      toast.success('Account connected!', {
+        description: `Successfully connected @${accountMetadata.username || igUserId}. Cookies stored securely.`,
+      });
+      fetchAccounts();
     } else if (saveError) {
+      toast.error('Connection failed', {
+        description: saveError,
+      });
       setErrorMessage(saveError);
-      setSuccessMessage(null);
     }
   }, [fetchAccounts]);
 
@@ -295,20 +352,43 @@ export default function InstagramSettingsPage() {
           
           // Check if cookies exist in localStorage (transferred by extension script)
           const localStorageKey = `bulkdm_cookies_${igUserId}`;
-          const cookiesStr = localStorage.getItem(localStorageKey);
+          let cookiesStr = localStorage.getItem(localStorageKey);
           
           if (!cookiesStr) {
-            console.warn('Cookies not found in localStorage. Extension may not have transferred them yet.');
-            // Wait a bit and retry (extension script might still be running)
-            setTimeout(async () => {
-              const retryCookies = localStorage.getItem(localStorageKey);
-              if (!retryCookies) {
-                setErrorMessage('Cookies not found. Please try connecting again.');
-              } else {
-                // Retry the save process
-                await handleAccountSave(igUserId, accountMetadata);
-              }
-            }, 1000);
+            console.warn('Cookies not found in localStorage. Trying to get from extension...');
+            
+            // Try to get cookies from extension via message (fallback)
+            // Note: This won't work directly from the page, but we'll try localStorage polling
+            const tryGetFromExtension = () => {
+              // The page can't directly access chrome.runtime, so we rely on
+              // the injected script to save to localStorage
+              // Just proceed to localStorage polling
+              retryLocalStorage();
+            };
+            
+            // Retry localStorage with polling
+            const retryLocalStorage = () => {
+              let retryCount = 0;
+              const maxRetries = 8;
+              const retryInterval = 1000; // 1 second
+              
+              const checkCookies = setInterval(() => {
+                retryCount++;
+                const retryCookies = localStorage.getItem(localStorageKey);
+                
+                if (retryCookies) {
+                  clearInterval(checkCookies);
+                  console.log(`✓ Cookies found in localStorage after ${retryCount} retries`);
+                  handleAccountSave(igUserId, accountMetadata);
+                } else if (retryCount >= maxRetries) {
+                  clearInterval(checkCookies);
+                  setErrorMessage('Cookies not found. Please try connecting again using the extension. Make sure you clicked "Grab Instagram Session" in the extension popup.');
+                }
+              }, retryInterval);
+            };
+            
+            // Try extension first, then fallback to localStorage polling
+            tryGetFromExtension();
             return;
           }
           
@@ -433,7 +513,10 @@ export default function InstagramSettingsPage() {
   const handleReconnect = (account: InstagramAccount) => {
     // Open Instagram in a new tab and show instructions to use the extension
     window.open('https://www.instagram.com/', '_blank');
-    alert(`To reconnect @${account.igUsername}:\n\n1. Make sure you're logged in to @${account.igUsername} on Instagram\n2. Click the BulkDM extension icon\n3. Click "Grab Instagram Session"\n\nYour cookies will be updated automatically.`);
+    toast.info('Reconnect Instructions', {
+      description: `To reconnect @${account.igUsername}:\n\n1. Make sure you're logged in to @${account.igUsername} on Instagram\n2. Click the BulkDM extension icon\n3. Click "Grab Instagram Session"\n\nYour cookies will be updated automatically.`,
+      duration: 8000,
+    });
   };
 
   const copyToClipboard = (text: string, key: string) => {
@@ -619,11 +702,17 @@ export default function InstagramSettingsPage() {
           // Don't show error to user - cookies are saved to localStorage, account functionality will work
         }
 
+        toast.success('Account connected!', {
+          description: `Successfully connected @${data.account.username}.`,
+        });
         setSuccessMessage(`Connected @${data.account.username} successfully!`);
         setShowCookieModal(false);
         setCookies({ sessionId: '', csrfToken: '', dsUserId: '', igDid: '', mid: '', rur: '' });
         setCookieUser(null);
       } else {
+        toast.error('Connection failed', {
+          description: data.message || 'Failed to connect account. Please try again.',
+        });
         setErrorMessage(data.message || 'Failed to connect account');
       }
     } catch (error) {

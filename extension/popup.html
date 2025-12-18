@@ -211,9 +211,132 @@
       font-size: 11px;
       color: #666;
     }
+    
+    .consent-dialog {
+      background: rgba(0, 0, 0, 0.95);
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 10000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .consent-content {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 300px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .consent-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #fff;
+    }
+    
+    .consent-text {
+      font-size: 13px;
+      color: #aaa;
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+    
+    .consent-link {
+      color: #a855f7;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+    
+    .consent-link:hover {
+      color: #ec4899;
+    }
+    
+    .consent-buttons {
+      display: flex;
+      gap: 10px;
+    }
+    
+    .btn-consent {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .btn-consent-accept {
+      background: linear-gradient(45deg, #a855f7, #ec4899);
+      color: white;
+    }
+    
+    .btn-consent-accept:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(168, 85, 247, 0.4);
+    }
+    
+    .btn-consent-decline {
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+    }
+    
+    .btn-consent-decline:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+    
+    
+    .consent-notice {
+      margin-top: 8px;
+      font-size: 11px;
+      color: #888;
+      text-align: center;
+      line-height: 1.4;
+    }
+    
+    .consent-notice a {
+      color: #a855f7;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+    
+    .consent-notice a:hover {
+      color: #ec4899;
+    }
   </style>
 </head>
 <body>
+  <!-- Consent Dialog -->
+  <div id="consent-dialog" class="consent-dialog hidden">
+    <div class="consent-content">
+      <div class="consent-title">🔒 Consent Required</div>
+      <div class="consent-text">
+        By clicking "I Accept", you consent to:
+        <ul style="margin-top: 8px; padding-left: 20px; font-size: 12px;">
+          <li>Extract your Instagram session cookies</li>
+          <li>Share this data with BulkDM for account connection</li>
+          <li>Use your Instagram account for DM automation</li>
+        </ul>
+        <div style="margin-top: 12px; font-size: 11px;">
+          For more information, please review our 
+          <a href="https://instagram-dm-saas-h94m.vercel.app/privacy" target="_blank" class="consent-link">Privacy Policy</a>.
+        </div>
+      </div>
+      <div class="consent-buttons">
+        <button id="consent-decline" class="btn-consent btn-consent-decline">Decline</button>
+        <button id="consent-accept" class="btn-consent btn-consent-accept">I Accept</button>
+      </div>
+    </div>
+  </div>
+
   <div class="header">
     <div class="logo">📨</div>
     <div>
@@ -251,9 +374,17 @@
     </div>
   </div>
 
-  <button id="grab-btn" class="btn btn-primary">
-    🔗 Grab Instagram Session
-  </button>
+  <div style="margin-bottom: 16px;">
+    <button id="grab-btn" class="btn btn-primary">
+      🔗 Grab Instagram Session
+    </button>
+    <div style="margin-top: 10px; padding: 10px; background: rgba(168, 85, 247, 0.1); border-radius: 8px; border: 1px solid rgba(168, 85, 247, 0.2);">
+      <p style="margin: 0; font-size: 11px; color: #aaa; text-align: center; line-height: 1.5;">
+        By clicking above, you agree to our 
+        <a href="https://instagram-dm-saas-h94m.vercel.app/privacy" target="_blank" style="color: #a855f7; text-decoration: underline; font-weight: 500;">Privacy Policy</a>
+      </p>
+    </div>
+  </div>
 
   <button id="open-instagram-btn" class="btn btn-secondary hidden">
     📱 Open Instagram

@@ -33,6 +33,7 @@
     "puppeteer-extra-plugin-stealth": "^2.11.2",
     "react": "^18",
     "react-dom": "^18",
+    "sonner": "^2.0.7",
     "tough-cookie": "^6.0.0",
     "zustand": "^5.0.9"
   },

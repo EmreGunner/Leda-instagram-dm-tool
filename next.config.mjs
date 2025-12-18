@@ -9,7 +9,35 @@ const nextConfig = {
   // Vercel doesn't need standalone output
   // Image optimization
   images: {
-    domains: ['instagram.com', 'cdninstagram.com', 'scontent.cdninstagram.com'],
+    domains: [
+      'instagram.com', 
+      'cdninstagram.com', 
+      'scontent.cdninstagram.com',
+      'scontent-iad3-1.cdninstagram.com',
+      'scontent-iad3-2.cdninstagram.com',
+      'instagram.fbom61-1.fna.fbcdn.net',
+      'instagram.fgnm1-1.fna.fbcdn.net',
+      'fbcdn.net',
+      'fbcdn.com',
+    ],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**.instagram.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.cdninstagram.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.fbcdn.net',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.fbcdn.com',
+      },
+    ],
     unoptimized: false,
   },
   // Disable ESLint during builds for now

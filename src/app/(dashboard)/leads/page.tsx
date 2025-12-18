@@ -19,7 +19,11 @@ import {
   Trash2,
   Eye,
   Target,
-  Plus
+  Plus,
+  List,
+  Clock,
+  MessageSquare,
+  X
 } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
@@ -29,6 +33,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
 import { usePostHog } from '@/hooks/use-posthog';
+import { toast } from 'sonner';
 
 // Use relative URLs since we're on the same domain (Next.js API routes)
 // All API calls use relative URLs since backend and frontend are on the same domain
@@ -52,6 +57,18 @@ interface Lead {
   source: string;
   sourceQuery?: string;
   createdAt: string;
+  // Enhanced fields
+  leadScore?: number;
+  engagementRate?: number;
+  accountAge?: number;
+  postFrequency?: number;
+  email?: string;
+  phone?: string;
+  website?: string;
+  location?: string;
+  timesContacted?: number;
+  lastContactedAt?: string;
+  lastInteractionAt?: string;
 }
 
 interface InstagramAccount {
@@ -172,9 +189,32 @@ export default function LeadsPage() {
   const [filterKeywords, setFilterKeywords] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   
+  // Advanced filters
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [followerRange, setFollowerRange] = useState<[number, number] | null>(null);
+  const [engagementRateRange, setEngagementRateRange] = useState<[number, number] | null>(null);
+  const [accountAgeRange, setAccountAgeRange] = useState<[number, number] | null>(null);
+  const [postFrequencyRange, setPostFrequencyRange] = useState<[number, number] | null>(null);
+  const [minLeadScore, setMinLeadScore] = useState<number | null>(null);
+  
+  // Bulk actions
+  const [showBulkActionsModal, setShowBulkActionsModal] = useState(false);
+  const [bulkActionType, setBulkActionType] = useState<'status' | 'tags' | null>(null);
+  const [bulkActionValue, setBulkActionValue] = useState('');
+  const [isPerformingBulkAction, setIsPerformingBulkAction] = useState(false);
+  
+  // Lead Lists
+  const [leadLists, setLeadLists] = useState<any[]>([]);
+  const [showLeadListsModal, setShowLeadListsModal] = useState(false);
+  const [showCreateListModal, setShowCreateListModal] = useState(false);
+  const [newListName, setNewListName] = useState('');
+  const [newListDescription, setNewListDescription] = useState('');
+  const [selectedListId, setSelectedListId] = useState<string | null>(null);
+  const [isLoadingLists, setIsLoadingLists] = useState(false);
+  
   // Leads list state
   const [leadsSearchQuery, setLeadsSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'followers' | 'name'>('newest');
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'followers' | 'name' | 'score' | 'engagement'>('newest');
   const [displayedLeadsCount, setDisplayedLeadsCount] = useState(50); // Start with 50 leads
   const leadsPerBatch = 50; // Load 50 more at a time
   
@@ -248,6 +288,18 @@ export default function LeadsPage() {
         source: l.source,
         sourceQuery: l.source_query,
         createdAt: l.created_at,
+        // Enhanced fields
+        leadScore: l.lead_score,
+        engagementRate: l.engagement_rate,
+        accountAge: l.account_age,
+        postFrequency: l.post_frequency,
+        email: l.email,
+        phone: l.phone,
+        website: l.website,
+        location: l.location,
+        timesContacted: l.times_contacted || 0,
+        lastContactedAt: l.last_contacted_at,
+        lastInteractionAt: l.last_interaction_at,
       })));
     } catch (error) {
       console.error('Error fetching leads:', error);
@@ -353,7 +405,9 @@ export default function LeadsPage() {
         case 'followers':
           // Use cached user ID from lookup
           if (!userId) {
-            alert('Please lookup the user first');
+            toast.warning('User lookup required', {
+              description: 'Please lookup the user first to get their profile information.',
+            });
             setIsSearching(false);
             setIsLoadingMore(false);
             return;
@@ -430,7 +484,9 @@ export default function LeadsPage() {
 
     const cookies = getCookies();
     if (!cookies) {
-      alert('Please reconnect your Instagram account');
+      toast.error('Session expired', {
+        description: 'Please reconnect your Instagram account.',
+      });
       return;
     }
 
@@ -447,7 +503,9 @@ export default function LeadsPage() {
       const userData = await userRes.json();
 
       if (!userData.success || !userData.profile) {
-        alert('User not found');
+        toast.error('User not found', {
+          description: 'Please check the username and try again.',
+        });
         return;
       }
 
@@ -470,7 +528,9 @@ export default function LeadsPage() {
       setTargetUserId(profile.pk);
     } catch (error) {
       console.error('Lookup error:', error);
-      alert('Failed to lookup user');
+      toast.error('Lookup failed', {
+        description: 'Failed to lookup user. Please try again.',
+      });
     } finally {
       setIsLoadingTargetUser(false);
     }
@@ -482,7 +542,9 @@ export default function LeadsPage() {
 
     const cookies = getCookies();
     if (!cookies) {
-      alert('Please reconnect your Instagram account');
+      toast.error('Session expired', {
+        description: 'Please reconnect your Instagram account.',
+      });
       return;
     }
 
@@ -500,7 +562,9 @@ export default function LeadsPage() {
     // Get current user's workspace
     const { data: { user: authUser } } = await supabase.auth.getUser();
     if (!authUser) {
-      alert('Please log in');
+      toast.error('Authentication required', {
+        description: 'Please log in to continue.',
+      });
       return;
     }
 
@@ -511,7 +575,9 @@ export default function LeadsPage() {
       .single();
 
     if (!user?.workspace_id) {
-      alert('No workspace found');
+      toast.error('Workspace not found', {
+        description: 'Please refresh the page and try again.',
+      });
       return;
     }
 
@@ -522,7 +588,10 @@ export default function LeadsPage() {
     let scannedCount = 0;
 
     // Show progress
-    alert(`Starting to scan ${users.length} users for matching bios...`);
+    toast.info('Scanning users', {
+      description: `Starting to scan ${users.length} users for matching bios...`,
+      duration: 3000,
+    });
 
     for (const userProfile of users) {
       try {
@@ -582,18 +651,48 @@ export default function LeadsPage() {
     }
 
     const keywordInfo = selectedPreset ? selectedPreset : (keywords.length > 0 ? `${keywords.length} keywords` : 'all users');
-    alert(`✅ Scan complete!\n\nScanned: ${scannedCount} profiles\nMatched: ${matchedCount} with "${keywordInfo}"\nAdded: ${addedCount} new leads`);
+    toast.success('Scan complete!', {
+      description: `Scanned: ${scannedCount} profiles | Matched: ${matchedCount} with "${keywordInfo}" | Added: ${addedCount} new leads`,
+      duration: 6000,
+    });
     setSearchResults([]);
     fetchLeads();
   };
 
   // View profile
   const handleViewProfile = async (lead: Lead) => {
-    setSelectedProfile(lead);
     setShowProfileModal(true);
+    setIsLoadingProfile(true);
     
-    if (!lead.bio && selectedAccount) {
-      setIsLoadingProfile(true);
+    // Always fetch full lead data including history and enrichment
+    const supabase = createClient();
+    const { data: leadData } = await supabase
+      .from('leads')
+      .select('*')
+      .eq('id', lead.id)
+      .single();
+
+    // Set initial profile with history data
+    setSelectedProfile({ 
+      ...lead, 
+      // Include history and enrichment data
+      leadScore: leadData?.lead_score,
+      engagementRate: leadData?.engagement_rate,
+      accountAge: leadData?.account_age,
+      postFrequency: leadData?.post_frequency,
+      email: leadData?.email,
+      phone: leadData?.phone,
+      website: leadData?.website,
+      location: leadData?.location,
+      timesContacted: leadData?.times_contacted || 0,
+      lastContactedAt: leadData?.last_contacted_at,
+      lastInteractionAt: leadData?.last_interaction_at,
+      dmSentAt: leadData?.dm_sent_at,
+      dmRepliedAt: leadData?.dm_replied_at,
+    });
+    
+    // Fetch fresh profile data from Instagram if account is connected
+    if (selectedAccount) {
       const cookies = getCookies();
       if (cookies) {
         try {
@@ -604,10 +703,12 @@ export default function LeadsPage() {
           });
           const data = await res.json();
           if (data.success) {
-            setSelectedProfile({ ...lead, ...data.profile });
+            setSelectedProfile((prev: any) => ({ 
+              ...prev,
+              ...data.profile,
+            }));
             
             // Update in database
-            const supabase = createClient();
             await supabase.from('leads').update({
               bio: data.profile.bio,
               follower_count: data.profile.followerCount,
@@ -619,8 +720,8 @@ export default function LeadsPage() {
           console.error('Failed to fetch profile:', e);
         }
       }
-      setIsLoadingProfile(false);
     }
+    setIsLoadingProfile(false);
   };
 
   // Send bulk DM
@@ -629,7 +730,9 @@ export default function LeadsPage() {
 
     const cookies = getCookies();
     if (!cookies) {
-      alert('Please reconnect your Instagram account');
+      toast.error('Session expired', {
+        description: 'Please reconnect your Instagram account.',
+      });
       return;
     }
 
@@ -672,7 +775,9 @@ export default function LeadsPage() {
       }
     }
 
-    alert(`Sent ${sentCount} DMs, ${failedCount} failed`);
+    toast.success('Bulk DM sent!', {
+      description: `Sent ${sentCount} DMs${failedCount > 0 ? `, ${failedCount} failed` : ''}.`,
+    });
     setShowBulkDmModal(false);
     setBulkDmMessage('');
     setSelectedLeads(new Set());
@@ -690,6 +795,178 @@ export default function LeadsPage() {
     setSelectedLeads(new Set());
     fetchLeads();
   };
+
+  // Bulk actions
+  const handleBulkAction = async () => {
+    if (selectedLeads.size === 0 || !bulkActionType) return;
+
+    setIsPerformingBulkAction(true);
+    try {
+      const response = await fetch('/api/leads/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: bulkActionType === 'status' ? 'updateStatus' : 'addTags',
+          leadIds: Array.from(selectedLeads),
+          data: bulkActionType === 'status' 
+            ? { status: bulkActionValue }
+            : { tags: bulkActionValue.split(',').map(t => t.trim()).filter(Boolean) },
+        }),
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        toast.success('Bulk action completed', {
+          description: `Updated ${result.updated} leads.`,
+        });
+        setShowBulkActionsModal(false);
+        setBulkActionType(null);
+        setBulkActionValue('');
+        setSelectedLeads(new Set());
+        fetchLeads();
+      } else {
+        toast.error('Bulk action failed', {
+          description: result.error || 'Unknown error occurred.',
+        });
+      }
+    } catch (error) {
+      console.error('Error performing bulk action:', error);
+      toast.error('Bulk action failed', {
+        description: 'Please try again later.',
+      });
+    } finally {
+      setIsPerformingBulkAction(false);
+    }
+  };
+
+  // Export leads to CSV
+  const handleExportLeads = async () => {
+    const leadIds = selectedLeads.size > 0 ? Array.from(selectedLeads) : undefined;
+    
+    try {
+      const response = await fetch('/api/leads/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leadIds }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `leads-export-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast.success('Export successful', {
+        description: 'Leads exported to CSV file.',
+      });
+    } catch (error) {
+      console.error('Error exporting leads:', error);
+      toast.error('Export failed', {
+        description: 'Failed to export leads. Please try again.',
+      });
+    }
+  };
+
+  // Fetch lead lists
+  const fetchLeadLists = useCallback(async () => {
+    setIsLoadingLists(true);
+    try {
+      const response = await fetch('/api/leads/lists');
+      const result = await response.json();
+      if (result.success) {
+        setLeadLists(result.lists || []);
+      }
+    } catch (error) {
+      console.error('Error fetching lead lists:', error);
+    } finally {
+      setIsLoadingLists(false);
+    }
+  }, []);
+
+  // Create lead list
+  const handleCreateList = async () => {
+    if (!newListName.trim()) {
+      toast.warning('List name required', {
+        description: 'Please enter a name for the list.',
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/leads/lists', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newListName,
+          description: newListDescription,
+        }),
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        setNewListName('');
+        setNewListDescription('');
+        setShowCreateListModal(false);
+        fetchLeadLists();
+        toast.success('List created!', {
+          description: 'Lead list created successfully.',
+        });
+      } else {
+        toast.error('Failed to create list', {
+          description: result.error || 'Unknown error occurred.',
+        });
+      }
+    } catch (error) {
+      console.error('Error creating list:', error);
+      toast.error('Failed to create list', {
+        description: 'Please try again later.',
+      });
+    }
+  };
+
+  // Add selected leads to list
+  const handleAddToList = async (listId: string) => {
+    if (selectedLeads.size === 0) {
+      toast.warning('No leads selected', {
+        description: 'Please select leads to add to the list.',
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/leads/lists/${listId}/members`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          leadIds: Array.from(selectedLeads),
+        }),
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        alert(`Added ${result.added} leads to list`);
+        setShowLeadListsModal(false);
+        setSelectedLeads(new Set());
+      } else {
+        alert('Failed: ' + (result.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error adding leads to list:', error);
+      alert('Failed to add leads to list');
+    }
+  };
+
+  // Load lead lists on mount
+  useEffect(() => {
+    fetchLeadLists();
+  }, [fetchLeadLists]);
 
   // Toggle lead selection
   const toggleLeadSelection = (leadId: string) => {
@@ -733,6 +1010,28 @@ export default function LeadsPage() {
         if (!matchesUsername && !matchesName && !matchesBio && !matchesTags) return false;
       }
       
+      // Advanced filters
+      if (followerRange) {
+        const followers = lead.followerCount || 0;
+        if (followers < followerRange[0] || followers > followerRange[1]) return false;
+      }
+      
+      if (engagementRateRange && lead.engagementRate !== undefined && lead.engagementRate !== null) {
+        if (lead.engagementRate < engagementRateRange[0] || lead.engagementRate > engagementRateRange[1]) return false;
+      }
+      
+      if (accountAgeRange && lead.accountAge !== undefined && lead.accountAge !== null) {
+        if (lead.accountAge < accountAgeRange[0] || lead.accountAge > accountAgeRange[1]) return false;
+      }
+      
+      if (postFrequencyRange && lead.postFrequency !== undefined && lead.postFrequency !== null) {
+        if (lead.postFrequency < postFrequencyRange[0] || lead.postFrequency > postFrequencyRange[1]) return false;
+      }
+      
+      if (minLeadScore !== null && (lead.leadScore === undefined || lead.leadScore === null || lead.leadScore < minLeadScore)) {
+        return false;
+      }
+      
       return true;
     })
     .sort((a, b) => {
@@ -745,6 +1044,10 @@ export default function LeadsPage() {
           return (b.followerCount || 0) - (a.followerCount || 0);
         case 'name':
           return (a.igUsername || '').localeCompare(b.igUsername || '');
+        case 'score':
+          return (b.leadScore || 0) - (a.leadScore || 0);
+        case 'engagement':
+          return (b.engagementRate || 0) - (a.engagementRate || 0);
         default:
           return 0;
       }
@@ -759,9 +1062,9 @@ export default function LeadsPage() {
     setDisplayedLeadsCount(prev => prev + leadsPerBatch);
   };
 
-  // Reset page when filters change
+  // Reset displayed leads count when filters change
   useEffect(() => {
-    setCurrentPage(1);
+    setDisplayedLeadsCount(50); // Reset to initial batch size
   }, [statusFilter, leadsSearchQuery, sortBy, filterKeywords]);
 
   return (
@@ -1205,9 +1508,21 @@ export default function LeadsPage() {
               {selectedLeads.size > 0 && (
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-foreground-muted">{selectedLeads.size} selected</span>
+                  <Button size="sm" onClick={() => setShowBulkActionsModal(true)}>
+                    <Filter className="h-4 w-4" />
+                    Bulk Actions
+                  </Button>
                   <Button size="sm" onClick={() => setShowBulkDmModal(true)}>
                     <Send className="h-4 w-4" />
                     Send DM
+                  </Button>
+                  <Button size="sm" onClick={handleExportLeads}>
+                    <Download className="h-4 w-4" />
+                    Export
+                  </Button>
+                  <Button size="sm" onClick={() => setShowLeadListsModal(true)}>
+                    <List className="h-4 w-4" />
+                    Add to List
                   </Button>
                   <Button size="sm" variant="ghost" onClick={handleDeleteLeads} className="text-error">
                     <Trash2 className="h-4 w-4" />
@@ -1238,7 +1553,19 @@ export default function LeadsPage() {
                 <option value="oldest">Oldest First</option>
                 <option value="followers">Most Followers</option>
                 <option value="name">Name A-Z</option>
+                <option value="score">Lead Score</option>
+                <option value="engagement">Engagement Rate</option>
               </select>
+              
+              {/* Advanced Filters Toggle */}
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                {showAdvancedFilters ? 'Hide' : 'Advanced'} Filters
+              </Button>
               
               {/* Status Filter */}
               <div className="flex gap-1">
@@ -1258,6 +1585,170 @@ export default function LeadsPage() {
                 ))}
               </div>
             </div>
+            
+            {/* Advanced Filters Panel */}
+            {showAdvancedFilters && (
+              <div className="p-4 bg-background-elevated rounded-lg border border-border space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* Follower Range */}
+                  <div>
+                    <label className="block text-xs font-medium text-foreground-muted mb-2">
+                      Followers Range
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        placeholder="Min"
+                        value={followerRange?.[0] || ''}
+                        onChange={(e) => setFollowerRange([
+                          e.target.value ? parseInt(e.target.value) : 0,
+                          followerRange?.[1] || 1000000
+                        ])}
+                        className="w-full"
+                      />
+                      <span className="text-foreground-muted">-</span>
+                      <Input
+                        type="number"
+                        placeholder="Max"
+                        value={followerRange?.[1] || ''}
+                        onChange={(e) => setFollowerRange([
+                          followerRange?.[0] || 0,
+                          e.target.value ? parseInt(e.target.value) : 1000000
+                        ])}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Engagement Rate Range */}
+                  <div>
+                    <label className="block text-xs font-medium text-foreground-muted mb-2">
+                      Engagement Rate (%)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        step="0.1"
+                        placeholder="Min"
+                        value={engagementRateRange?.[0] || ''}
+                        onChange={(e) => setEngagementRateRange([
+                          e.target.value ? parseFloat(e.target.value) : 0,
+                          engagementRateRange?.[1] || 10
+                        ])}
+                        className="w-full"
+                      />
+                      <span className="text-foreground-muted">-</span>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        placeholder="Max"
+                        value={engagementRateRange?.[1] || ''}
+                        onChange={(e) => setEngagementRateRange([
+                          engagementRateRange?.[0] || 0,
+                          e.target.value ? parseFloat(e.target.value) : 10
+                        ])}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Account Age Range */}
+                  <div>
+                    <label className="block text-xs font-medium text-foreground-muted mb-2">
+                      Account Age (days)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        placeholder="Min"
+                        value={accountAgeRange?.[0] || ''}
+                        onChange={(e) => setAccountAgeRange([
+                          e.target.value ? parseInt(e.target.value) : 0,
+                          accountAgeRange?.[1] || 3650
+                        ])}
+                        className="w-full"
+                      />
+                      <span className="text-foreground-muted">-</span>
+                      <Input
+                        type="number"
+                        placeholder="Max"
+                        value={accountAgeRange?.[1] || ''}
+                        onChange={(e) => setAccountAgeRange([
+                          accountAgeRange?.[0] || 0,
+                          e.target.value ? parseInt(e.target.value) : 3650
+                        ])}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Post Frequency Range */}
+                  <div>
+                    <label className="block text-xs font-medium text-foreground-muted mb-2">
+                      Post Frequency (per week)
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        step="0.1"
+                        placeholder="Min"
+                        value={postFrequencyRange?.[0] || ''}
+                        onChange={(e) => setPostFrequencyRange([
+                          e.target.value ? parseFloat(e.target.value) : 0,
+                          postFrequencyRange?.[1] || 10
+                        ])}
+                        className="w-full"
+                      />
+                      <span className="text-foreground-muted">-</span>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        placeholder="Max"
+                        value={postFrequencyRange?.[1] || ''}
+                        onChange={(e) => setPostFrequencyRange([
+                          postFrequencyRange?.[0] || 0,
+                          e.target.value ? parseFloat(e.target.value) : 10
+                        ])}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Minimum Lead Score */}
+                  <div>
+                    <label className="block text-xs font-medium text-foreground-muted mb-2">
+                      Minimum Lead Score
+                    </label>
+                    <Input
+                      type="number"
+                      placeholder="0-100"
+                      min="0"
+                      max="100"
+                      value={minLeadScore || ''}
+                      onChange={(e) => setMinLeadScore(e.target.value ? parseInt(e.target.value) : null)}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+                
+                {/* Clear Filters */}
+                <div className="flex justify-end">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setFollowerRange(null);
+                      setEngagementRateRange(null);
+                      setAccountAgeRange(null);
+                      setPostFrequencyRange(null);
+                      setMinLeadScore(null);
+                    }}
+                  >
+                    Clear Filters
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Table */}
@@ -1283,6 +1774,8 @@ export default function LeadsPage() {
                     </th>
                     <th className="p-4 text-xs font-medium text-foreground-muted uppercase">User</th>
                     <th className="p-4 text-xs font-medium text-foreground-muted uppercase">Followers</th>
+                    <th className="p-4 text-xs font-medium text-foreground-muted uppercase">Score</th>
+                    <th className="p-4 text-xs font-medium text-foreground-muted uppercase">Engagement</th>
                     <th className="p-4 text-xs font-medium text-foreground-muted uppercase">Bio Keywords</th>
                     <th className="p-4 text-xs font-medium text-foreground-muted uppercase">Status</th>
                     <th className="p-4 text-xs font-medium text-foreground-muted uppercase">Source</th>
@@ -1314,6 +1807,30 @@ export default function LeadsPage() {
                       </td>
                       <td className="p-4 text-foreground-muted">
                         {lead.followerCount?.toLocaleString() || '-'}
+                      </td>
+                      <td className="p-4">
+                        {lead.leadScore !== undefined && lead.leadScore !== null ? (
+                          <div className="flex items-center gap-2">
+                            <span className={cn(
+                              'text-sm font-medium',
+                              lead.leadScore >= 70 ? 'text-emerald-400' :
+                              lead.leadScore >= 50 ? 'text-amber-400' : 'text-foreground-muted'
+                            )}>
+                              {lead.leadScore}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-foreground-subtle">-</span>
+                        )}
+                      </td>
+                      <td className="p-4">
+                        {lead.engagementRate !== undefined && lead.engagementRate !== null ? (
+                          <span className="text-sm text-foreground-muted">
+                            {lead.engagementRate.toFixed(1)}%
+                          </span>
+                        ) : (
+                          <span className="text-foreground-subtle">-</span>
+                        )}
                       </td>
                       <td className="p-4">
                         {lead.matchedKeywords?.length > 0 ? (
@@ -1389,6 +1906,89 @@ export default function LeadsPage() {
         </div>
       </div>
 
+      {/* Bulk Actions Modal */}
+      {showBulkActionsModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-background-secondary rounded-2xl border border-border max-w-md w-full">
+            <div className="p-6 border-b border-border">
+              <h2 className="text-lg font-semibold text-foreground">Bulk Actions</h2>
+              <p className="text-sm text-foreground-muted mt-1">
+                Apply action to {selectedLeads.size} selected leads
+              </p>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground-muted mb-2">Action Type</label>
+                <select
+                  value={bulkActionType || ''}
+                  onChange={(e) => {
+                    setBulkActionType(e.target.value as 'status' | 'tags' | null);
+                    setBulkActionValue('');
+                  }}
+                  className="w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground"
+                >
+                  <option value="">Select action...</option>
+                  <option value="status">Update Status</option>
+                  <option value="tags">Add Tags</option>
+                </select>
+              </div>
+              
+              {bulkActionType === 'status' && (
+                <div>
+                  <label className="block text-sm font-medium text-foreground-muted mb-2">New Status</label>
+                  <select
+                    value={bulkActionValue}
+                    onChange={(e) => setBulkActionValue(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground"
+                  >
+                    <option value="">Select status...</option>
+                    <option value="new">New</option>
+                    <option value="contacted">Contacted</option>
+                    <option value="replied">Replied</option>
+                    <option value="converted">Converted</option>
+                    <option value="unsubscribed">Unsubscribed</option>
+                  </select>
+                </div>
+              )}
+              
+              {bulkActionType === 'tags' && (
+                <div>
+                  <label className="block text-sm font-medium text-foreground-muted mb-2">Tags (comma-separated)</label>
+                  <Input
+                    value={bulkActionValue}
+                    onChange={(e) => setBulkActionValue(e.target.value)}
+                    placeholder="tag1, tag2, tag3"
+                  />
+                  <p className="text-xs text-foreground-subtle mt-1">
+                    Separate multiple tags with commas
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="p-6 border-t border-border flex gap-3">
+              <Button variant="secondary" className="flex-1" onClick={() => {
+                setShowBulkActionsModal(false);
+                setBulkActionType(null);
+                setBulkActionValue('');
+              }}>
+                Cancel
+              </Button>
+              <Button 
+                className="flex-1" 
+                onClick={handleBulkAction}
+                disabled={!bulkActionType || !bulkActionValue.trim() || isPerformingBulkAction}
+              >
+                {isPerformingBulkAction ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  'Apply'
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Bulk DM Modal */}
       {showBulkDmModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
@@ -1435,6 +2035,136 @@ export default function LeadsPage() {
         </div>
       )}
 
+      {/* Lead Lists Modal */}
+      {showLeadListsModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-background-secondary rounded-2xl border border-border max-w-md w-full">
+            <div className="p-6 border-b border-border flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Add to List</h2>
+                <p className="text-sm text-foreground-muted mt-1">
+                  Add {selectedLeads.size} selected leads to a list
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setShowLeadListsModal(false);
+                  setShowCreateListModal(true);
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                New List
+              </Button>
+            </div>
+            <div className="p-6 max-h-[400px] overflow-y-auto">
+              {isLoadingLists ? (
+                <div className="text-center py-4 text-foreground-muted">Loading lists...</div>
+              ) : leadLists.length === 0 ? (
+                <div className="text-center py-8">
+                  <List className="h-12 w-12 text-foreground-subtle mx-auto mb-3" />
+                  <p className="text-foreground-muted mb-4">No lists yet</p>
+                  <Button onClick={() => {
+                    setShowLeadListsModal(false);
+                    setShowCreateListModal(true);
+                  }}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create First List
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {leadLists.map((list: any) => (
+                    <button
+                      key={list.id}
+                      onClick={() => handleAddToList(list.id)}
+                      className="w-full p-3 rounded-lg bg-background-elevated hover:bg-background border border-border text-left transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-foreground">{list.name}</p>
+                          {list.description && (
+                            <p className="text-xs text-foreground-muted mt-1">{list.description}</p>
+                          )}
+                          <p className="text-xs text-foreground-subtle mt-1">
+                            {list.members?.length || 0} leads
+                          </p>
+                        </div>
+                        <Plus className="h-4 w-4 text-foreground-muted" />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="p-6 border-t border-border">
+              <Button variant="secondary" className="w-full" onClick={() => setShowLeadListsModal(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create List Modal */}
+      {showCreateListModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-background-secondary rounded-2xl border border-border max-w-md w-full">
+            <div className="p-6 border-b border-border flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground">Create Lead List</h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setShowCreateListModal(false);
+                  setNewListName('');
+                  setNewListDescription('');
+                }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground-muted mb-2">List Name</label>
+                <Input
+                  value={newListName}
+                  onChange={(e) => setNewListName(e.target.value)}
+                  placeholder="My Lead List"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground-muted mb-2">Description (optional)</label>
+                <textarea
+                  value={newListDescription}
+                  onChange={(e) => setNewListDescription(e.target.value)}
+                  placeholder="Description of this list..."
+                  rows={3}
+                  className="w-full px-4 py-2.5 rounded-lg bg-background border border-border text-foreground placeholder-foreground-subtle focus:border-accent outline-none resize-none"
+                />
+              </div>
+            </div>
+            <div className="p-6 border-t border-border flex gap-3">
+              <Button variant="secondary" className="flex-1" onClick={() => {
+                setShowCreateListModal(false);
+                setNewListName('');
+                setNewListDescription('');
+              }}>
+                Cancel
+              </Button>
+              <Button 
+                className="flex-1" 
+                onClick={handleCreateList}
+                disabled={!newListName.trim()}
+              >
+                Create List
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Profile Modal */}
       {showProfileModal && selectedProfile && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
@@ -1469,6 +2199,123 @@ export default function LeadsPage() {
                       <p className="text-xs text-foreground-muted">Posts</p>
                     </div>
                   </div>
+
+                  {/* Lead Score & Engagement */}
+                  {((selectedProfile.leadScore !== undefined && selectedProfile.leadScore !== null) || (selectedProfile.engagementRate !== undefined && selectedProfile.engagementRate !== null)) && (
+                    <div className="grid grid-cols-2 gap-4">
+                      {selectedProfile.leadScore !== undefined && selectedProfile.leadScore !== null && (
+                        <div className="p-3 rounded-lg bg-background-elevated">
+                          <p className="text-sm text-foreground-muted mb-1">Lead Score</p>
+                          <p className={cn(
+                            'text-2xl font-bold',
+                            selectedProfile.leadScore >= 70 ? 'text-emerald-400' :
+                            selectedProfile.leadScore >= 50 ? 'text-amber-400' : 'text-foreground-muted'
+                          )}>
+                            {selectedProfile.leadScore}/100
+                          </p>
+                        </div>
+                      )}
+                      {selectedProfile.engagementRate !== undefined && selectedProfile.engagementRate !== null && (
+                        <div className="p-3 rounded-lg bg-background-elevated">
+                          <p className="text-sm text-foreground-muted mb-1">Engagement Rate</p>
+                          <p className="text-2xl font-bold text-foreground">
+                            {selectedProfile.engagementRate.toFixed(1)}%
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Lead History */}
+                  {(selectedProfile.timesContacted || selectedProfile.lastContactedAt || selectedProfile.lastInteractionAt) && (
+                    <div className="p-4 rounded-lg bg-background-elevated border border-border">
+                      <h4 className="text-sm font-medium text-foreground-muted mb-3 flex items-center gap-2">
+                        <Clock className="h-4 w-4" />
+                        Interaction History
+                      </h4>
+                      <div className="space-y-2">
+                        {selectedProfile.timesContacted !== undefined && selectedProfile.timesContacted > 0 && (
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-foreground-muted">Times Contacted</span>
+                            <span className="font-medium text-foreground">{selectedProfile.timesContacted}</span>
+                          </div>
+                        )}
+                        {selectedProfile.lastContactedAt && (
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-foreground-muted">Last Contacted</span>
+                            <span className="font-medium text-foreground">
+                              {new Date(selectedProfile.lastContactedAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                        )}
+                        {selectedProfile.lastInteractionAt && (
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-foreground-muted">Last Interaction</span>
+                            <span className="font-medium text-foreground">
+                              {new Date(selectedProfile.lastInteractionAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                        )}
+                        {selectedProfile.dmSentAt && (
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-foreground-muted flex items-center gap-1">
+                              <MessageSquare className="h-3 w-3" />
+                              DM Sent
+                            </span>
+                            <span className="font-medium text-foreground">
+                              {new Date(selectedProfile.dmSentAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                        )}
+                        {selectedProfile.dmRepliedAt && (
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-foreground-muted flex items-center gap-1">
+                              <MessageSquare className="h-3 w-3" />
+                              Replied
+                            </span>
+                            <span className="font-medium text-emerald-400">
+                              {new Date(selectedProfile.dmRepliedAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Enrichment Data */}
+                  {(selectedProfile.email || selectedProfile.phone || selectedProfile.website || selectedProfile.location) && (
+                    <div>
+                      <h4 className="text-sm font-medium text-foreground-muted mb-2">Contact Information</h4>
+                      <div className="space-y-1 text-sm">
+                        {selectedProfile.email && (
+                          <p className="text-foreground">
+                            <span className="text-foreground-muted">Email: </span>
+                            {selectedProfile.email}
+                          </p>
+                        )}
+                        {selectedProfile.phone && (
+                          <p className="text-foreground">
+                            <span className="text-foreground-muted">Phone: </span>
+                            {selectedProfile.phone}
+                          </p>
+                        )}
+                        {selectedProfile.website && (
+                          <p className="text-foreground">
+                            <span className="text-foreground-muted">Website: </span>
+                            <a href={selectedProfile.website} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                              {selectedProfile.website}
+                            </a>
+                          </p>
+                        )}
+                        {selectedProfile.location && (
+                          <p className="text-foreground">
+                            <span className="text-foreground-muted">Location: </span>
+                            {selectedProfile.location}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Bio */}
                   {selectedProfile.bio && (

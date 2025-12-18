@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { cn, getInitials } from '@/lib/utils';
 
 interface AvatarProps {
@@ -9,6 +9,26 @@ interface AvatarProps {
   name?: string | null;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
+}
+
+/**
+ * Check if URL is from Instagram CDN and proxy it if needed
+ */
+function getProxiedImageUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  
+  // Check if it's an Instagram CDN URL
+  const isInstagramUrl = 
+    url.includes('instagram.com') || 
+    url.includes('cdninstagram.com') || 
+    url.includes('fbcdn.net');
+  
+  if (isInstagramUrl) {
+    // Use our proxy endpoint
+    return `/api/instagram/image-proxy?url=${encodeURIComponent(url)}`;
+  }
+  
+  return url;
 }
 
 export function Avatar({ src, alt, name, size = 'md', className }: AvatarProps) {
@@ -21,7 +41,9 @@ export function Avatar({ src, alt, name, size = 'md', className }: AvatarProps) 
     xl: 'h-16 w-16 text-lg',
   };
 
-  const showImage = src && !hasError;
+  // Proxy Instagram images to avoid CORS issues
+  const proxiedSrc = useMemo(() => getProxiedImageUrl(src), [src]);
+  const showImage = proxiedSrc && !hasError;
 
   return (
     <div
@@ -34,10 +56,11 @@ export function Avatar({ src, alt, name, size = 'md', className }: AvatarProps) 
       {showImage ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={src}
+          src={proxiedSrc}
           alt={alt || name || 'Avatar'}
           className="h-full w-full rounded-full object-cover"
           onError={() => setHasError(true)}
+          crossOrigin="anonymous"
         />
       ) : (
         <span>{getInitials(name)}</span>

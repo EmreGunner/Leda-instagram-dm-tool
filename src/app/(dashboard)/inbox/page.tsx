@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Search, RefreshCw, MessageSquare, Instagram, AlertCircle, Send, Plus } from 'lucide-react';
+import { toast } from 'sonner';
 import { Header } from '@/components/layout/header';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -270,6 +271,7 @@ export default function InboxPage() {
                 cookies,
                 recipientUserId: userId,
                 message: content,
+                accountId: selectedAccount.id, // Pass account ID to update daily limit
               }),
             });
           } else if (username) {
@@ -282,6 +284,7 @@ export default function InboxPage() {
                 cookies,
                 recipientUsername: username.replace('@', ''),
                 message: content,
+                accountId: selectedAccount.id, // Pass account ID to update daily limit
               }),
             });
           } else {
@@ -303,8 +306,21 @@ export default function InboxPage() {
               .eq('id', newMessage.id);
 
             setMessages(prev =>
-              prev.map(m => m.id === newMessage.id ? { ...m, status: 'SENT' } : m)
+              prev.map(m => m.id === newMessage.id ? { ...m, status: 'SENT', igMessageId: result.itemId } : m)
             );
+            
+            // Update conversation last message time
+            await supabase
+              .from('conversations')
+              .update({ last_message_at: new Date().toISOString() })
+              .eq('id', selectedConversation.id);
+            
+            // Refresh conversations and accounts to update daily limit
+            await fetchConversations();
+            await fetchAccounts();
+            
+            // Refresh messages to show the updated status
+            await fetchMessages(selectedConversation.id);
           } else {
             throw new Error(result.error || result.message || 'Failed to send');
           }
@@ -358,7 +374,9 @@ export default function InboxPage() {
       const cookiesStr = localStorage.getItem(`bulkdm_cookies_${selectedAccount.igUserId}`);
       
       if (!cookiesStr) {
-        alert('Session expired. Please reconnect your Instagram account.');
+        toast.error('Session expired', {
+          description: 'Please reconnect your Instagram account.',
+        });
         setIsSendingNewDm(false);
         return;
       }
@@ -389,6 +407,7 @@ export default function InboxPage() {
           cookies,
           recipientUsername: username,
           message: newDmMessage,
+          accountId: selectedAccount.id, // Pass account ID to update daily limit
         }),
       });
 
@@ -398,7 +417,9 @@ export default function InboxPage() {
         // Get current user's workspace
         const { data: { user: authUser } } = await supabase.auth.getUser();
         if (!authUser) {
-          alert('Please log in');
+          toast.error('Authentication required', {
+            description: 'Please log in to continue.',
+          });
           return;
         }
 
@@ -409,7 +430,9 @@ export default function InboxPage() {
           .single();
 
         if (!user?.workspace_id) {
-          alert('No workspace found');
+          toast.error('Workspace not found', {
+            description: 'Please refresh the page and try again.',
+          });
           return;
         }
 
@@ -493,17 +516,24 @@ export default function InboxPage() {
         setNewDmUsername('');
         setNewDmMessage('');
         
-        // Refresh conversations
+        // Refresh conversations and accounts (to update daily limit)
         await fetchConversations();
+        await fetchAccounts();
         
         // Show success
-        alert(`Message sent to @${username}!`);
+        toast.success('Message sent!', {
+          description: `Successfully sent message to @${username}`,
+        });
       } else {
-        alert(result.message || 'Failed to send message');
+        toast.error('Failed to send message', {
+          description: result.message || 'Please try again.',
+        });
       }
     } catch (error) {
       console.error('Error sending DM:', error);
-      alert('Failed to send message: ' + (error as Error).message);
+      toast.error('Failed to send message', {
+        description: (error as Error).message || 'Please try again.',
+      });
     } finally {
       setIsSendingNewDm(false);
     }
@@ -512,13 +542,21 @@ export default function InboxPage() {
   // Sync Instagram inbox
   const handleSyncInbox = async (showAlert = true) => {
     if (!selectedAccount) {
-      if (showAlert) alert('Please select an Instagram account first');
+      if (showAlert) {
+        toast.error('Account required', {
+          description: 'Please select an Instagram account first.',
+        });
+      }
       return;
     }
 
     const cookies = getCookies();
     if (!cookies) {
-      if (showAlert) alert('Please reconnect your Instagram account');
+      if (showAlert) {
+        toast.error('Session expired', {
+          description: 'Please reconnect your Instagram account.',
+        });
+      }
       return;
     }
 
@@ -528,7 +566,11 @@ export default function InboxPage() {
       const supabase = createClient();
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (!authUser) {
-        if (showAlert) alert('Not authenticated');
+        if (showAlert) {
+          toast.error('Authentication required', {
+            description: 'Please log in to continue.',
+          });
+        }
         return;
       }
 
@@ -539,7 +581,11 @@ export default function InboxPage() {
         .single();
 
       if (!user?.workspace_id) {
-        if (showAlert) alert('No workspace found');
+        if (showAlert) {
+          toast.error('Workspace not found', {
+            description: 'Please refresh the page and try again.',
+          });
+        }
         return;
       }
 
@@ -557,7 +603,9 @@ export default function InboxPage() {
 
       if (result.success) {
         if (showAlert) {
-          alert(`Synced ${result.syncedConversations} conversations and ${result.syncedMessages} messages!`);
+          toast.success('Inbox synced!', {
+            description: `Synced ${result.syncedConversations} conversations and ${result.syncedMessages} messages.`,
+          });
         }
         await fetchConversations();
         
@@ -567,13 +615,17 @@ export default function InboxPage() {
         }
       } else {
         if (showAlert) {
-          alert('Sync failed: ' + (result.error || 'Unknown error'));
+          toast.error('Sync failed', {
+            description: result.error || 'Unknown error occurred.',
+          });
         }
       }
     } catch (error) {
       console.error('Error syncing inbox:', error);
       if (showAlert) {
-        alert('Failed to sync inbox');
+        toast.error('Failed to sync inbox', {
+          description: 'Please try again later.',
+        });
       }
     } finally {
       setIsSyncing(false);
@@ -727,7 +779,7 @@ export default function InboxPage() {
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={handleSyncInbox}
+                onClick={() => handleSyncInbox()}
                 disabled={isSyncing || !selectedAccount}
                 className="ml-auto"
                 title="Sync messages from Instagram"

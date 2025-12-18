@@ -1,22 +1,45 @@
-# Chrome Extension Deployment Guide
+# Chrome Extension Deployment & Update Guide
 
-Complete guide to deploy and publish the BulkDM Chrome Extension.
+Complete guide to deploy, update, and publish the BulkDM Chrome Extension.
 
 ## 🎯 Quick Start
 
-1. **Update URLs** for production (see `extension/UPDATE_URLS.md`)
+1. **Configure URLs** in `extension/config.js` (auto-detects production/local)
 2. **Build extension** using `extension/build.sh`
-3. **Publish to Chrome Web Store** (see `extension/CHROME_STORE_GUIDE.md`)
+3. **Publish to Chrome Web Store** (see Publishing Steps below)
 
 ## 📋 Pre-Deployment Checklist
 
-### 1. Update Extension URLs
+### 1. Configure Extension URLs
 
-Before building, update these files with your Netlify URLs:
+The extension uses `extension/config.js` for URL configuration. It supports:
+- **Auto-detection**: Automatically detects if production or localhost is available
+- **Manual mode**: Can be set to always use production or localhost
+- **Vercel support**: Pre-configured for Vercel deployments
 
-- ✅ `extension/popup.js` - Update `APP_URL` and `BACKEND_URL`
-- ✅ `extension/background.js` - Update `BACKEND_URL`
-- ✅ `extension/manifest.json` - Add Netlify domains to `host_permissions`
+**Current Configuration:**
+- Production URL: `https://instagram-dm-saas-h94m.vercel.app`
+- Local URL: `http://localhost:3000`
+
+**To update URLs**, edit `extension/config.js`:
+```javascript
+PRODUCTION: {
+  APP_URL: 'https://your-project.vercel.app',
+},
+LOCAL: {
+  APP_URL: 'http://localhost:3000',
+}
+```
+
+**Update `manifest.json`** to include your domain in `host_permissions`:
+```json
+"host_permissions": [
+  "https://www.instagram.com/*",
+  "https://instagram.com/*",
+  "https://your-project.vercel.app/*",
+  "https://*.vercel.app/*"
+]
+```
 
 ### 2. Test Locally
 
@@ -84,11 +107,43 @@ zip -r bulkdm-extension-v1.0.0.zip . -x "*.git*" "*.md" "*.DS_Store" "build.sh"
 
 ## 🔄 Updating Extension
 
-When you need to update:
+### Updating URLs for New Deployment
+
+If you've deployed to a new Vercel URL:
+
+1. **Update `extension/config.js`**:
+   ```javascript
+   PRODUCTION: {
+     APP_URL: 'https://your-new-project.vercel.app',
+   }
+   ```
+
+2. **Update `extension/manifest.json`**:
+   ```json
+   "host_permissions": [
+     "https://www.instagram.com/*",
+     "https://instagram.com/*",
+     "https://your-new-project.vercel.app/*",
+     "https://*.vercel.app/*"
+   ]
+   ```
+
+3. **Rebuild extension**:
+   ```bash
+   cd extension
+   ./build.sh
+   ```
+
+4. **Test locally**:
+   - Load unpacked extension in Chrome
+   - Test connection to new URL
+   - Verify cookies are transferred correctly
+
+### Publishing Updates to Chrome Web Store
 
 1. **Increment version** in `manifest.json`:
    ```json
-   "version": "1.0.1"
+   "version": "1.0.4"
    ```
 
 2. **Rebuild package**:
@@ -98,9 +153,10 @@ When you need to update:
    ```
 
 3. **Upload new version**:
-   - Go to extension in Developer Dashboard
+   - Go to [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole)
+   - Select your extension
    - Click "Package" → "Upload New Package"
-   - Upload new ZIP
+   - Upload new ZIP file
    - Submit for review
 
 ## 🔗 Integration with Frontend

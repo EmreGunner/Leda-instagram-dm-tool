@@ -62,11 +62,26 @@ export default function PrivacyPage() {
               To provide our services, we collect and store:
             </p>
             <ul className="list-disc list-inside text-foreground-muted space-y-2 mb-4">
-              <li>Instagram session cookies (encrypted)</li>
+              <li>Instagram session cookies (encrypted) - Required for authenticating with Instagram's API</li>
               <li>Instagram user ID and username</li>
               <li>Profile information (name, profile picture URL)</li>
               <li>Direct messages and conversations (stored securely)</li>
             </ul>
+
+            <h3 className="text-xl font-semibold text-foreground mb-3 mt-6">2.2.1 Chrome Extension Data Collection</h3>
+            <p className="text-foreground-muted leading-relaxed mb-4">
+              Our Chrome extension ("BulkDM - Instagram Session Grabber") facilitates easy account connection by:
+            </p>
+            <ul className="list-disc list-inside text-foreground-muted space-y-2 mb-4">
+              <li><strong>Reading Instagram Cookies:</strong> The extension accesses cookies from instagram.com when you click "Grab Instagram Session" while logged into Instagram in your browser</li>
+              <li><strong>Extracting Session Data:</strong> It extracts only the necessary authentication cookies (sessionid, csrftoken, ds_user_id, mid, ig_did, rur) required to authenticate with Instagram's API</li>
+              <li><strong>Transferring to Application:</strong> Cookies are securely transferred to the BulkDM web application via browser localStorage and are never transmitted to any third-party servers</li>
+              <li><strong>No Browsing History:</strong> The extension does not access, read, or store your browsing history, bookmarks, or any other personal data beyond Instagram authentication cookies</li>
+              <li><strong>Local Storage Only:</strong> Cookies are stored locally in your browser and in our encrypted database - they are never shared with external parties</li>
+            </ul>
+            <p className="text-foreground-muted leading-relaxed mb-4">
+              <strong>Important:</strong> The extension only accesses cookies when you explicitly click the "Grab Instagram Session" button. It does not run automatically or in the background. You must be logged into Instagram in your browser for the extension to work.
+            </p>
 
             <h3 className="text-xl font-semibold text-foreground mb-3 mt-6">2.3 Usage Data</h3>
             <p className="text-foreground-muted leading-relaxed mb-4">
