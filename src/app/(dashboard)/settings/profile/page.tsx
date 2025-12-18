@@ -115,12 +115,12 @@ export default function ProfilePage() {
 
       // Update profile
       await api.updateUserProfile({
-        firstName: formData.firstName || null,
-        lastName: formData.lastName || null,
-        phone: formData.phone || null,
+        firstName: formData.firstName || undefined,
+        lastName: formData.lastName || undefined,
+        phone: formData.phone || undefined,
         timezone: formData.timezone || 'America/New_York',
-        bio: formData.bio || null,
-        name: formData.name || `${formData.firstName} ${formData.lastName}`.trim() || null,
+        bio: formData.bio || undefined,
+        name: formData.name || `${formData.firstName} ${formData.lastName}`.trim() || undefined,
       });
 
       setSaveStatus('success');
