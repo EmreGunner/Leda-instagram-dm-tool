@@ -128,7 +128,7 @@ export default function HomePage() {
       name: 'Sarah Chen',
       role: 'E-commerce Founder',
       image: '👩‍💼',
-      content: 'BulkDM transformed how I manage customer inquiries. Response time dropped by 80% and customer satisfaction skyrocketed!',
+      content: 'Socialora transformed how I manage customer inquiries. Response time dropped by 80% and customer satisfaction skyrocketed!',
       rating: 5,
     },
     {
@@ -142,7 +142,7 @@ export default function HomePage() {
       name: 'Emily Rodriguez',
       role: 'Marketing Director',
       image: '👩‍💻',
-      content: 'Managing multiple Instagram accounts was a nightmare. BulkDM made it effortless with its unified inbox.',
+      content: 'Managing multiple Instagram accounts was a nightmare. Socialora made it effortless with its unified inbox.',
       rating: 5,
     },
   ];
@@ -165,10 +165,16 @@ export default function HomePage() {
                 <Instagram className="h-5 w-5 text-white" />
               </div>
               <span className="font-bold text-xl">
-                Bulk<span className="text-accent">DM</span>
+                Social<span className="text-accent">ora</span>
               </span>
             </div>
             <div className="flex items-center gap-4">
+              <Link href="/blog">
+                <Button variant="ghost" size="sm">Blog</Button>
+              </Link>
+              <Link href="/docs">
+                <Button variant="ghost" size="sm">Docs</Button>
+              </Link>
               <Link href="/login">
                 <Button variant="ghost" size="sm">
                   Sign In
@@ -283,7 +289,7 @@ export default function HomePage() {
               Get Started in <span className="text-accent">3 Simple Steps</span>
             </h2>
             <p className="text-lg text-foreground-muted max-w-2xl mx-auto">
-              Setting up BulkDM is quick and easy. Start managing your Instagram DMs like a pro in minutes.
+              Setting up Socialora is quick and easy. Start managing your Instagram DMs like a pro in minutes.
             </p>
           </div>
 
@@ -316,7 +322,7 @@ export default function HomePage() {
               Loved by <span className="text-accent">Thousands</span>
             </h2>
             <p className="text-lg text-foreground-muted max-w-2xl mx-auto">
-              See what our users are saying about BulkDM.
+              See what our users are saying about Socialora.
             </p>
           </div>
 
@@ -356,7 +362,7 @@ export default function HomePage() {
               Ready to Transform Your Instagram DMs?
             </h2>
             <p className="text-xl text-foreground-muted mb-8 max-w-2xl mx-auto">
-              Join thousands of creators and businesses using BulkDM to automate and scale their Instagram engagement.
+              Join thousands of creators and businesses using Socialora to automate and scale their Instagram engagement.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link href="/signup">
@@ -387,17 +393,18 @@ export default function HomePage() {
                 <Instagram className="h-4 w-4 text-white" />
               </div>
               <span className="font-bold text-lg">
-                DM<span className="text-accent">flow</span>
+                Social<span className="text-accent">ora</span>
               </span>
             </div>
             <div className="flex items-center gap-6 text-sm text-foreground-muted">
+              <Link href="/blog" className="hover:text-foreground transition-colors">Blog</Link>
               <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
               <Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link>
               <Link href="/support" className="hover:text-foreground transition-colors">Support</Link>
               <Link href="/docs" className="hover:text-foreground transition-colors">Docs</Link>
             </div>
             <p className="text-sm text-foreground-muted">
-              © 2024 BulkDM. All rights reserved.
+              © 2025 Socialora. All rights reserved.
             </p>
           </div>
         </div>

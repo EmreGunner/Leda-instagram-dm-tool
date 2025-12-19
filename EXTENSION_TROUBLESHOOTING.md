@@ -11,7 +11,7 @@ This error occurs when the extension cannot reach the backend through the fronte
 **CRITICAL**: The `NEXT_PUBLIC_BACKEND_URL` must be set in Netlify.
 
 1. Go to [Netlify Dashboard](https://app.netlify.com)
-2. Select your site: `bulkdm-saas`
+2. Select your site: `socialora`
 3. Go to **Site settings** → **Environment variables**
 4. Look for `NEXT_PUBLIC_BACKEND_URL`
 5. If it's **NOT there**, add it:
@@ -24,7 +24,7 @@ This error occurs when the extension cannot reach the backend through the fronte
 1. Go to [Railway Dashboard](https://railway.app)
 2. Open your backend service
 3. Go to **Settings** → **Networking**
-4. Find **Public Domain** (e.g., `https://bulkdm-backend-production.up.railway.app`)
+4. Find **Public Domain** (e.g., `https://socialora-backend-production.up.railway.app`)
 5. Copy the full URL (including `https://`)
 
 ### 3. 🔄 Redeploy Netlify
@@ -43,7 +43,7 @@ After Netlify redeploys, test if the proxy routes work:
 2. Go to **Console** tab
 3. Run this command:
    ```javascript
-   fetch('https://bulkdm-saas.netlify.app/api/proxy/instagram/cookie/verify', {
+   fetch('https://www.socialora.app/api/proxy/instagram/cookie/verify', {
      method: 'POST',
      headers: { 'Content-Type': 'application/json' },
      body: JSON.stringify({ cookies: {} })
@@ -78,7 +78,7 @@ cd extension
 
 Then reload the extension in Chrome:
 1. Go to `chrome://extensions/`
-2. Find "BulkDM - Instagram Session Grabber"
+2. Find "Socialora - Instagram Session Grabber"
 3. Click the refresh icon
 4. Test again
 
@@ -137,9 +137,9 @@ Then reload the extension in Chrome:
    - Check the response/error
 
 3. **Verify URLs**:
-   - Frontend: `https://bulkdm-saas.netlify.app`
+   - Frontend: `https://www.socialora.app`
    - Backend: Your Railway URL
-   - Proxy route: `https://bulkdm-saas.netlify.app/api/proxy/instagram/cookie/verify`
+   - Proxy route: `https://www.socialora.app/api/proxy/instagram/cookie/verify`
 
 4. **Contact Support**:
    - Share the error message from browser console

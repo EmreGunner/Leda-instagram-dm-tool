@@ -224,7 +224,7 @@ export default function InboxPage() {
       const supabase = createClient();
       
       // Get cookies from localStorage
-      const cookiesStr = localStorage.getItem(`bulkdm_cookies_${selectedAccount.igUserId}`);
+      const cookiesStr = localStorage.getItem(`socialora_cookies_${selectedAccount.igUserId}`);
       
       // Insert new message into database
       const { data: newMessage, error } = await supabase
@@ -405,7 +405,7 @@ export default function InboxPage() {
       const username = newDmUsername.replace('@', '').trim();
       
       // Get cookies from localStorage
-      const cookiesStr = localStorage.getItem(`bulkdm_cookies_${accountToUse.igUserId}`);
+      const cookiesStr = localStorage.getItem(`socialora_cookies_${accountToUse.igUserId}`);
       
       if (!cookiesStr) {
         toast.error('Session expired', {
@@ -717,7 +717,7 @@ export default function InboxPage() {
   // Get cookies helper
   const getCookies = () => {
     if (!selectedAccount) return null;
-    const cookiesStr = localStorage.getItem(`bulkdm_cookies_${selectedAccount.igUserId}`);
+    const cookiesStr = localStorage.getItem(`socialora_cookies_${selectedAccount.igUserId}`);
     return cookiesStr ? JSON.parse(cookiesStr) : null;
   };
 

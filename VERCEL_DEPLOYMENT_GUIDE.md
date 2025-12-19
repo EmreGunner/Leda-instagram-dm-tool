@@ -223,7 +223,7 @@ After deployment, update the extension to use your Vercel URL:
    - Go to `chrome://extensions/`
    - Enable "Developer mode"
    - Click "Load unpacked"
-   - Select `extension/bulkdm-extension-prod-v1.0.1/` folder
+   - Select `extension/socialora-extension-prod-v1.0.1/` folder
 
 ---
 

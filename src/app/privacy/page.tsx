@@ -14,7 +14,7 @@ export default function PrivacyPage() {
                 <Instagram className="h-4 w-4 text-white" />
               </div>
               <span className="font-bold text-lg">
-                Bulk<span className="text-accent">DM</span>
+                Social<span className="text-accent">ora</span>
               </span>
             </Link>
             <Link href="/">
@@ -36,10 +36,10 @@ export default function PrivacyPage() {
           <section className="mb-8">
             <h2 className="text-2xl font-semibold text-foreground mb-4">1. Introduction</h2>
             <p className="text-foreground-muted leading-relaxed mb-4">
-              Welcome to BulkDM ("we," "our," or "us"). We are committed to protecting your privacy and ensuring the security of your personal information. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our Instagram DM automation platform.
+              Welcome to Socialora ("we," "our," or "us"). We are committed to protecting your privacy and ensuring the security of your personal information. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our Instagram DM automation platform.
             </p>
             <p className="text-foreground-muted leading-relaxed">
-              By using BulkDM, you agree to the collection and use of information in accordance with this policy. If you do not agree with our policies and practices, please do not use our service.
+              By using Socialora, you agree to the collection and use of information in accordance with this policy. If you do not agree with our policies and practices, please do not use our service.
             </p>
           </section>
 
@@ -70,12 +70,12 @@ export default function PrivacyPage() {
 
             <h3 className="text-xl font-semibold text-foreground mb-3 mt-6">2.2.1 Chrome Extension Data Collection</h3>
             <p className="text-foreground-muted leading-relaxed mb-4">
-              Our Chrome extension ("BulkDM - Instagram Session Grabber") facilitates easy account connection by:
+              Our Chrome extension ("Socialora - Instagram Session Grabber") facilitates easy account connection by:
             </p>
             <ul className="list-disc list-inside text-foreground-muted space-y-2 mb-4">
               <li><strong>Reading Instagram Cookies:</strong> The extension accesses cookies from instagram.com when you click "Grab Instagram Session" while logged into Instagram in your browser</li>
               <li><strong>Extracting Session Data:</strong> It extracts only the necessary authentication cookies (sessionid, csrftoken, ds_user_id, mid, ig_did, rur) required to authenticate with Instagram's API</li>
-              <li><strong>Transferring to Application:</strong> Cookies are securely transferred to the BulkDM web application via browser localStorage and are never transmitted to any third-party servers</li>
+              <li><strong>Transferring to Application:</strong> Cookies are securely transferred to the Socialora web application via browser localStorage and are never transmitted to any third-party servers</li>
               <li><strong>No Browsing History:</strong> The extension does not access, read, or store your browsing history, bookmarks, or any other personal data beyond Instagram authentication cookies</li>
               <li><strong>Local Storage Only:</strong> Cookies are stored locally in your browser and in our encrypted database - they are never shared with external parties</li>
             </ul>
@@ -223,7 +223,7 @@ export default function PrivacyPage() {
             </p>
             <div className="bg-background-elevated rounded-lg p-6 border border-border">
               <p className="text-foreground-muted">
-                <strong className="text-foreground">Email:</strong> privacy@bulkdm.com
+                <strong className="text-foreground">Email:</strong> digital@socialora.app
               </p>
               <p className="text-foreground-muted mt-2">
                 <strong className="text-foreground">Support:</strong> <Link href="/support" className="text-accent hover:underline">Visit Support Page</Link>
@@ -242,7 +242,7 @@ export default function PrivacyPage() {
                 <Instagram className="h-4 w-4 text-white" />
               </div>
               <span className="font-bold text-lg">
-                Bulk<span className="text-accent">DM</span>
+                Social<span className="text-accent">ora</span>
               </span>
             </div>
             <div className="flex items-center gap-6 text-sm text-foreground-muted">
@@ -251,7 +251,7 @@ export default function PrivacyPage() {
               <Link href="/support" className="hover:text-foreground transition-colors">Support</Link>
             </div>
             <p className="text-sm text-foreground-muted">
-              © 2024 BulkDM. All rights reserved.
+              © 2025 Socialora. All rights reserved.
             </p>
           </div>
         </div>

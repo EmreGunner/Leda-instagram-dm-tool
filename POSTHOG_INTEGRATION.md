@@ -1,6 +1,6 @@
 # PostHog Analytics Integration
 
-PostHog has been successfully integrated into the BulkDM application for comprehensive analytics tracking.
+PostHog has been successfully integrated into the Socialora application for comprehensive analytics tracking.
 
 ## ✅ What's Been Integrated
 

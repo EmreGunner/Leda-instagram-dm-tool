@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "BulkDM - Instagram Session Grabber",
+  "name": "Socialora - Instagram Session Grabber",
   "version": "1.0.3",
-  "description": "Automatically connect your Instagram account to BulkDM with one click",
+  "description": "Automatically connect your Instagram account to Socialora with one click",
   "permissions": [
     "cookies",
     "activeTab",
@@ -16,7 +16,8 @@
     "http://localhost:3001/*",
     "https://instagram-dm-saas-h94m.vercel.app/*",
     "https://*.vercel.app/*",
-    "https://bulkdm-saas.netlify.app/*",
+    "https://www.socialora.app/*",
+    "https://socialora.app/*",
     "https://*.netlify.app/*",
     "https://*.netlify.com/*"
   ],
@@ -39,7 +40,8 @@
   "content_scripts": [
     {
       "matches": [
-        "https://instagram-dm-saas-h94m.vercel.app/*",
+        "https://www.socialora.app/*",
+        "https://socialora.app/*",
         "https://*.vercel.app/*",
         "http://localhost:3000/*",
         "http://localhost:3001/*"

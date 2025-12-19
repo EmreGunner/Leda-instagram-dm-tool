@@ -1,6 +1,6 @@
 # Chrome Extension Deployment & Update Guide
 
-Complete guide to deploy, update, and publish the BulkDM Chrome Extension.
+Complete guide to deploy, update, and publish the Socialora Chrome Extension.
 
 ## 🎯 Quick Start
 
@@ -59,7 +59,7 @@ cd extension
 cd extension
 ./build.sh
 # Or manually:
-zip -r bulkdm-extension-v1.0.0.zip . -x "*.git*" "*.md" "*.DS_Store" "build.sh"
+zip -r socialora-extension-v1.0.0.zip . -x "*.git*" "*.md" "*.DS_Store" "build.sh"
 ```
 
 ## 🚀 Publishing Steps
@@ -73,15 +73,15 @@ zip -r bulkdm-extension-v1.0.0.zip . -x "*.git*" "*.md" "*.DS_Store" "build.sh"
 ### Step 2: Upload Extension
 
 1. Click "New Item" in Developer Dashboard
-2. Upload your ZIP file (`bulkdm-extension-v1.0.0.zip`)
+2. Upload your ZIP file (`socialora-extension-v1.0.0.zip`)
 3. Wait for upload to complete
 
 ### Step 3: Fill Store Listing
 
 **Required Information:**
 
-- **Name**: `BulkDM - Instagram Session Grabber`
-- **Summary**: `One-click Instagram account connection for BulkDM`
+- **Name**: `Socialora - Instagram Session Grabber`
+- **Summary**: `One-click Instagram account connection for Socialora`
 - **Description**: See `extension/CHROME_STORE_GUIDE.md` for template
 - **Category**: `Productivity`
 - **Language**: `English (United States)`
@@ -229,7 +229,7 @@ Create `/privacy` page on your frontend:
 export default function PrivacyPage() {
   return (
     <div>
-      <h1>Privacy Policy - BulkDM Extension</h1>
+      <h1>Privacy Policy - Socialora Extension</h1>
       
       <section>
         <h2>1. Data Collection</h2>
@@ -243,7 +243,7 @@ export default function PrivacyPage() {
       
       <section>
         <h2>3. Data Storage</h2>
-        <p>The extension does not store any user data. All data is stored securely in your BulkDM account.</p>
+        <p>The extension does not store any user data. All data is stored securely in your Socialora account.</p>
       </section>
       
       <section>

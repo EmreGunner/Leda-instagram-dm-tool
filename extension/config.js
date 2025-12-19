@@ -1,4 +1,4 @@
-// BulkDM Extension Configuration
+// Socialora Extension Configuration
 // Single source of truth for all URLs and settings
 
 const CONFIG = {
@@ -7,9 +7,9 @@ const CONFIG = {
   
   // Production URLs (Vercel deployment)
   PRODUCTION: {
-    APP_URL: 'https://instagram-dm-saas-h94m.vercel.app',
+    APP_URL: 'https://www.socialora.app',
     // Since we're using Next.js API routes, backend is on the same domain
-    BACKEND_URL: 'https://instagram-dm-saas-h94m.vercel.app',
+    BACKEND_URL: 'https://www.socialora.app',
   },
   
   // Development URLs (localhost)

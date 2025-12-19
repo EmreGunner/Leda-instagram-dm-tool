@@ -6,7 +6,7 @@ export default function SupportPage() {
   const faqs = [
     {
       question: "How do I connect my Instagram account?",
-      answer: "You can connect your Instagram account in three ways: 1) Use our Direct Login feature (recommended) - just click 'Connect with Direct Login' and follow the prompts. 2) Use the BulkDM Chrome Extension - install the extension, go to Instagram, and click 'Grab Instagram Session'. 3) Manually enter your cookies in Settings > Instagram Accounts."
+      answer: "You can connect your Instagram account in three ways: 1) Use our Direct Login feature (recommended) - just click 'Connect with Direct Login' and follow the prompts. 2) Use the Socialora Chrome Extension - install the extension, go to Instagram, and click 'Grab Instagram Session'. 3) Manually enter your cookies in Settings > Instagram Accounts."
     },
     {
       question: "Is my Instagram account safe?",
@@ -14,7 +14,7 @@ export default function SupportPage() {
     },
     {
       question: "Can I use multiple Instagram accounts?",
-      answer: "Absolutely! You can connect multiple Instagram accounts to your BulkDM workspace. Each account is managed separately, and you can switch between them easily from the Settings page."
+      answer: "Absolutely! You can connect multiple Instagram accounts to your Socialora workspace. Each account is managed separately, and you can switch between them easily from the Settings page."
     },
     {
       question: "How does the AI automation work?",
@@ -30,7 +30,7 @@ export default function SupportPage() {
     },
     {
       question: "What happens if my Instagram account gets suspended?",
-      answer: "If your Instagram account is suspended, you'll need to resolve the issue with Instagram directly. Once resolved, you can reconnect your account to BulkDM. We recommend following Instagram's Community Guidelines and using our rate limiting features to prevent suspensions."
+      answer: "If your Instagram account is suspended, you'll need to resolve the issue with Instagram directly. Once resolved, you can reconnect your account to Socialora. We recommend following Instagram's Community Guidelines and using our rate limiting features to prevent suspensions."
     },
     {
       question: "How do I export my data?",
@@ -44,7 +44,7 @@ export default function SupportPage() {
       title: "Email Support",
       description: "Get help via email",
       action: "Send us an email",
-      href: "mailto:support@bulkdm.com"
+      href: "mailto:support@socialora.app"
     },
     {
       icon: MessageCircle,
@@ -80,7 +80,7 @@ export default function SupportPage() {
                 <Instagram className="h-4 w-4 text-white" />
               </div>
               <span className="font-bold text-lg">
-                Bulk<span className="text-accent">DM</span>
+                Social<span className="text-accent">ora</span>
               </span>
             </Link>
             <Link href="/">
@@ -165,7 +165,7 @@ export default function SupportPage() {
                 <div className="text-sm text-foreground-muted">Read our terms and conditions</div>
               </div>
             </Link>
-            <a href="mailto:support@bulkdm.com" className="flex items-center gap-3 p-4 rounded-lg hover:bg-background-secondary transition-colors">
+            <a href="mailto:support@socialora.app" className="flex items-center gap-3 p-4 rounded-lg hover:bg-background-secondary transition-colors">
               <Mail className="h-5 w-5 text-accent" />
               <div>
                 <div className="font-medium text-foreground">Contact Support</div>
@@ -208,7 +208,7 @@ export default function SupportPage() {
               Our support team is here to help you. Reach out to us and we'll get back to you as soon as possible.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <a href="mailto:support@bulkdm.com">
+              <a href="mailto:support@socialora.app">
                 <Button size="lg">
                   <Mail className="h-5 w-5 mr-2" />
                   Email Support
@@ -233,7 +233,7 @@ export default function SupportPage() {
                 <Instagram className="h-4 w-4 text-white" />
               </div>
               <span className="font-bold text-lg">
-                Bulk<span className="text-accent">DM</span>
+                Social<span className="text-accent">ora</span>
               </span>
             </div>
             <div className="flex items-center gap-6 text-sm text-foreground-muted">
@@ -242,7 +242,7 @@ export default function SupportPage() {
               <Link href="/support" className="hover:text-foreground transition-colors">Support</Link>
             </div>
             <p className="text-sm text-foreground-muted">
-              © 2024 BulkDM. All rights reserved.
+              © 2025 Socialora. All rights reserved.
             </p>
           </div>
         </div>

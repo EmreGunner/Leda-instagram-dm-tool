@@ -84,7 +84,7 @@ export default function InstagramSettingsPage() {
     const accountsWithValidCookies = new Set<string>();
     
     accountsList.forEach(account => {
-      const cookiesStr = localStorage.getItem(`bulkdm_cookies_${account.igUserId}`);
+      const cookiesStr = localStorage.getItem(`socialora_cookies_${account.igUserId}`);
       console.log(`Checking cookies for account ${account.igUsername} (ID: ${account.igUserId}):`, cookiesStr ? 'FOUND' : 'NOT FOUND');
       if (cookiesStr) {
         try {
@@ -139,7 +139,7 @@ export default function InstagramSettingsPage() {
       const accountsWithValidCookies = new Set<string>();
       for (const acc of data || []) {
         // Check if cookies exist in localStorage for this account
-        const localStorageKey = `bulkdm_cookies_${acc.ig_user_id}`;
+        const localStorageKey = `socialora_cookies_${acc.ig_user_id}`;
         const cookiesStr = localStorage.getItem(localStorageKey);
         
         if (cookiesStr) {
@@ -180,7 +180,7 @@ export default function InstagramSettingsPage() {
       
       // If cookies are in the event, save them
       if (cookies && userId) {
-        const localStorageKey = `bulkdm_cookies_${userId}`;
+        const localStorageKey = `socialora_cookies_${userId}`;
         localStorage.setItem(localStorageKey, JSON.stringify(cookies));
         console.log('✓ Cookies saved from event to localStorage');
       }
@@ -193,7 +193,7 @@ export default function InstagramSettingsPage() {
     
     // Listen for storage events (when localStorage is updated)
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key && e.key.startsWith('bulkdm_cookies_')) {
+      if (e.key && e.key.startsWith('socialora_cookies_')) {
         console.log('Storage event detected for cookies:', e.key);
         setTimeout(() => {
           fetchAccounts();
@@ -203,11 +203,11 @@ export default function InstagramSettingsPage() {
     
     // Listen for window messages (fallback communication)
     const handleMessage = (event: MessageEvent) => {
-      if (event.data && event.data.type === 'BULKDM_COOKIES_SAVED') {
+      if (event.data && event.data.type === 'SOCIALORA_COOKIES_SAVED') {
         console.log('Received cookies via postMessage:', event.data);
         const { userId, cookies } = event.data;
         if (cookies && userId) {
-          const localStorageKey = `bulkdm_cookies_${userId}`;
+          const localStorageKey = `socialora_cookies_${userId}`;
           localStorage.setItem(localStorageKey, JSON.stringify(cookies));
           console.log('✓ Cookies saved from postMessage to localStorage');
           setTimeout(() => {
@@ -217,12 +217,12 @@ export default function InstagramSettingsPage() {
       }
     };
     
-    window.addEventListener('bulkdm_cookies_saved', handleCookiesSaved as EventListener);
+    window.addEventListener('socialora_cookies_saved', handleCookiesSaved as EventListener);
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('message', handleMessage);
     
     return () => {
-      window.removeEventListener('bulkdm_cookies_saved', handleCookiesSaved as EventListener);
+      window.removeEventListener('socialora_cookies_saved', handleCookiesSaved as EventListener);
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('message', handleMessage);
     };
@@ -310,7 +310,7 @@ export default function InstagramSettingsPage() {
     }
 
     // Cookies are already in localStorage (transferred by extension)
-    console.log(`✓ Cookies already in localStorage (key: bulkdm_cookies_${igUserId})`);
+    console.log(`✓ Cookies already in localStorage (key: socialora_cookies_${igUserId})`);
     
     // Show success message
     if (saveSuccess) {
@@ -351,7 +351,7 @@ export default function InstagramSettingsPage() {
           console.log('Received Instagram user ID from extension:', igUserId);
           
           // Check if cookies exist in localStorage (transferred by extension script)
-          const localStorageKey = `bulkdm_cookies_${igUserId}`;
+          const localStorageKey = `socialora_cookies_${igUserId}`;
           let cookiesStr = localStorage.getItem(localStorageKey);
           
           if (!cookiesStr) {
@@ -410,7 +410,7 @@ export default function InstagramSettingsPage() {
           console.log('Received account data from extension (legacy format):', accountData);
           
           // Save cookies to localStorage
-          const localStorageKey = `bulkdm_cookies_${accountData.pk}`;
+          const localStorageKey = `socialora_cookies_${accountData.pk}`;
           if (accountData.cookies) {
             localStorage.setItem(localStorageKey, JSON.stringify(accountData.cookies));
           }
@@ -514,7 +514,7 @@ export default function InstagramSettingsPage() {
     // Open Instagram in a new tab and show instructions to use the extension
     window.open('https://www.instagram.com/', '_blank');
     toast.info('Reconnect Instructions', {
-      description: `To reconnect @${account.igUsername}:\n\n1. Make sure you're logged in to @${account.igUsername} on Instagram\n2. Click the BulkDM extension icon\n3. Click "Grab Instagram Session"\n\nYour cookies will be updated automatically.`,
+      description: `To reconnect @${account.igUsername}:\n\n1. Make sure you're logged in to @${account.igUsername} on Instagram\n2. Click the Socialora extension icon\n3. Click "Grab Instagram Session"\n\nYour cookies will be updated automatically.`,
       duration: 8000,
     });
   };
@@ -676,7 +676,7 @@ export default function InstagramSettingsPage() {
         }
 
         // Always save cookies to localStorage for quick access (regardless of DB save result)
-        localStorage.setItem(`bulkdm_cookies_${data.account.pk}`, JSON.stringify(cookies));
+        localStorage.setItem(`socialora_cookies_${data.account.pk}`, JSON.stringify(cookies));
 
         if (savedAccount) {
           const newAccount: InstagramAccount = {
@@ -1422,7 +1422,7 @@ export default function InstagramSettingsPage() {
                 <div className="flex-1">
                   <h3 className="font-medium text-foreground mb-1">Click Extension → Grab Session</h3>
                   <p className="text-sm text-foreground-muted">
-                    While on Instagram, click the BulkDM extension icon and hit &quot;Grab Instagram Session&quot;. 
+                    While on Instagram, click the Socialora extension icon and hit &quot;Grab Instagram Session&quot;. 
                     Your account connects automatically! 🎉
                   </p>
                 </div>

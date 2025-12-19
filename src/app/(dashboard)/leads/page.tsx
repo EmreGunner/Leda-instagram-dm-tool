@@ -321,8 +321,8 @@ export default function LeadsPage() {
     }
     // Try different possible cookie keys
     const possibleKeys = [
-      `bulkdm_cookies_${selectedAccount.igUserId}`,
-      `bulkdm_cookies_${selectedAccount.igUsername}`,
+      `socialora_cookies_${selectedAccount.igUserId}`,
+      `socialora_cookies_${selectedAccount.igUsername}`,
       `instagram_cookies_${selectedAccount.igUserId}`,
     ];
     
@@ -334,7 +334,7 @@ export default function LeadsPage() {
       }
     }
     
-    console.log('getCookies: No cookies found. Available keys:', Object.keys(localStorage).filter(k => k.includes('cookie') || k.includes('bulkdm')));
+    console.log('getCookies: No cookies found. Available keys:', Object.keys(localStorage).filter(k => k.includes('cookie') || k.includes('socialora')));
     return null;
   };
   

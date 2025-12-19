@@ -1,6 +1,6 @@
-# Supabase Email Templates for BulkDM
+# Supabase Email Templates for Socialora
 
-Custom branded email templates for Supabase authentication emails. These templates match the BulkDM theme with purple/pink gradient branding.
+Custom branded email templates for Supabase authentication emails. These templates match the Socialora theme with purple/pink gradient branding.
 
 ## 📧 Available Templates
 
@@ -30,7 +30,7 @@ Custom branded email templates for Supabase authentication emails. These templat
 
 ## 1. Confirmation Email (Signup)
 
-**Subject:** `Welcome to BulkDM - Confirm Your Email`
+**Subject:** `Welcome to Socialora - Confirm Your Email`
 
 **HTML Template:**
 
@@ -54,7 +54,7 @@ Custom branded email templates for Supabase authentication emails. These templat
                 📨
               </div>
               <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">
-                Welcome to BulkDM!
+                Welcome to Socialora!
               </h1>
               <p style="margin: 12px 0 0; color: #a0a0a0; font-size: 16px;">
                 Instagram DM Automation Platform
@@ -69,7 +69,7 @@ Custom branded email templates for Supabase authentication emails. These templat
                 Confirm Your Email Address
               </h2>
               <p style="margin: 0 0 24px; color: #d0d0d0; font-size: 16px; line-height: 1.6;">
-                Thanks for signing up! Please confirm your email address to get started with BulkDM. Click the button below to verify your account.
+                Thanks for signing up! Please confirm your email address to get started with Socialora. Click the button below to verify your account.
               </p>
               
               <!-- CTA Button -->
@@ -107,7 +107,7 @@ Custom branded email templates for Supabase authentication emails. These templat
                 If you didn't create an account, you can safely ignore this email.
               </p>
               <p style="margin: 16px 0 0; color: #666666; font-size: 12px; text-align: center;">
-                © 2024 BulkDM. All rights reserved.
+                © 2025 Socialora. All rights reserved.
               </p>
             </td>
           </tr>
@@ -123,7 +123,7 @@ Custom branded email templates for Supabase authentication emails. These templat
 
 ## 2. Magic Link Email
 
-**Subject:** `Your BulkDM Magic Link`
+**Subject:** `Your Socialora Magic Link`
 
 **HTML Template:**
 
@@ -150,7 +150,7 @@ Custom branded email templates for Supabase authentication emails. These templat
                 Your Magic Link
               </h1>
               <p style="margin: 12px 0 0; color: #a0a0a0; font-size: 16px;">
-                Passwordless login to BulkDM
+                Passwordless login to Socialora
               </p>
             </td>
           </tr>
@@ -162,7 +162,7 @@ Custom branded email templates for Supabase authentication emails. These templat
                 Click to Sign In
               </h2>
               <p style="margin: 0 0 24px; color: #d0d0d0; font-size: 16px; line-height: 1.6;">
-                Click the button below to securely sign in to your BulkDM account. No password needed!
+                Click the button below to securely sign in to your Socialora account. No password needed!
               </p>
               
               <!-- CTA Button -->
@@ -170,7 +170,7 @@ Custom branded email templates for Supabase authentication emails. These templat
                 <tr>
                   <td align="center">
                     <a href="{{ .ConfirmationURL }}" style="display: inline-block; padding: 16px 32px; background: linear-gradient(45deg, #a855f7, #ec4899); color: #ffffff; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 12px rgba(168, 85, 247, 0.4);">
-                      Sign In to BulkDM
+                      Sign In to Socialora
                     </a>
                   </td>
                 </tr>
@@ -200,7 +200,7 @@ Custom branded email templates for Supabase authentication emails. These templat
                 If you didn't request this link, you can safely ignore this email.
               </p>
               <p style="margin: 16px 0 0; color: #666666; font-size: 12px; text-align: center;">
-                © 2024 BulkDM. All rights reserved.
+                © 2025 Socialora. All rights reserved.
               </p>
             </td>
           </tr>
@@ -216,7 +216,7 @@ Custom branded email templates for Supabase authentication emails. These templat
 
 ## 3. Recovery Email (Password Reset)
 
-**Subject:** `Reset Your BulkDM Password`
+**Subject:** `Reset Your Socialora Password`
 
 **HTML Template:**
 
@@ -243,7 +243,7 @@ Custom branded email templates for Supabase authentication emails. These templat
                 Reset Your Password
               </h1>
               <p style="margin: 12px 0 0; color: #a0a0a0; font-size: 16px;">
-                BulkDM Account Security
+                Socialora Account Security
               </p>
             </td>
           </tr>
@@ -299,7 +299,7 @@ Custom branded email templates for Supabase authentication emails. These templat
                 For security reasons, password reset links expire quickly.
               </p>
               <p style="margin: 16px 0 0; color: #666666; font-size: 12px; text-align: center;">
-                © 2024 BulkDM. All rights reserved.
+                © 2025 Socialora. All rights reserved.
               </p>
             </td>
           </tr>
@@ -315,7 +315,7 @@ Custom branded email templates for Supabase authentication emails. These templat
 
 ## 4. Invite Email
 
-**Subject:** `You've been invited to BulkDM`
+**Subject:** `You've been invited to Socialora`
 
 **HTML Template:**
 
@@ -342,7 +342,7 @@ Custom branded email templates for Supabase authentication emails. These templat
                 You've been invited!
               </h1>
               <p style="margin: 12px 0 0; color: #a0a0a0; font-size: 16px;">
-                Join BulkDM and start automating your Instagram DMs
+                Join Socialora and start automating your Instagram DMs
               </p>
             </td>
           </tr>
@@ -354,7 +354,7 @@ Custom branded email templates for Supabase authentication emails. These templat
                 Welcome to the Team
               </h2>
               <p style="margin: 0 0 24px; color: #d0d0d0; font-size: 16px; line-height: 1.6;">
-                You've been invited to join BulkDM at {{ .SiteURL }}. Click the button below to accept the invitation and create your account.
+                You've been invited to join Socialora at {{ .SiteURL }}. Click the button below to accept the invitation and create your account.
               </p>
               
               <!-- CTA Button -->
@@ -392,7 +392,7 @@ Custom branded email templates for Supabase authentication emails. These templat
                 If you weren't expecting this invitation, you can safely ignore this email.
               </p>
               <p style="margin: 16px 0 0; color: #666666; font-size: 12px; text-align: center;">
-                © 2024 BulkDM. All rights reserved.
+                © 2025 Socialora. All rights reserved.
               </p>
             </td>
           </tr>
@@ -435,7 +435,7 @@ Custom branded email templates for Supabase authentication emails. These templat
                 Confirm Email Change
               </h1>
               <p style="margin: 12px 0 0; color: #a0a0a0; font-size: 16px;">
-                Update your BulkDM account email
+                Update your Socialora account email
               </p>
             </td>
           </tr>
@@ -484,7 +484,7 @@ Custom branded email templates for Supabase authentication emails. These templat
                 Your email will remain unchanged until you confirm.
               </p>
               <p style="margin: 16px 0 0; color: #666666; font-size: 12px; text-align: center;">
-                © 2024 BulkDM. All rights reserved.
+                © 2025 Socialora. All rights reserved.
               </p>
             </td>
           </tr>
@@ -515,7 +515,7 @@ Custom branded email templates for Supabase authentication emails. These templat
 
 ## 🎨 Template Features
 
-- ✅ Dark theme matching BulkDM branding
+- ✅ Dark theme matching Socialora branding
 - ✅ Purple/Pink gradient buttons
 - ✅ Responsive design (mobile-friendly)
 - ✅ Alternative OTP code display

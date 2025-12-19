@@ -14,7 +14,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BulkDM - Instagram DM Automation",
+  title: "Socialora - Instagram DM Automation",
   description: "Automate your Instagram DMs with AI-powered conversations. Scale outreach, manage conversations effortlessly, and convert more leads.",
   keywords: ["Instagram", "DM automation", "social media", "marketing", "AI"],
 };

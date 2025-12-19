@@ -203,7 +203,7 @@ export default function LoginPage() {
           {/* Testimonial */}
           <div className="bg-background-elevated/50 backdrop-blur-sm rounded-2xl p-6 border border-border/50">
             <p className="text-foreground mb-4 italic">
-              &ldquo;BulkDM helped us 10x our influencer outreach. We went from 50 to 500+ conversations per week without hiring anyone.&rdquo;
+              &ldquo;Socialora helped us 10x our influencer outreach. We went from 50 to 500+ conversations per week without hiring anyone.&rdquo;
             </p>
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-full bg-gradient-to-br from-accent to-pink-500" />

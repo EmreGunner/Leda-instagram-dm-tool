@@ -1,16 +1,16 @@
 #!/bin/bash
 
-# Build script for BulkDM Chrome Extension
+# Build script for Socialora Chrome Extension
 # Creates a unified ZIP file that works for both LOCAL and PRODUCTION
 
-echo "🚀 Building BulkDM Chrome Extension..."
+echo "🚀 Building Socialora Chrome Extension..."
 
 # Get version from manifest.json
 VERSION=$(grep -o '"version": "[^"]*"' manifest.json | cut -d'"' -f4)
 
 # Clean previous builds
 rm -rf build
-rm -f bulkdm-extension-v*.zip
+rm -f socialora-extension-v*.zip
 
 echo ""
 echo "📦 Building unified extension..."
@@ -30,7 +30,7 @@ cp -r icons build/
 
 # Create unified ZIP
 cd build
-ZIP_NAME="bulkdm-extension-v${VERSION}.zip"
+ZIP_NAME="socialora-extension-v${VERSION}.zip"
 zip -r "../$ZIP_NAME" . -x "*.DS_Store" "*.git*"
 cd ..
 

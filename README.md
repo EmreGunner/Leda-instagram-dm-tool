@@ -1,8 +1,8 @@
-# BulkDM - Instagram DM Automation SaaS Platform
+# Socialora - Instagram DM Automation SaaS Platform
 
 <div align="center">
 
-![BulkDM Logo](https://img.shields.io/badge/BulkDM-Instagram%20DM%20Automation-purple?style=for-the-badge&logo=instagram)
+![Socialora Logo](https://img.shields.io/badge/Socialora-Instagram%20DM%20Automation-purple?style=for-the-badge&logo=instagram)
 
 **Automate and scale your Instagram direct messages with AI-powered features**
 
@@ -34,7 +34,7 @@
 
 ## 🎯 Overview
 
-**BulkDM** is a comprehensive SaaS platform designed to help businesses, creators, and agencies automate and manage Instagram direct messages at scale. With AI-powered features, multi-account support, and advanced campaign management, BulkDM streamlines your Instagram outreach and engagement.
+**Socialora** is a comprehensive SaaS platform designed to help businesses, creators, and agencies automate and manage Instagram direct messages at scale. With AI-powered features, multi-account support, and advanced campaign management, Socialora streamlines your Instagram outreach and engagement.
 
 ### Key Benefits
 
@@ -129,7 +129,7 @@ npm run prisma:migrate:dev
 npm run dev
 ```
 
-Visit `http://localhost:3000` and start using BulkDM!
+Visit `http://localhost:3000` and start using Socialora!
 
 > ⚠️ **Important**: Make sure to set `DATABASE_URL` in your `.env.local` file. Without it, the application will fail with Prisma errors.
 
@@ -179,7 +179,7 @@ npm run prisma:studio
 ```bash
 cd extension
 ./build.sh
-# Extract bulkdm-extension-local-v1.0.1.zip
+# Extract socialora-extension-local-v1.0.1.zip
 # Load in Chrome as unpacked extension
 ```
 
@@ -187,7 +187,7 @@ cd extension
 ```bash
 cd extension
 ./build.sh
-# Use bulkdm-extension-prod-v1.0.1.zip for Chrome Web Store
+# Use socialora-extension-prod-v1.0.1.zip for Chrome Web Store
 ```
 
 ## ⚙️ Configuration
@@ -260,7 +260,7 @@ NEXT_PUBLIC_POSTHOG_HOST="https://us.i.posthog.com"
 
 ### Connecting Instagram Accounts
 
-BulkDM offers three methods to connect Instagram accounts:
+Socialora offers three methods to connect Instagram accounts:
 
 #### Method 1: Direct Login (Recommended) ⭐
 
@@ -273,7 +273,7 @@ BulkDM offers three methods to connect Instagram accounts:
 
 #### Method 2: Chrome Extension
 
-1. Install BulkDM Chrome Extension
+1. Install Socialora Chrome Extension
 2. Go to **Settings → Instagram Accounts**
 3. Click **"Connect with Extension"**
 4. Open Instagram and click extension icon
@@ -287,7 +287,7 @@ BulkDM offers three methods to connect Instagram accounts:
 2. Click **"Connect with Cookies"**
 3. Open Instagram in browser
 4. Extract cookies from Developer Tools
-5. Paste into BulkDM
+5. Paste into Socialora
 
 **Benefits**: Full control, works without extension
 
@@ -366,7 +366,7 @@ cd extension
 ./build.sh
 
 # Test locally
-# 1. Extract bulkdm-extension-local-v1.0.1.zip
+# 1. Extract socialora-extension-local-v1.0.1.zip
 # 2. Load in Chrome as unpacked extension
 # 3. Make changes to source files
 # 4. Reload extension in chrome://extensions/
@@ -460,7 +460,7 @@ See detailed guide: [`VERCEL_DEPLOYMENT_GUIDE.md`](./VERCEL_DEPLOYMENT_GUIDE.md)
 See detailed guide: [`EXTENSION_DEPLOYMENT.md`](./EXTENSION_DEPLOYMENT.md)
 
 1. Build production version: `cd extension && ./build.sh`
-2. Upload `bulkdm-extension-prod-v1.0.1.zip` to Chrome Web Store
+2. Upload `socialora-extension-prod-v1.0.1.zip` to Chrome Web Store
 3. Fill in store listing details
 4. Submit for review
 
@@ -498,7 +498,7 @@ See detailed guide: [`EXTENSION_DEPLOYMENT.md`](./EXTENSION_DEPLOYMENT.md)
 - 📖 **Documentation**: Visit `/docs` for detailed guides
 - 💬 **Support Page**: Visit `/support` for FAQs and contact options
 - 🐛 **Issues**: Open an issue on [GitHub Issues](https://github.com/your-username/instagram-dm-saas/issues)
-- 📧 **Email**: support@bulkdm.com
+- 📧 **Email**: support@socialora.app
 
 ### Common Issues
 
@@ -567,9 +567,9 @@ We welcome contributions! Here's how you can help:
 
 <div align="center">
 
-**Built with ❤️ by the BulkDM team**
+**Built with ❤️ by the Socialora team**
 
-[Website](https://bulkdm.com) • [Documentation](/docs) • [Support](/support) • [GitHub](https://github.com/your-username/instagram-dm-saas)
+[Website](https://www.socialora.app) • [Documentation](/docs) • [Support](/support) • [GitHub](https://github.com/your-username/instagram-dm-saas)
 
 ⭐ Star us on GitHub if you find this project helpful!
 

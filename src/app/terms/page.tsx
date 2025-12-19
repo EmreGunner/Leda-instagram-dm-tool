@@ -14,7 +14,7 @@ export default function TermsPage() {
                 <Instagram className="h-4 w-4 text-white" />
               </div>
               <span className="font-bold text-lg">
-                Bulk<span className="text-accent">DM</span>
+                Social<span className="text-accent">ora</span>
               </span>
             </Link>
             <Link href="/">
@@ -36,17 +36,17 @@ export default function TermsPage() {
           <section className="mb-8">
             <h2 className="text-2xl font-semibold text-foreground mb-4">1. Acceptance of Terms</h2>
             <p className="text-foreground-muted leading-relaxed mb-4">
-              By accessing and using BulkDM ("the Service"), you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.
+              By accessing and using Socialora ("the Service"), you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.
             </p>
             <p className="text-foreground-muted leading-relaxed">
-              These Terms of Service ("Terms") govern your access to and use of BulkDM's Instagram DM automation platform. Please read these Terms carefully before using our Service.
+              These Terms of Service ("Terms") govern your access to and use of Socialora's Instagram DM automation platform. Please read these Terms carefully before using our Service.
             </p>
           </section>
 
           <section className="mb-8">
             <h2 className="text-2xl font-semibold text-foreground mb-4">2. Description of Service</h2>
             <p className="text-foreground-muted leading-relaxed mb-4">
-              BulkDM is a software-as-a-service platform that enables users to:
+              Socialora is a software-as-a-service platform that enables users to:
             </p>
             <ul className="list-disc list-inside text-foreground-muted space-y-2 mb-4">
               <li>Manage Instagram direct messages through a unified inbox</li>
@@ -122,7 +122,7 @@ export default function TermsPage() {
             
             <h3 className="text-xl font-semibold text-foreground mb-3 mt-6">6.1 Our Rights</h3>
             <p className="text-foreground-muted leading-relaxed mb-4">
-              The Service and its original content, features, and functionality are owned by BulkDM and are protected by international copyright, trademark, patent, trade secret, and other intellectual property laws.
+              The Service and its original content, features, and functionality are owned by Socialora and are protected by international copyright, trademark, patent, trade secret, and other intellectual property laws.
             </p>
 
             <h3 className="text-xl font-semibold text-foreground mb-3 mt-6">6.2 Your Content</h3>
@@ -169,7 +169,7 @@ export default function TermsPage() {
           <section className="mb-8">
             <h2 className="text-2xl font-semibold text-foreground mb-4">9. Limitation of Liability</h2>
             <p className="text-foreground-muted leading-relaxed mb-4">
-              TO THE MAXIMUM EXTENT PERMITTED BY LAW, BULKDM SHALL NOT BE LIABLE FOR:
+              TO THE MAXIMUM EXTENT PERMITTED BY LAW, SOCIALORA SHALL NOT BE LIABLE FOR:
             </p>
             <ul className="list-disc list-inside text-foreground-muted space-y-2 mb-4">
               <li>Any indirect, incidental, special, consequential, or punitive damages</li>
@@ -186,7 +186,7 @@ export default function TermsPage() {
           <section className="mb-8">
             <h2 className="text-2xl font-semibold text-foreground mb-4">10. Indemnification</h2>
             <p className="text-foreground-muted leading-relaxed">
-              You agree to indemnify and hold harmless BulkDM, its officers, directors, employees, and agents from any claims, damages, losses, liabilities, and expenses (including legal fees) arising from your use of the Service, violation of these Terms, or infringement of any rights of another.
+              You agree to indemnify and hold harmless Socialora, its officers, directors, employees, and agents from any claims, damages, losses, liabilities, and expenses (including legal fees) arising from your use of the Service, violation of these Terms, or infringement of any rights of another.
             </p>
           </section>
 
@@ -236,7 +236,7 @@ export default function TermsPage() {
             </p>
             <div className="bg-background-elevated rounded-lg p-6 border border-border">
               <p className="text-foreground-muted">
-                <strong className="text-foreground">Email:</strong> legal@bulkdm.com
+                <strong className="text-foreground">Email:</strong> legal@socialora.app
               </p>
               <p className="text-foreground-muted mt-2">
                 <strong className="text-foreground">Support:</strong> <Link href="/support" className="text-accent hover:underline">Visit Support Page</Link>
@@ -255,7 +255,7 @@ export default function TermsPage() {
                 <Instagram className="h-4 w-4 text-white" />
               </div>
               <span className="font-bold text-lg">
-                Bulk<span className="text-accent">DM</span>
+                Social<span className="text-accent">ora</span>
               </span>
             </div>
             <div className="flex items-center gap-6 text-sm text-foreground-muted">
@@ -264,7 +264,7 @@ export default function TermsPage() {
               <Link href="/support" className="hover:text-foreground transition-colors">Support</Link>
             </div>
             <p className="text-sm text-foreground-muted">
-              © 2024 BulkDM. All rights reserved.
+              © 2025 Socialora. All rights reserved.
             </p>
           </div>
         </div>

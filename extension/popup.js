@@ -1,5 +1,5 @@
-// BulkDM Instagram Session Grabber
-// This extension extracts Instagram cookies and sends them to BulkDM
+// Socialora Instagram Session Grabber
+// This extension extracts Instagram cookies and sends them to Socialora
 
 // Config is loaded via script tag in popup.html
 // CONFIG is available globally from config.js
@@ -182,8 +182,8 @@ async function verifySession(cookies) {
 // Check if user has given consent
 async function hasConsent() {
   return new Promise((resolve) => {
-    chrome.storage.local.get(['bulkdm_consent'], (result) => {
-      resolve(result.bulkdm_consent === true);
+    chrome.storage.local.get(['socialora_consent'], (result) => {
+      resolve(result.socialora_consent === true);
     });
   });
 }
@@ -191,7 +191,7 @@ async function hasConsent() {
 // Save consent
 async function saveConsent() {
   return new Promise((resolve) => {
-    chrome.storage.local.set({ bulkdm_consent: true }, () => {
+    chrome.storage.local.set({ socialora_consent: true }, () => {
       resolve();
     });
   });
@@ -306,11 +306,11 @@ async function grabSession() {
       grabBtn.disabled = true;
       
       // Save cookies to chrome.storage.local FIRST (backup storage)
-      const storageKey = `bulkdm_cookies_${user.pk}`;
+      const storageKey = `socialora_cookies_${user.pk}`;
       await chrome.storage.local.set({ [storageKey]: cookies });
       console.log(`✓ Cookies saved to chrome.storage.local (key: ${storageKey})`);
       
-      // Open BulkDM app with ONLY Instagram user ID in URL
+        // Open Socialora app with ONLY Instagram user ID in URL
       // Frontend will read cookies from localStorage based on this ID
       setTimeout(async () => {
         const config = await CONFIG.getCurrent();
@@ -324,7 +324,7 @@ async function grabSession() {
         };
         const encodedMetadata = btoa(JSON.stringify(accountMetadata));
         const redirectUrl = `${cleanAppUrl}/settings/instagram?ig_user_id=${user.pk}&account=${encodedMetadata}`;
-        console.log('Opening BulkDM with user ID:', user.pk);
+        console.log('Opening Socialora with user ID:', user.pk);
         console.log('Cookies stored in chrome.storage.local, will be transferred to page localStorage');
         
         // Create tab and send cookies via content script (more reliable)
@@ -357,17 +357,17 @@ async function grabSession() {
             chrome.scripting.executeScript({
               target: { tabId: tabId },
               func: (userId, cookieData) => {
-                const storageKey = `bulkdm_cookies_${userId}`;
+                const storageKey = `socialora_cookies_${userId}`;
                 try {
                   localStorage.setItem(storageKey, JSON.stringify(cookieData));
                   console.log(`✓ Cookies saved to page localStorage via script injection (key: ${storageKey})`);
                   
-                  window.dispatchEvent(new CustomEvent('bulkdm_cookies_saved', { 
+                  window.dispatchEvent(new CustomEvent('socialora_cookies_saved', { 
                     detail: { userId, storageKey, cookies: cookieData } 
                   }));
                   
                   window.postMessage({
-                    type: 'BULKDM_COOKIES_SAVED',
+                    type: 'SOCIALORA_COOKIES_SAVED',
                     userId: userId,
                     cookies: cookieData,
                     storageKey: storageKey
@@ -430,7 +430,7 @@ async function grabSession() {
   } catch (error) {
     console.error('Error:', error);
     showStatus(statusError);
-    errorMessage.textContent = 'Network error. Make sure BulkDM backend is running.';
+    errorMessage.textContent = 'Network error. Make sure Socialora backend is running.';
     grabBtn.disabled = false; // Keep enabled for retry
     instructions.classList.remove('hidden');
   }

@@ -1,4 +1,4 @@
-// BulkDM Background Service Worker
+// Socialora Background Service Worker
 // Handles cookie access and communication
 
 // Import config
@@ -26,7 +26,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // Handle request for cookies from page (fallback mechanism)
   if (message.type === 'GET_STORED_COOKIES') {
     const userId = message.userId;
-    const storageKey = `bulkdm_cookies_${userId}`;
+    const storageKey = `socialora_cookies_${userId}`;
     chrome.storage.local.get([storageKey], (result) => {
       sendResponse({ success: true, cookies: result[storageKey] || null });
     });
@@ -79,6 +79,6 @@ async function verifySession(cookies) {
 
 // Extension installed
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('BulkDM Instagram Session Grabber installed');
+  console.log('Socialora Instagram Session Grabber installed');
 });
 

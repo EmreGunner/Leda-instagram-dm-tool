@@ -1,10 +1,10 @@
-# BulkDM Chrome Extension
+# Socialora Chrome Extension
 
-Chrome extension for one-click Instagram account connection to BulkDM.
+Chrome extension for one-click Instagram account connection to Socialora.
 
 ## Overview
 
-The BulkDM Chrome Extension simplifies connecting your Instagram account by automatically extracting session cookies from your browser when you're logged into Instagram. This eliminates the need for manual cookie management.
+The Socialora Chrome Extension simplifies connecting your Instagram account by automatically extracting session cookies from your browser when you're logged into Instagram. This eliminates the need for manual cookie management.
 
 ## Features
 
@@ -18,9 +18,9 @@ The BulkDM Chrome Extension simplifies connecting your Instagram account by auto
 
 1. User clicks "Grab Instagram Session" button in extension popup
 2. Extension extracts Instagram session cookies from browser
-3. Verifies session with BulkDM backend
-4. Transfers cookies to BulkDM web application via localStorage
-5. Account is automatically connected in BulkDM dashboard
+3. Verifies session with Socialora backend
+4. Transfers cookies to Socialora web application via localStorage
+5. Account is automatically connected in Socialora dashboard
 
 ## Privacy & Security
 
@@ -85,7 +85,7 @@ cd extension
 ./build.sh
 ```
 
-This creates `bulkdm-extension-v1.0.3.zip` ready for Chrome Web Store submission.
+This creates `socialora-extension-v1.0.3.zip` ready for Chrome Web Store submission.
 
 ## Support
 
