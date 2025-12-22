@@ -652,9 +652,9 @@ export default function DocsPage() {
                   Start automating your Instagram DMs today and grow your business faster.
                 </p>
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                  <Link href="/signup">
+                  <Link href="/">
                     <Button size="lg">
-                      Get Started Free
+                      Join Waiting List
                       <ArrowRight className="h-5 w-5 ml-2" />
                     </Button>
                   </Link>

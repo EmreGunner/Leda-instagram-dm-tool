@@ -83,8 +83,8 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
               <Link href="/blog">
                 <Button variant="ghost" size="sm">Blog</Button>
               </Link>
-              <Link href="/signup">
-                <Button size="sm">Get Started</Button>
+              <Link href="/">
+                <Button size="sm">Join Waiting List</Button>
               </Link>
             </div>
           </div>
@@ -177,9 +177,9 @@ export default function BlogPostPage({ params }: { params: { slug: string } }) {
           <p className="text-foreground-muted mb-6">
             Join thousands of businesses using Socialora to automate their Instagram outreach and grow their audience.
           </p>
-          <Link href="/signup">
+          <Link href="/">
             <Button size="lg">
-              Start Free Trial
+              Join Waiting List
             </Button>
           </Link>
         </div>

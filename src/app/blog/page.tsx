@@ -1,7 +1,7 @@
-import Link from 'next/link';
-import { Instagram, ArrowRight, Calendar, Clock, User, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ArrowRight, Calendar, Clock, Instagram } from 'lucide-react';
 import type { Metadata } from 'next';
+import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: 'Blog - Instagram DM Automation & Cold DM Strategies | Socialora',
@@ -54,11 +54,11 @@ export default function BlogPage() {
               <Link href="/docs">
                 <Button variant="ghost" size="sm">Docs</Button>
               </Link>
-              <Link href="/support">
+            <Link href="/support">
                 <Button variant="ghost" size="sm">Support</Button>
               </Link>
-              <Link href="/signup">
-                <Button size="sm">Get Started</Button>
+              <Link href="/">
+                <Button size="sm">Join Waiting List</Button>
               </Link>
             </div>
           </div>
@@ -167,9 +167,9 @@ export default function BlogPage() {
           <p className="text-lg text-foreground-muted mb-8 max-w-2xl mx-auto">
             Start using Socialora today and experience the power of AI-powered Instagram automation
           </p>
-          <Link href="/signup">
+          <Link href="/">
             <Button size="lg" className="group">
-              Start Free Trial
+              Join Waiting List
               <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
             </Button>
           </Link>
