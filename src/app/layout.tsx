@@ -98,6 +98,14 @@ export const metadata: Metadata = {
     canonical: "/",
   },
   category: "technology",
+  icons: {
+    icon: [
+      { url: '/icon', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/icon', type: 'image/png' },
+    ],
+  },
 };
 
 export default function RootLayout({
