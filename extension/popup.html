@@ -346,11 +346,11 @@
   </div>
 
   <div id="status-not-instagram" class="status warning hidden">
-    ⚠️ Please open Instagram first, then click the extension
+    ⚠️ Instagram tab is not available. The extension will open it for you when you start.
   </div>
 
   <div id="status-not-logged-in" class="status error hidden">
-    ❌ Not logged in to Instagram. Please login first.
+    ❌ Not logged in to Instagram. Please login in the opened Instagram tab.
   </div>
 
   <div id="status-success" class="status success hidden">
@@ -363,7 +363,7 @@
 
   <div id="status-connecting" class="status info hidden">
     <div class="spinner"></div>
-    Connecting your account...
+    Waiting for Instagram login...
   </div>
 
   <div id="user-info" class="user-info hidden">
@@ -376,7 +376,10 @@
 
   <div style="margin-bottom: 16px;">
     <button id="grab-btn" class="btn btn-primary">
-      🔗 Grab Instagram Session
+      🔗 Start Instagram Connection
+    </button>
+    <button id="stop-btn" class="btn btn-secondary hidden">
+      ⏹ Stop & Finish
     </button>
     <div style="margin-top: 10px; padding: 10px; background: rgba(168, 85, 247, 0.1); border-radius: 8px; border: 1px solid rgba(168, 85, 247, 0.2);">
       <p style="margin: 0; font-size: 11px; color: #aaa; text-align: center; line-height: 1.5;">
@@ -397,10 +400,10 @@
   <div class="instructions" id="instructions">
     <h3>How it works</h3>
     <ol>
-      <li>Open Instagram and login</li>
-      <li>Click this extension</li>
-      <li>Click "Grab Instagram Session"</li>
-      <li>Your account connects automatically!</li>
+      <li>Click "Start Instagram Connection" in this popup</li>
+      <li>We open Instagram for you in a new tab</li>
+      <li>Login or complete any Instagram security checks</li>
+      <li>Click "Stop & Finish" when you’re done – we grab cookies and close the tab</li>
     </ol>
   </div>
 

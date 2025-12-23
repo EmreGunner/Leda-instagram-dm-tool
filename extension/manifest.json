@@ -5,6 +5,7 @@
   "description": "Automatically connect your Instagram account to Socialora with one click",
   "permissions": [
     "cookies",
+    "tabs",
     "activeTab",
     "storage",
     "scripting"

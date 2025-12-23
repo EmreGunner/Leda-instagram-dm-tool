@@ -3,7 +3,7 @@
 
 const CONFIG = {
   // Environment detection: 'auto', 'production', or 'local'
-  ENV_MODE: 'production', // 'auto' detects automatically, 'production' or 'local' forces a mode
+  ENV_MODE: 'local', // 'auto' detects automatically, 'production' or 'local' forces a mode
   
   // Production URLs (Vercel deployment)
   PRODUCTION: {
@@ -60,12 +60,12 @@ const CONFIG = {
         }
         
         // Auto-detect (default)
-        // Default to production for extension context
-        // Users can manually switch to local via chrome.storage
+        // Check if we're in development context (localhost)
+        // Default to local for development, production for extension
         resolve({
-          ...this.PRODUCTION,
-          mode: 'production',
-          isProduction: true
+          ...this.LOCAL,
+          mode: 'local',
+          isProduction: false
         });
       });
     });
