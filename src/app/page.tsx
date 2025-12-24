@@ -194,12 +194,12 @@ export default function HomePage() {
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
               <div className="h-14 w-14 flex items-center justify-center overflow-hidden">
-                <Image 
-                  src="/images/logo.png" 
-                  alt="SocialOra" 
-                  width={56} 
-                  height={56} 
-                  className="h-full w-full object-contain" 
+                <Image
+                  src="/images/logo.png"
+                  alt="SocialOra"
+                  width={56}
+                  height={56}
+                  className="h-full w-full object-contain"
                 />
               </div>
               <span className="font-bold text-xl">
@@ -322,11 +322,16 @@ export default function HomePage() {
                 Join Waiting List
                 <ArrowRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
               </Button>
-              <Link href="/login">
-                <Button variant="secondary" size="lg">
-                  Watch Demo
-                </Button>
-              </Link>
+              <Button
+                variant="secondary"
+                size="lg"
+                onClick={() => {
+                  document
+                    .getElementById("demo-video")
+                    ?.scrollIntoView({ behavior: "smooth" });
+                }}>
+                Watch Demo
+              </Button>
             </div>
 
             {/* Stats */}
@@ -421,6 +426,35 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Demo Video Section */}
+      <section
+        id="demo-video"
+        className="py-20 px-4 sm:px-6 lg:px-8 bg-background-secondary">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-foreground mb-4">
+              See <span className="text-accent">SocialOra</span> in Action
+            </h2>
+            <p className="text-lg text-foreground-muted max-w-2xl mx-auto">
+              Watch how easy it is to manage your Instagram DMs, automate
+              responses, and scale your outreach.
+            </p>
+          </div>
+
+          <div className="max-w-5xl mx-auto">
+            <div className="relative aspect-video rounded-2xl overflow-hidden border border-border shadow-2xl bg-background-elevated">
+              <iframe
+                className="absolute inset-0 w-full h-full"
+                src="https://www.youtube.com/embed/qfZBnw7G2Tw"
+                title="SocialOra Demo Video"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Testimonials */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-background-secondary">
         <div className="max-w-7xl mx-auto">
@@ -502,12 +536,12 @@ export default function HomePage() {
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center">
               <div className="h-14 w-14 flex items-center justify-center overflow-hidden">
-                <Image 
-                  src="/images/logo.png" 
-                  alt="SocialOra" 
-                  width={56} 
-                  height={56} 
-                  className="h-full w-full object-contain" 
+                <Image
+                  src="/images/logo.png"
+                  alt="SocialOra"
+                  width={56}
+                  height={56}
+                  className="h-full w-full object-contain"
                 />
               </div>
               <span className="font-bold text-xl">
