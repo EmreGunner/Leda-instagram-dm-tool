@@ -162,13 +162,23 @@ export async function generateMetadata({ params }: { params: { slug: string } })
     return { title: 'Tool Not Found | Socialora' };
   }
 
+  const title = tool.seoTitle || `${tool.title} | Socialora Tools`;
+  const description = tool.seoDescription || tool.description;
+  const keywords = tool.seoKeywords || [];
+
   return {
-    title: `${tool.title} | Socialora Tools`,
-    description: tool.description,
+    title,
+    description,
+    keywords,
     openGraph: {
-      title: `${tool.title} | Socialora Tools`,
-      description: tool.description,
+      title,
+      description,
       type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
     },
   };
 }
