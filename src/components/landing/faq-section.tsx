@@ -25,15 +25,15 @@ const faqs = [
   },
   {
     question: "How many accounts can I connect?",
-    answer: "This depends on your plan. The Starter plan includes 1 account, while Pro includes up to 5 so you can manage multiple brands or client accounts from a single dashboard. Enterprise plans offer unlimited connections."
+    answer: "The Free Forever plan includes 1 Instagram account. Pro plans include up to 5 accounts so you can manage multiple brands or client accounts from a single dashboard. Enterprise plans offer unlimited connections. Contact our support team for custom pricing on multiple accounts."
   },
   {
     question: "Does it support multiple languages?",
     answer: "Yes, our AI models are multilingual. They can detect the language of the incoming message and respond fluently in over 50+ languages, helping you scale your business globally."
   },
   {
-    question: "Is there a free trial available?",
-    answer: "Yes, every new account comes with a 14-day free trial of our Pro features. No credit card is required to start, so you can test the full power of SocialOra risk-free."
+    question: "Is there a free plan available?",
+    answer: "Yes! We offer a Free Forever plan that includes 1 Instagram account and 40 DMs daily bulk sending - completely free forever. No credit card required. For unlimited DMs and multiple accounts, contact our support team for custom pricing on Pro or Enterprise plans."
   }
 ];
 
