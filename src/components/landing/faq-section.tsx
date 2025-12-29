@@ -41,7 +41,7 @@ export function FAQSection() {
   return (
     <section className="py-24 px-4 sm:px-6 lg:px-8 bg-background-secondary relative overflow-hidden">
       <div className="max-w-4xl mx-auto relative z-10">
-        <div className="text-center mb-16">
+        <div className="text-center mb-12">
           <h2 className="text-4xl font-bold text-foreground mb-4">
             Frequently Asked <span className="text-accent">Questions</span>
           </h2>
@@ -50,7 +50,7 @@ export function FAQSection() {
           </p>
         </div>
 
-        <Accordion className="w-full space-y-4">
+        <Accordion className="w-full">
           {faqs.map((faq, index) => (
             <AccordionItem 
               key={index} 

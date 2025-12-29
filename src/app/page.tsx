@@ -487,17 +487,17 @@ export default function HomePage() {
 
             {/* Enhanced Main Heading with better gradient */}
             <h1 className="text-5xl sm:text-6xl lg:text-7xl xl:text-8xl font-bold mb-6 animate-slide-up leading-tight">
-              <span className="inline-block bg-gradient-to-r from-accent via-pink-500 to-purple-500 bg-clip-text text-transparent animate-gradient">
+              <span className="inline-block bg-gradient-to-r from-accent via-pink-500 to-purple-500 bg-clip-text text-transparent animate-gradient pb-4">
                 Transform Instagram
               </span>
               <br />
               <span className="inline-block text-foreground mt-2">
-                Into Your{' '}
-                <span className="relative inline-block">
+                Into Your{' '}  
+                <span className="relative inline-block pb-4">
                   <span className="bg-gradient-to-r from-accent to-pink-500 bg-clip-text text-transparent">
                     Revenue Engine
                   </span>
-                  <svg className="absolute -bottom-2 left-0 right-0 h-3" viewBox="0 0 100 10" preserveAspectRatio="none">
+                  <svg className="absolute bottom-0 left-0 right-0 h-3" viewBox="0 0 100 10" preserveAspectRatio="none">
                     <path d="M0 8 Q 50 0, 100 8" stroke="currentColor" strokeWidth="2" fill="none" className="text-accent" />
                   </svg>
                 </span>
