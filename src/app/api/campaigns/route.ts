@@ -242,8 +242,10 @@ export async function POST(request: NextRequest) {
 
       // Assign the normalized time values directly since Prisma has issues
       // reading TIME columns as strings (it tries to convert them to timestamps)
-      campaign.sendStartTime = normalizedStartTime;
-      campaign.sendEndTime = normalizedEndTime;
+      // We use type assertion here because these are only for in-memory use
+      // and won't affect the database (which is already updated via raw SQL above)
+      (campaign as any).sendStartTime = normalizedStartTime;
+      (campaign as any).sendEndTime = normalizedEndTime;
     }
 
     // Create campaign_accounts junction table entries
