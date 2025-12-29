@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Remove duplicates
-    const uniqueContactIds = [...new Set(allContactIds)];
+    const uniqueContactIds = Array.from(new Set(allContactIds));
     const totalRecipients = uniqueContactIds.length;
 
     // Create campaign
