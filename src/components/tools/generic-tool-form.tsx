@@ -371,22 +371,122 @@ export function GenericToolForm({
           )}
 
           {/* Engagement Rate Calculator Results (Profile-based) */}
-          {results.estimatedEngagementRate && results.username && (
-            <div>
-              <h4 className="font-semibold mb-4 text-foreground">Engagement Analysis for @{results.username}</h4>
+          {results.postsAnalyzed && results.username && (
+            <div className="space-y-6">
+              {/* Header */}
+              <div>
+                <h4 className="font-semibold mb-2 text-foreground">
+                  Engagement Analysis for @{results.username}
+                </h4>
+                <p className="text-sm text-foreground-muted">
+                  Based on {results.postsAnalyzed} most recent {results.contentType}
+                </p>
+              </div>
+
+              {/* Main Engagement Rate */}
+              <div className="p-8 bg-background rounded-lg border border-border text-center space-y-6">
+                <div>
+                  <p className="text-sm text-foreground-muted mb-2">Average Engagement Rate</p>
+                  <p className="text-6xl font-bold text-accent mb-3">{results.engagementRate}</p>
+                  <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${
+                    results.qualityColor === 'green' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' :
+                    results.qualityColor === 'blue' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' :
+                    results.qualityColor === 'yellow' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400' :
+                    'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                  }`}>
+                    <span className="font-semibold text-sm">{results.quality}</span>
+                  </div>
+                </div>
+                
+                {results.description && (
+                  <div className="bg-background-secondary p-4 rounded-lg">
+                    <p className="text-sm text-foreground leading-relaxed">{results.description}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Metrics Grid */}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="p-4 bg-background rounded-lg border border-border">
-                  <p className="text-xs text-foreground-muted mb-1">Engagement Rate</p>
-                  <p className="text-2xl font-bold text-foreground">{results.estimatedEngagementRate}</p>
-                </div>
-                <div className="p-4 bg-background rounded-lg border border-border">
                   <p className="text-xs text-foreground-muted mb-1">Avg Likes</p>
-                  <p className="text-2xl font-bold text-foreground">{results.estimatedAvgLikes?.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-foreground">{results.avgLikes}</p>
                 </div>
                 <div className="p-4 bg-background rounded-lg border border-border">
                   <p className="text-xs text-foreground-muted mb-1">Avg Comments</p>
-                  <p className="text-2xl font-bold text-foreground">{results.estimatedAvgComments?.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-foreground">{results.avgComments}</p>
                 </div>
+                {results.avgViews && (
+                  <div className="p-4 bg-background rounded-lg border border-border">
+                    <p className="text-xs text-foreground-muted mb-1">Avg Views</p>
+                    <p className="text-2xl font-bold text-foreground">{results.avgViews}</p>
+                  </div>
+                )}
+                <div className="p-4 bg-background rounded-lg border border-border">
+                  <p className="text-xs text-foreground-muted mb-1">Total Likes</p>
+                  <p className="text-2xl font-bold text-foreground">{results.totalLikes}</p>
+                </div>
+                <div className="p-4 bg-background rounded-lg border border-border">
+                  <p className="text-xs text-foreground-muted mb-1">Total Comments</p>
+                  <p className="text-2xl font-bold text-foreground">{results.totalComments}</p>
+                </div>
+                <div className="p-4 bg-background rounded-lg border border-border">
+                  <p className="text-xs text-foreground-muted mb-1">Followers</p>
+                  <p className="text-2xl font-bold text-foreground">{results.followerCount?.toLocaleString()}</p>
+                </div>
+              </div>
+
+              {/* Individual Posts */}
+              {results.posts && results.posts.length > 0 && (
+                <div>
+                  <h5 className="font-semibold mb-3 text-foreground">Analyzed {results.contentType}</h5>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {results.posts.map((post: any, i: number) => (
+                      <a
+                        key={i}
+                        href={post.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group rounded-lg border border-border bg-background hover:border-accent/50 transition-all overflow-hidden"
+                      >
+                        {post.thumbnailUrl && (
+                          <div className="relative aspect-square overflow-hidden bg-background-secondary">
+                            <img 
+                              src={post.thumbnailUrl} 
+                              alt={`Post ${i + 1}`}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                            />
+                          </div>
+                        )}
+                        <div className="p-3">
+                          <div className="flex items-center justify-between text-xs text-foreground-muted mb-2">
+                            <span>❤️ {post.likes}</span>
+                            <span>💬 {post.comments}</span>
+                            {post.views > 0 && <span>👁️ {post.views.toLocaleString()}</span>}
+                          </div>
+                          {post.caption && (
+                            <p className="text-xs text-foreground-muted line-clamp-2">
+                              {post.caption}
+                            </p>
+                          )}
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Info Box */}
+              <div className="p-4 bg-accent/5 rounded-lg border border-accent/20">
+                <p className="text-sm text-foreground-muted mb-2">
+                  <strong className="text-foreground">📊 How is this calculated?</strong>
+                </p>
+                <p className="text-xs text-foreground-muted">
+                  We analyze the last {results.postsAnalyzed} {results.contentType} to calculate average engagement. 
+                  Engagement Rate = (Avg Likes + Avg Comments) ÷ Followers × 100
+                </p>
+                <p className="text-xs text-foreground-muted mt-2">
+                  <strong>Benchmarks:</strong> 1-3% is average, 3-5% is good, 5-10% is very good, 10%+ is excellent
+                </p>
               </div>
             </div>
           )}

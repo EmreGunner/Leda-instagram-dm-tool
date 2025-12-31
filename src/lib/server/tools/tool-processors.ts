@@ -184,6 +184,8 @@ export async function processTool(toolSlug: string, formData: Record<string, str
     
     case 'engagement-rate-calculator': {
       const username = extractInstagramHandle(formData);
+      const contentType = (formData['content-type'] || 'posts').toLowerCase();
+      
       if (!username) throw new Error('Instagram handle required');
       
       const serviceCookies = getServiceCookies();
@@ -195,6 +197,7 @@ export async function processTool(toolSlug: string, formData: Record<string, str
       }
 
       try {
+        // Get user profile
         const profile = await instagramCookieService.getUserProfileByUsername(
           serviceCookies,
           username
@@ -204,20 +207,96 @@ export async function processTool(toolSlug: string, formData: Record<string, str
           return { error: 'User not found or account is private' };
         }
 
-        // Calculate estimated engagement
-        const estimatedEngagement = (profile.followerCount * 0.02); // 2% average
+        // Fetch last 5 posts or reels
+        const mediaType = contentType.includes('reel') ? 'reels' : 'posts';
+        const media = await instagramCookieService.getUserRecentMedia(
+          serviceCookies,
+          username,
+          5,
+          mediaType
+        );
+
+        if (media.length === 0) {
+          return {
+            error: 'No content found',
+            message: `No ${mediaType} found for @${username}. The account may be private or have no ${mediaType}.`,
+          };
+        }
+
+        // Calculate engagement metrics
+        const totalLikes = media.reduce((sum, m) => sum + m.likeCount, 0);
+        const totalComments = media.reduce((sum, m) => sum + m.commentCount, 0);
+        const totalViews = media.reduce((sum, m) => sum + (m.viewCount || m.playCount || 0), 0);
+        
+        const avgLikes = Math.round(totalLikes / media.length);
+        const avgComments = Math.round(totalComments / media.length);
+        const avgViews = Math.round(totalViews / media.length);
+        
+        // Calculate engagement rate
+        const avgEngagement = avgLikes + avgComments;
+        const engagementRate = profile.followerCount > 0 
+          ? (avgEngagement / profile.followerCount) * 100 
+          : 0;
+        
+        // Determine quality
+        let quality = 'Low';
+        let qualityColor = 'red';
+        let description = 'Your engagement rate is below average. Try posting more engaging content and interacting with your audience.';
+        
+        if (engagementRate >= 10) {
+          quality = 'Excellent';
+          qualityColor = 'green';
+          description = 'Outstanding! Your engagement rate is exceptional. Your audience loves your content!';
+        } else if (engagementRate >= 5) {
+          quality = 'Very Good';
+          qualityColor = 'green';
+          description = 'Great work! Your engagement rate is well above average. Keep it up!';
+        } else if (engagementRate >= 3) {
+          quality = 'Good';
+          qualityColor = 'blue';
+          description = 'Good engagement rate! You\'re doing well. Keep engaging with your audience.';
+        } else if (engagementRate >= 1) {
+          quality = 'Average';
+          qualityColor = 'yellow';
+          description = 'Your engagement rate is average. Consider experimenting with different content types.';
+        }
 
         return {
           username: profile.username,
           followerCount: profile.followerCount || 0,
-          followingCount: profile.followingCount || 0,
-          postCount: profile.postCount || 0,
-          estimatedEngagementRate: '2-5%',
-          estimatedAvgLikes: Math.round(estimatedEngagement * 0.9),
-          estimatedAvgComments: Math.round(estimatedEngagement * 0.1),
+          contentType: mediaType,
+          postsAnalyzed: media.length,
+          
+          // Engagement metrics
+          engagementRate: engagementRate.toFixed(2) + '%',
+          engagementRateValue: parseFloat(engagementRate.toFixed(2)),
+          quality,
+          qualityColor,
+          description,
+          
+          // Average metrics
+          avgLikes: avgLikes.toLocaleString(),
+          avgComments: avgComments.toLocaleString(),
+          avgViews: avgViews > 0 ? avgViews.toLocaleString() : null,
+          
+          // Total metrics
+          totalLikes: totalLikes.toLocaleString(),
+          totalComments: totalComments.toLocaleString(),
+          totalViews: totalViews > 0 ? totalViews.toLocaleString() : null,
+          
+          // Individual posts
+          posts: media.map(m => ({
+            url: m.url,
+            shortcode: m.shortcode,
+            likes: m.likeCount.toLocaleString(),
+            comments: m.commentCount.toLocaleString(),
+            views: m.viewCount || m.playCount || 0,
+            thumbnailUrl: m.thumbnailUrl,
+            caption: m.caption ? (m.caption.length > 100 ? m.caption.substring(0, 100) + '...' : m.caption) : '',
+          })),
         };
       } catch (error: any) {
-        console.error('Engagement calculator error:', error);
+        console.error('Engagement rate calculator error:', error);
         return {
           error: 'Failed to calculate engagement',
           message: error.message || 'Unable to fetch Instagram data. Please try again later.',
