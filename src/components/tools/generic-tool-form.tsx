@@ -311,8 +311,67 @@ export function GenericToolForm({
             </div>
           )}
 
-          {/* Engagement Calculator Results */}
-          {results.estimatedEngagementRate && (
+          {/* Engagement Calculator Results (Direct Calculation) */}
+          {results.engagementRate && results.engagementRateValue !== undefined && (
+            <div>
+              <h4 className="font-semibold mb-4 text-foreground">Your Engagement Rate</h4>
+              <div className="p-8 bg-background rounded-lg border border-border text-center space-y-6">
+                <div>
+                  <p className="text-sm text-foreground-muted mb-2">Engagement Rate</p>
+                  <p className="text-6xl font-bold text-accent mb-3">{results.engagementRate}</p>
+                  <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${
+                    results.qualityColor === 'green' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' :
+                    results.qualityColor === 'blue' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' :
+                    results.qualityColor === 'yellow' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400' :
+                    'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                  }`}>
+                    <span className="font-semibold text-sm">{results.quality}</span>
+                  </div>
+                </div>
+                
+                {results.description && (
+                  <div className="bg-background-secondary p-4 rounded-lg">
+                    <p className="text-sm text-foreground leading-relaxed">{results.description}</p>
+                  </div>
+                )}
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-4 border-t border-border">
+                  <div>
+                    <p className="text-foreground-muted mb-1 text-xs">Total Likes</p>
+                    <p className="font-semibold text-lg">{results.likes}</p>
+                  </div>
+                  <div>
+                    <p className="text-foreground-muted mb-1 text-xs">Total Comments</p>
+                    <p className="font-semibold text-lg">{results.comments}</p>
+                  </div>
+                  <div>
+                    <p className="text-foreground-muted mb-1 text-xs">Followers</p>
+                    <p className="font-semibold text-lg">{results.followers}</p>
+                  </div>
+                  <div>
+                    <p className="text-foreground-muted mb-1 text-xs">Total Engagement</p>
+                    <p className="font-semibold text-lg">{results.totalEngagement}</p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Info Box */}
+              <div className="mt-4 p-4 bg-accent/5 rounded-lg border border-accent/20">
+                <p className="text-sm text-foreground-muted mb-2">
+                  <strong className="text-foreground">📊 How is this calculated?</strong>
+                </p>
+                <p className="text-xs text-foreground-muted">
+                  Engagement Rate = (Total Likes + Total Comments) ÷ Followers × 100
+                </p>
+                <p className="text-xs text-foreground-muted mt-2">
+                  <strong>Benchmarks:</strong> 1-3% is average, 3-5% is good, 5-10% is very good, 10%+ is excellent
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Engagement Rate Calculator Results (Profile-based) */}
+          {results.estimatedEngagementRate && results.username && (
             <div>
               <h4 className="font-semibold mb-4 text-foreground">Engagement Analysis for @{results.username}</h4>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -336,17 +395,27 @@ export function GenericToolForm({
           {results.ratio !== undefined && (
             <div>
               <h4 className="font-semibold mb-4 text-foreground">Follower-to-Following Ratio</h4>
-              <div className="p-6 bg-background rounded-lg border border-border text-center">
-                <p className="text-5xl font-bold text-accent mb-2">{results.ratio}</p>
-                <p className="text-sm text-foreground-muted mb-4">{results.status}</p>
-                <div className="flex justify-center gap-6 text-sm">
+              <div className="p-6 bg-background rounded-lg border border-border text-center space-y-4">
+                <div>
+                  <p className="text-sm text-foreground-muted mb-2">Your Ratio</p>
+                  <p className="text-5xl font-bold text-accent mb-2">{results.ratioFormatted || results.ratio}</p>
+                  <p className="text-sm font-medium text-foreground-muted mb-4">{results.status}</p>
+                </div>
+                
+                {results.description && (
+                  <div className="bg-background-secondary p-4 rounded-lg">
+                    <p className="text-sm text-foreground leading-relaxed">{results.description}</p>
+                  </div>
+                )}
+                
+                <div className="flex justify-center gap-8 text-sm pt-4 border-t border-border">
                   <div>
-                    <span className="text-foreground-muted">Followers: </span>
-                    <span className="font-semibold">{results.followers?.toLocaleString()}</span>
+                    <p className="text-foreground-muted mb-1">Followers</p>
+                    <p className="font-semibold text-lg">{results.followers?.toLocaleString()}</p>
                   </div>
                   <div>
-                    <span className="text-foreground-muted">Following: </span>
-                    <span className="font-semibold">{results.following?.toLocaleString()}</span>
+                    <p className="text-foreground-muted mb-1">Following</p>
+                    <p className="font-semibold text-lg">{results.following?.toLocaleString()}</p>
                   </div>
                 </div>
               </div>
@@ -357,16 +426,40 @@ export function GenericToolForm({
           {results.emv && (
             <div>
               <h4 className="font-semibold mb-4 text-foreground">Earned Media Value (EMV)</h4>
-              <div className="p-6 bg-background rounded-lg border border-border text-center">
-                <p className="text-4xl font-bold text-accent mb-2">{results.estimatedValue}</p>
-                <div className="flex justify-center gap-6 text-sm mt-4">
+              <div className="p-6 bg-background rounded-lg border border-border space-y-6">
+                <div className="text-center">
+                  <p className="text-sm text-foreground-muted mb-2">Per Post Value</p>
+                  <p className="text-5xl font-bold text-accent mb-1">{results.estimatedValue}</p>
+                  <p className="text-sm text-foreground-muted">Estimated Earned Media Value</p>
+                </div>
+                
+                {results.description && (
+                  <div className="bg-background-secondary p-4 rounded-lg">
+                    <p className="text-sm text-foreground leading-relaxed">{results.description}</p>
+                  </div>
+                )}
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center p-4 bg-background-secondary rounded-lg">
+                    <p className="text-xs text-foreground-muted mb-1">Monthly Value</p>
+                    <p className="text-xl font-bold text-green-600 dark:text-green-400">{results.monthlyValue || `$${(parseFloat(results.emv) * 20).toFixed(2)}`}</p>
+                    <p className="text-xs text-foreground-muted mt-1">~20 posts/month</p>
+                  </div>
+                  <div className="text-center p-4 bg-background-secondary rounded-lg">
+                    <p className="text-xs text-foreground-muted mb-1">Est. Engagements</p>
+                    <p className="text-xl font-bold text-blue-600 dark:text-blue-400">{results.estimatedEngagements || Math.round(results.followers * (results.engagementRate / 100)).toLocaleString()}</p>
+                    <p className="text-xs text-foreground-muted mt-1">per post</p>
+                  </div>
+                </div>
+                
+                <div className="flex justify-center gap-8 text-sm pt-4 border-t border-border">
                   <div>
-                    <span className="text-foreground-muted">Followers: </span>
-                    <span className="font-semibold">{results.followers?.toLocaleString()}</span>
+                    <p className="text-foreground-muted mb-1">Followers</p>
+                    <p className="font-semibold text-lg">{results.followers?.toLocaleString()}</p>
                   </div>
                   <div>
-                    <span className="text-foreground-muted">Engagement Rate: </span>
-                    <span className="font-semibold">{results.engagementRate}%</span>
+                    <p className="text-foreground-muted mb-1">Engagement Rate</p>
+                    <p className="font-semibold text-lg">{results.engagementRate}%</p>
                   </div>
                 </div>
               </div>
