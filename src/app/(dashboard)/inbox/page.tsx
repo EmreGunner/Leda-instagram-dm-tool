@@ -57,6 +57,7 @@ export default function InboxPage() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
   const accountDropdownRef = useRef<HTMLDivElement>(null);
+  const isFetchingMessagesRef = useRef(false);
 
   // Fetch Instagram accounts first
   const fetchAccounts = useCallback(async () => {
@@ -193,9 +194,17 @@ export default function InboxPage() {
 
   // Fetch messages for a conversation from Instagram
   const fetchMessages = useCallback(async (conversationId: string, silent = false) => {
+    // Prevent multiple simultaneous fetches
+    if (silent && isFetchingMessagesRef.current) {
+      return;
+    }
+
     if (!silent) {
       setIsLoadingMessages(true);
     }
+    
+    isFetchingMessagesRef.current = true;
+    
     try {
       if (!selectedAccount) {
         console.error('No account selected');
@@ -301,7 +310,11 @@ export default function InboxPage() {
 
         // Only update if messages changed (prevents unnecessary re-renders)
         setMessages(prev => {
-          if (JSON.stringify(prev) === JSON.stringify(transformedMessages)) {
+          // Compare by length and last message ID to avoid JSON.stringify performance issue
+          if (prev.length === transformedMessages.length && 
+              prev.length > 0 && 
+              transformedMessages.length > 0 &&
+              prev[prev.length - 1].igMessageId === transformedMessages[transformedMessages.length - 1].igMessageId) {
             return prev; // No change, return same reference
           }
           return transformedMessages;
@@ -330,6 +343,7 @@ export default function InboxPage() {
         setMessages([]);
       }
     } finally {
+      isFetchingMessagesRef.current = false;
       if (!silent) {
         setIsLoadingMessages(false);
       }
@@ -356,10 +370,10 @@ export default function InboxPage() {
     // Initial fetch with loading indicator
     fetchMessages(selectedConversation.id, false);
 
-    // Set up auto-sync every 3 seconds (silent mode - no loading indicators or error toasts)
+    // Set up auto-sync every 5 seconds (silent mode - no loading indicators or error toasts)
     const autoSyncInterval = setInterval(() => {
       fetchMessages(selectedConversation.id, true);
-    }, 3000); // Poll every 3 seconds
+    }, 5000); // Poll every 5 seconds
 
     return () => {
       clearInterval(autoSyncInterval);
