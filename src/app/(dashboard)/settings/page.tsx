@@ -14,7 +14,7 @@ interface SettingsItem {
 const settingsItems: SettingsItem[] = [
   {
     title: 'Instagram Accounts',
-    description: 'Connect and manage your Instagram business accounts',
+    description: 'Connect and manage your Instagram accounts',
     href: '/settings/instagram',
     icon: Instagram,
     badge: 'Required',
@@ -68,10 +68,10 @@ export default function SettingsPage() {
             <Link
               key={item.href}
               href={item.href}
-              className="group relative flex items-start gap-4 rounded-xl border border-zinc-800 bg-zinc-900/50 p-5 transition-all hover:border-zinc-700 hover:bg-zinc-900"
+              className="group relative flex items-start gap-4 rounded-xl border border-zinc-800 bg-zinc-900/50 p-6 transition-all hover:border-zinc-700 hover:bg-zinc-900"
             >
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-pink-500/20 to-purple-500/20 text-pink-400 group-hover:from-pink-500/30 group-hover:to-purple-500/30">
-                <Icon className="h-6 w-6" />
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-pink-500/20 to-purple-500/20 text-pink-400 group-hover:from-pink-500/30 group-hover:to-purple-500/30 transition-all">
+                <Icon className="h-7 w-7" strokeWidth={1.5} />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">

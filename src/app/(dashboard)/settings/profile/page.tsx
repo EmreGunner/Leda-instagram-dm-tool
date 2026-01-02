@@ -48,13 +48,7 @@ export default function ProfilePage() {
       setIsLoading(true);
       setError(null);
 
-      // Ensure workspace exists and set auth
-      const workspaceId = await getOrCreateUserWorkspaceId();
-      if (!workspaceId) {
-        throw new Error("Failed to get workspace");
-      }
-
-      // Get current user for auth headers
+      // Get current user first
       const { createClient } = await import("@/lib/supabase/client");
       const supabase = createClient();
       const {
@@ -73,22 +67,68 @@ export default function ProfilePage() {
         .single();
 
       if (user) {
-        // Set auth for API client
-        api.setAuth(workspaceId, user.id);
+        // Parse name into first and last name if needed
+        let firstName = user.first_name || "";
+        let lastName = user.last_name || "";
+        
+        // If no first/last name but we have a full name, split it
+        if ((!firstName || !lastName) && user.name) {
+          const nameParts = user.name.trim().split(/\s+/);
+          if (nameParts.length > 0 && !firstName) {
+            firstName = nameParts[0];
+          }
+          if (nameParts.length > 1 && !lastName) {
+            lastName = nameParts.slice(1).join(" ");
+          }
+        }
 
-        // Fetch profile from API
-        const profile = await api.getUserProfile();
+        // Get or create workspace
+        const workspaceId = await getOrCreateUserWorkspaceId();
+        
+        if (workspaceId) {
+          // Set auth for API client
+          api.setAuth(workspaceId, user.id);
 
-        setFormData({
-          firstName: profile.firstName || "",
-          lastName: profile.lastName || "",
-          email: profile.email || "",
-          phone: profile.phone || "",
-          timezone: profile.timezone || "America/New_York",
-          bio: profile.bio || "",
-          name: profile.name || "",
-        });
-        setAvatarUrl(profile.avatarUrl || null);
+          // Fetch profile from API
+          try {
+            const profile = await api.getUserProfile();
+
+            setFormData({
+              firstName: profile.firstName || firstName,
+              lastName: profile.lastName || lastName,
+              email: profile.email || user.email || authUser.email || "",
+              phone: profile.phone || user.phone || "",
+              timezone: profile.timezone || user.timezone || "America/New_York",
+              bio: profile.bio || user.bio || "",
+              name: profile.name || user.name || "",
+            });
+            setAvatarUrl(profile.avatarUrl || null);
+          } catch (apiError) {
+            console.log("API profile fetch failed, using database values", apiError);
+            // Fallback to database values if API fails
+            setFormData({
+              firstName: firstName,
+              lastName: lastName,
+              email: user.email || authUser.email || "",
+              phone: user.phone || "",
+              timezone: user.timezone || "America/New_York",
+              bio: user.bio || "",
+              name: user.name || "",
+            });
+          }
+        } else {
+          // If workspace doesn't exist, still populate from database
+          console.log("No workspace found, using database values");
+          setFormData({
+            firstName: firstName,
+            lastName: lastName,
+            email: user.email || authUser.email || "",
+            phone: user.phone || "",
+            timezone: user.timezone || "America/New_York",
+            bio: user.bio || "",
+            name: user.name || "",
+          });
+        }
       }
     } catch (err: any) {
       console.error("Failed to load profile:", err);
@@ -122,10 +162,10 @@ export default function ProfilePage() {
         }
       }
 
-      // Ensure workspace exists
+      // Get workspace (create if doesn't exist)
       const workspaceId = await getOrCreateUserWorkspaceId();
       if (!workspaceId) {
-        throw new Error("Failed to get workspace");
+        console.warn("Could not get workspace ID, profile may not save correctly");
       }
 
       // Get current user for auth headers
@@ -272,11 +312,13 @@ export default function ProfilePage() {
       // Update avatar URL in database
       const workspaceId = await getOrCreateUserWorkspaceId();
       if (!workspaceId) {
-        throw new Error("Failed to get workspace");
+        console.warn("Could not get workspace ID for avatar URL update");
       }
 
-      api.setAuth(workspaceId, user.id);
-      await api.updateUserProfile({ avatarUrl: publicUrl });
+      if (workspaceId) {
+        api.setAuth(workspaceId, user.id);
+        await api.updateUserProfile({ avatarUrl: publicUrl });
+      }
 
       setAvatarUrl(publicUrl);
       setSaveStatus("success");
@@ -297,11 +339,6 @@ export default function ProfilePage() {
     try {
       setIsRemovingAvatar(true);
       setError(null);
-      const workspaceId = await getOrCreateUserWorkspaceId();
-      if (!workspaceId) {
-        throw new Error("Failed to get workspace");
-      }
-
       const supabase = createClient();
       const {
         data: { user: authUser },
@@ -309,6 +346,11 @@ export default function ProfilePage() {
 
       if (!authUser) {
         throw new Error("Not authenticated");
+      }
+
+      const workspaceId = await getOrCreateUserWorkspaceId();
+      if (!workspaceId) {
+        console.warn("Could not get workspace ID for avatar removal");
       }
 
       const { data: user } = await supabase
@@ -321,8 +363,10 @@ export default function ProfilePage() {
         throw new Error("User not found");
       }
 
-      api.setAuth(workspaceId, user.id);
-      await api.updateUserProfile({ avatarUrl: null });
+      if (workspaceId) {
+        api.setAuth(workspaceId, user.id);
+        await api.updateUserProfile({ avatarUrl: null });
+      }
 
       setAvatarUrl(null);
       setSaveStatus("success");
@@ -504,6 +548,7 @@ export default function ProfilePage() {
                 type="email"
                 value={formData.email}
                 disabled
+                placeholder="your.email@example.com"
                 className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-zinc-800/50 border border-zinc-700 text-zinc-400 cursor-not-allowed"
               />
             </div>

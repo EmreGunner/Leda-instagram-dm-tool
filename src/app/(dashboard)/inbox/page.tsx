@@ -83,9 +83,13 @@ export default function InboxPage() {
       // Select first account by default
       if (transformedAccounts.length > 0 && !selectedAccount) {
         setSelectedAccount(transformedAccounts[0]);
+      } else if (transformedAccounts.length === 0) {
+        // If no accounts, stop loading state
+        setIsLoadingConversations(false);
       }
     } catch (error) {
       console.error('Error fetching accounts:', error);
+      setIsLoadingConversations(false);
     }
   }, [selectedAccount]);
 
