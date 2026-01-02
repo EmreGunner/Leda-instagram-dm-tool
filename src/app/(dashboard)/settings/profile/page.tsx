@@ -190,22 +190,25 @@ export default function ProfilePage() {
         throw new Error("User not found");
       }
 
-      // Set auth for API client
-      api.setAuth(workspaceId, user.id);
+      // Only set auth and update if we have a workspace
+      if (workspaceId) {
+        // Set auth for API client
+        api.setAuth(workspaceId, user.id);
 
-      // Update profile
-      await api.updateUserProfile({
-        firstName: formData.firstName || undefined,
-        lastName: formData.lastName || undefined,
-        phone: formData.phone || undefined,
-        timezone: formData.timezone || "America/New_York",
-        bio: formData.bio || undefined,
-        name:
-          formData.name ||
-          `${formData.firstName} ${formData.lastName}`.trim() ||
-          undefined,
-        avatarUrl: avatarUrl || undefined,
-      });
+        // Update profile
+        await api.updateUserProfile({
+          firstName: formData.firstName || undefined,
+          lastName: formData.lastName || undefined,
+          phone: formData.phone || undefined,
+          timezone: formData.timezone || "America/New_York",
+          bio: formData.bio || undefined,
+          name:
+            formData.name ||
+            `${formData.firstName} ${formData.lastName}`.trim() ||
+            undefined,
+          avatarUrl: avatarUrl || undefined,
+        });
+      }
 
       setSaveStatus("success");
       setTimeout(() => setSaveStatus("idle"), 3000);
