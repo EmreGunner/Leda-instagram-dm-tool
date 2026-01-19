@@ -4,6 +4,13 @@ import { useEffect } from "react";
 
 export default function JobPoller() {
   useEffect(() => {
+    // ⚠️ JobPoller is now DISABLED
+    // The automatic background polling system in background.js handles DM sending
+    // using DUMMY_JOBS data (5 different recipients).
+    // 
+    // To re-enable manual testing, uncomment the code below:
+    
+    /*
     console.log("[JobPoller][TEST] Static extension test started");
 
     const STATIC_JOB = {
@@ -11,8 +18,7 @@ export default function JobPoller() {
       campaignId: "d0c11249-210f-4346-8585-8c0b7d9f236b",
       campaignName: "DM SENT AUTOMATION BY NAYAN",
       leadId: "3c1e7d17-ae90-405b-97a9-7e0abb53d729",
-      recipientUsername: "mr_nds3",
-      // recipientUsername: "nayan_sukhadiya",
+      recipientUsername: "sumitmishra3017",
       recipientUserId: "13986907142",
       jobType: "DM",
       message: "kem cho {{username}},now we testing the ",
@@ -51,7 +57,6 @@ export default function JobPoller() {
     window.addEventListener("message", onWindowMessage);
     window.addEventListener("socialora_job_status", onDomEvent);
 
-    // Small delay so content script is ready
     setTimeout(() => {
       console.log("[JobPoller][TEST] Sending job to extension", payload);
 
@@ -68,6 +73,9 @@ export default function JobPoller() {
       window.removeEventListener("message", onWindowMessage);
       window.removeEventListener("socialora_job_status", onDomEvent);
     };
+    */
+    
+    console.log("[JobPoller] Component loaded but disabled. Background polling system is active.");
   }, []);
 
   return null;

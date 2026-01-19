@@ -346,46 +346,53 @@
 // automation-script.js
 
 // 1. Listen for commands from background.js
-chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "EXECUTE_COLD_DM") {
         const jobId = request.jobId || null;
-        try {
-            // Prevent duplicate sends for the same jobId
-            if (jobId && globalThis.__socialora_last_sent_job_id === jobId) {
-                console.log('automation-script: job already processed, skipping', jobId);
-                sendResponse({ status: 'skipped', reason: 'duplicate', jobId });
-                return true;
-            }
-
-            // Safety window check
-            const lastMsg = globalThis.__socialora_last_sent_message || null;
-            const lastTs = globalThis.__socialora_last_sent_ts || 0;
-            const now = Date.now();
-            if (lastMsg === request.message && now - lastTs < 60_000) {
-                console.log('automation-script: same message sent recently, skipping');
-                sendResponse({ status: 'skipped', reason: 'recent_duplicate', jobId });
-                return true;
-            }
-
-            console.log("🤖 Starting Cold DM Sequence for:", request.username, { jobId });
-            
-            // PASS USERNAME HERE so we can use it for the fallback search
-            await performColdDmSequence(request.message, request.username);
-
-            // Mark as processed
+        
+        // Handle async execution
+        (async () => {
             try {
-                if (jobId) globalThis.__socialora_last_sent_job_id = jobId;
-                globalThis.__socialora_last_sent_message = request.message;
-                globalThis.__socialora_last_sent_ts = Date.now();
-            } catch (e) {}
+                // Prevent duplicate sends for the same jobId
+                if (jobId && globalThis.__socialora_last_sent_job_id === jobId) {
+                    console.log('automation-script: job already processed, skipping', jobId);
+                    sendResponse({ status: 'skipped', reason: 'duplicate', jobId });
+                    return;
+                }
 
-            sendResponse({ status: "success", jobId });
-        } catch (error) {
-            console.error("❌ DM Failed:", error);
-            sendResponse({ status: "error", message: error.toString(), jobId });
-        }
+                // Safety window check
+                const lastMsg = globalThis.__socialora_last_sent_message || null;
+                const lastTs = globalThis.__socialora_last_sent_ts || 0;
+                const now = Date.now();
+                if (lastMsg === request.message && now - lastTs < 60_000) {
+                    console.log('automation-script: same message sent recently, skipping');
+                    sendResponse({ status: 'skipped', reason: 'recent_duplicate', jobId });
+                    return;
+                }
+
+                console.log("🤖 Starting Cold DM Sequence for:", request.username, { jobId });
+                
+                // PASS USERNAME HERE so we can use it for the fallback search
+                await performColdDmSequence(request.message, request.username);
+
+                // Mark as processed
+                try {
+                    if (jobId) globalThis.__socialora_last_sent_job_id = jobId;
+                    globalThis.__socialora_last_sent_message = request.message;
+                    globalThis.__socialora_last_sent_ts = Date.now();
+                } catch (e) {}
+
+                sendResponse({ status: "success", jobId });
+            } catch (error) {
+                console.error("❌ DM Failed:", error);
+                sendResponse({ status: "error", message: error.toString(), jobId });
+            }
+        })();
+        
+        return true; // Keep channel open for async response
     }
-    return true; 
+    
+    return false;
 });
 
 async function performColdDmSequence(messageText, targetUsername) {
