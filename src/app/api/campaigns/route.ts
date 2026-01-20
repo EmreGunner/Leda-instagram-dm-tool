@@ -258,7 +258,7 @@ export async function POST(request: NextRequest) {
         name: name.trim(),
         description: description?.trim() || null,
         workspaceId: auth.workspaceId,
-        status: "SCHEDULED", // New campaigns start as SCHEDULED
+        status: schedule_type === "IMMEDIATE" ? "RUNNING" : "SCHEDULED", // New campaigns start as RUNNING if immediate, otherwise SCHEDULED
         scheduledAt: scheduledDateTime,
         timezone: timezone || "America/New_York",
         messagesPerDay: messages_per_day || 10,

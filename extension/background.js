@@ -194,15 +194,14 @@ async function stopInstagramConnection() {
   // Keep connection state if user was connected - don't reset to idle
   const newState = connectedUser ? "connected" : "idle";
 
-  // Stop job polling when disconnecting
-  if (!connectedUser) {
-    console.log('🛑 Stopping job polling system (user disconnected)');
-    stopJobPolling();
-  }
+  // Stop job polling when user clicks STOP (regardless of connection state)
+  console.log('🛑 Stopping job polling system (user clicked STOP)');
+  stopJobPolling();
 
   chrome.storage.local.set({
     socialora_instagram_tab_id: null, // Clear tab ID but keep connection
     socialora_connection_state: newState,
+    isDMQueueActive: false, // Deactivate queue when user stops
     // Keep socialora_connected_user unchanged
   });
 
@@ -363,9 +362,8 @@ async function handleCookiesReady(cookies) {
     }
   );
 
-  // Start job polling now that user is connected
-  console.log('🔧 Starting job polling system after successful connection');
-  startJobPolling();
+  // Job polling will be started manually when user clicks "PRESS TO START"
+  // Do not start automatically here
 
   // Open Socialora app and transfer cookies using existing content-script flow
   const config = await CONFIG.getCurrent();
@@ -690,6 +688,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // Start/stop job polling on user request
+  if (message.type === "START_JOB_POLLING") {
+    (async () => {
+      const { socialora_connected_user: connectedUser } = 
+        await chrome.storage.local.get(['socialora_connected_user']);
+      
+      if (!connectedUser || !connectedUser.pk) {
+        sendResponse({ success: false, error: 'No connected user found' });
+        return;
+      }
+      
+      startJobPolling();
+      sendResponse({ success: true, message: 'Job polling started' });
+    })();
+    return true;
+  }
+
+  if (message.type === "STOP_JOB_POLLING") {
+    stopJobPolling();
+    sendResponse({ success: true, message: 'Job polling stopped' });
+    return true;
+  }
+
   return false;
 });
 
@@ -729,24 +750,38 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 });
 
 /**
- * Start the job polling system (called after successful Instagram connection)
+ * Start the job polling system (called when user clicks PRESS TO START)
  */
 function startJobPolling() {
-  // Clear any existing alarm first
-  chrome.alarms.clear('pollForJobs', (wasCleared) => {
-    console.log('Cleared existing pollForJobs alarm:', wasCleared);
+  // Set isDMQueueActive to true first
+  chrome.storage.local.set({ isDMQueueActive: true }, () => {
+    // Notify popup that polling started
+    try {
+      chrome.runtime.sendMessage({ type: "JOB_POLLING_STARTED" }, () => {
+        if (chrome.runtime.lastError) {
+          // Popup might not be open, ignore
+        }
+      });
+    } catch (e) {
+      // Ignore errors
+    }
     
-    // Set up recurring alarm to poll for jobs every 5 minutes
-    chrome.alarms.create('pollForJobs', {
-      delayInMinutes: 1, // Start first poll after 1 minute
-      periodInMinutes: JOB_POLL_INTERVAL_MINS
+    // Clear any existing alarm first
+    chrome.alarms.clear('pollForJobs', (wasCleared) => {
+      console.log('Cleared existing pollForJobs alarm:', wasCleared);
+      
+      // Set up recurring alarm to poll for jobs every 5 minutes
+      chrome.alarms.create('pollForJobs', {
+        delayInMinutes: 1, // Start first poll after 1 minute
+        periodInMinutes: JOB_POLL_INTERVAL_MINS
+      });
+      
+      console.log(`🔧 DM Queue auto-polling started (every ${JOB_POLL_INTERVAL_MINS} minutes)`);
+      console.log(`⚙️ Job processing config: MIN_DELAY=${MIN_DELAY_MINS} min, MAX_JITTER=${JITTER_MINS} min`);
+      
+      // Run initial poll after a short delay
+      setTimeout(() => pollForPendingJobs(), 5000);
     });
-    
-    console.log(`🔧 DM Queue auto-polling started (every ${JOB_POLL_INTERVAL_MINS} minutes)`);
-    console.log(`⚙️ Job processing config: MIN_DELAY=${MIN_DELAY_MINS} min, MAX_JITTER=${JITTER_MINS} min`);
-    
-    // Run initial poll after a short delay
-    setTimeout(() => pollForPendingJobs(), 5000);
   });
 }
 
@@ -769,6 +804,17 @@ function stopJobPolling() {
     isDMQueueActive: false,
     dmJobQueue: [],
     dmProcessedCount: 0
+  }, () => {
+    // Notify popup that polling stopped
+    try {
+      chrome.runtime.sendMessage({ type: "JOB_POLLING_STOPPED" }, () => {
+        if (chrome.runtime.lastError) {
+          // Popup might not be open, ignore
+        }
+      });
+    } catch (e) {
+      // Ignore errors
+    }
   });
   
   console.log('🛑 Job polling system stopped and queue cleared');
@@ -782,9 +828,14 @@ async function pollForPendingJobs() {
   console.log('\n🔍 Polling for pending jobs...');
   
   try {
-    // Check if there's already a queue being processed
+    // Check if queue is active - if not, don't poll
     const { isDMQueueActive = false, dmJobQueue = [] } = 
       await chrome.storage.local.get(['isDMQueueActive', 'dmJobQueue']);
+    
+    if (!isDMQueueActive) {
+      console.log('⏸️ Queue is not active (user must click PRESS TO START). Skipping poll.');
+      return;
+    }
     
     if (isDMQueueActive && dmJobQueue.length > 0) {
       console.log('⏭️ Queue already active with', dmJobQueue.length, 'jobs. Skipping poll.');
@@ -883,9 +934,11 @@ async function processNextDMJob() {
     const { dmJobQueue = [], dmProcessedCount = 0, isDMQueueActive = false } = 
       await chrome.storage.local.get(['dmJobQueue', 'dmProcessedCount', 'isDMQueueActive']);
     
-    // Check if queue is still active
+    // Check if queue is still active - if not, stop processing
     if (!isDMQueueActive) {
-      console.log('⏸️ Queue is not active');
+      console.log('⏸️ Queue is not active (user must click PRESS TO START)');
+      // Clear any pending alarms
+      chrome.alarms.clear('processNextDMJob');
       return;
     }
     
@@ -896,7 +949,6 @@ async function processNextDMJob() {
       
       // Mark queue as inactive
       await chrome.storage.local.set({ 
-        isDMQueueActive: false,
         dmProcessedCount: 0 
       });
       
@@ -1253,9 +1305,22 @@ chrome.runtime.onInstalled.addListener(() => {
   console.log(`⚙️ Job processing config: MIN_DELAY=${MIN_DELAY_MINS} min, MAX_JITTER=${JITTER_MINS} min`);
 });
 
+// Set isDMQueueActive to false when browser closes
+chrome.runtime.onSuspend.addListener(() => {
+  console.log('Browser closing, deactivating DM queue...');
+  chrome.storage.local.set({ isDMQueueActive: false }, () => {
+    console.log('DM queue deactivated');
+  });
+});
+
 // Also set up polling on service worker startup (in case it was terminated)
 chrome.runtime.onStartup.addListener(async () => {
   console.log('Socialora service worker started');
+  
+  // Always set isDMQueueActive to false on startup - user must click PRESS TO START
+  chrome.storage.local.set({ isDMQueueActive: false }, () => {
+    console.log('DM queue deactivated on startup (user must click PRESS TO START)');
+  });
   
   // Check if user is already connected
   const state = await new Promise((resolve) => {
@@ -1265,16 +1330,7 @@ chrome.runtime.onStartup.addListener(async () => {
   const isConnected = state.socialora_connection_state === 'connected' && state.socialora_connected_user;
   
   if (isConnected) {
-    console.log('User is already connected, resuming job polling');
-    // Ensure polling alarm is set
-    chrome.alarms.get('pollForJobs', (alarm) => {
-      if (!alarm) {
-        console.log('Polling alarm not found, restarting it');
-        startJobPolling();
-      } else {
-        console.log('Polling alarm already active');
-      }
-    });
+    console.log('User is already connected, but job polling will not start until user clicks PRESS TO START');
   } else {
     console.log('User not connected, job polling will start after connection');
   }
