@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/server/prisma/client";
+import { campaignService } from "@/lib/server/campaigns/campaign-service";
 
 export async function GET(request: NextRequest) {
   try {
@@ -90,13 +91,10 @@ export async function GET(request: NextRequest) {
 
     const formattedJobs = jobs.map((job: any) => {
       let message = job.payload?.message ?? "";
-      // Replace {{name}} and {{username}} in the message
+      // Personalize the message
+      const contact = { name: job.recipientName || "", igUsername: job.recipientUsername || "" };
       if (typeof message === "string") {
-        message = message
-          .replace(/{{name}}/gi, job.recipient_username || "")
-          .replace(
-            /{{username}}/gi, job.recipientUsername || ""
-          );
+        message = campaignService.personalizeMessage(message, contact);
       }
       return {
         id: job.id,
