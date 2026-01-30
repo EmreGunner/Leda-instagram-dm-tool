@@ -923,6 +923,77 @@ async function pollForPendingJobs() {
 }
 
 /**
+ * Check and update job scheduledAt based on campaign time window
+ * @param {string} jobId - Job ID to check
+ * @returns {Promise<{success: boolean, updated: boolean, scheduledAt: string|null, reason: string|null, error: string|null}>}
+ */
+async function checkJobTimeWindow(jobId) {
+  try {
+    const config = await CONFIG.getCurrent();
+    const apiUrl = buildApiUrl(config.BACKEND_URL, 'api/campaigns/jobs/check-time-window');
+    
+    console.log(`⏰ Checking time window for job ${jobId}...`);
+    
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ jobId }),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'Unknown error');
+      console.error(`❌ Time window check API error: ${response.status} ${response.statusText}`, errorText);
+      return {
+        success: false,
+        updated: false,
+        scheduledAt: null,
+        reason: null,
+        error: `API error: ${response.status}`,
+      };
+    }
+    
+    const data = await response.json();
+    
+    if (!data.success) {
+      console.error(`❌ Time window check failed:`, data.error || 'Unknown error');
+      return {
+        success: false,
+        updated: false,
+        scheduledAt: null,
+        reason: null,
+        error: data.error || 'Unknown error',
+      };
+    }
+    
+    if (data.updated) {
+      console.log(`✅ Time window check: ${data.reason}`);
+      console.log(`   Updated scheduledAt from ${data.previousScheduledAt} to ${data.scheduledAt}`);
+    } else {
+      console.log(`ℹ️ Time window check: ${data.reason || 'No update needed'}`);
+    }
+    
+    return {
+      success: true,
+      updated: data.updated || false,
+      scheduledAt: data.scheduledAt || null,
+      reason: data.reason || null,
+      error: null,
+    };
+  } catch (error) {
+    console.error(`❌ Error checking time window for job ${jobId}:`, error);
+    return {
+      success: false,
+      updated: false,
+      scheduledAt: null,
+      reason: null,
+      error: error.message || 'Failed to check time window',
+    };
+  }
+}
+
+/**
  * Process the next job in the queue
  * This function is called by the alarm and handles one job at a time
  */
@@ -962,6 +1033,32 @@ async function processNextDMJob() {
     console.log(`📋 Processing job ${currentJob.id} (${dmProcessedCount + 1}/${dmProcessedCount + dmJobQueue.length})`);
     console.log(`📝 Recipient: ${currentJob.recipient}`);
     console.log(`💬 Message: ${currentJob.message}`);
+    
+    // Check time window before processing
+    const timeWindowCheck = await checkJobTimeWindow(currentJob.id);
+    
+    if (!timeWindowCheck.success) {
+      console.warn(`⚠️ Time window check failed: ${timeWindowCheck.error}. Proceeding with job execution anyway.`);
+    } else if (timeWindowCheck.updated) {
+      // If scheduledAt was updated, we need to reschedule this job
+      // Remove it from the queue and schedule next job based on new scheduledAt
+      const newScheduledAt = new Date(timeWindowCheck.scheduledAt);
+      const now = new Date();
+      const delayMinutes = Math.max(0.1, (newScheduledAt - now) / (1000 * 60));
+      
+      console.log(`⏰ Job rescheduled. New scheduledAt: ${timeWindowCheck.scheduledAt}`);
+      console.log(`   Rescheduling job in ${delayMinutes.toFixed(2)} minutes`);
+      
+      // Remove job from queue (it will be picked up again when scheduledAt arrives)
+      const newQueue = dmJobQueue.slice(1);
+      await chrome.storage.local.set({ 
+        dmJobQueue: newQueue
+      });
+      
+      // Schedule next job check
+      scheduleNextJob(Math.min(delayMinutes, RETRY_DELAY_MINS));
+      return;
+    }
     
     // Find or create Instagram DM tab
     const tab = await getOrCreateInstagramTab();
