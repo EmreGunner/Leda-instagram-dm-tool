@@ -3,10 +3,10 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useCallback } from 'react';
-import { 
-  Sparkles, 
-  MessageSquare, 
-  Zap, 
+import {
+  Sparkles,
+  MessageSquare,
+  Zap,
   Bot,
   Settings2,
   Play,
@@ -75,7 +75,7 @@ export default function AIStudioPage() {
     setIsLoading(true);
     try {
       const supabase = createClient();
-      
+
       // Fetch Instagram accounts
       const { data: accountsData } = await supabase
         .from('instagram_accounts')
@@ -137,7 +137,7 @@ export default function AIStudioPage() {
 
     try {
       const supabase = createClient();
-      
+
       // Get workspace
       const { data: workspaces } = await supabase
         .from('workspaces')
@@ -152,6 +152,7 @@ export default function AIStudioPage() {
 
       // Build insert object with all required fields
       const insertData: any = {
+        id: crypto.randomUUID(), // Generate UUID for the id since table doesn't auto-generate
         name: newAutomation.name,
         description: newAutomation.description || null,
         trigger_type: newAutomation.trigger,
@@ -173,6 +174,7 @@ export default function AIStudioPage() {
         alert('Failed to create automation: ' + error.message);
         return;
       }
+
 
       // Track automation creation
       capture('automation_created', {
@@ -201,19 +203,19 @@ export default function AIStudioPage() {
         .from('automations')
         .update({ is_active: currentStatus !== 'active' })
         .eq('id', id);
-      
+
       if (error) {
         console.error('Error updating automation:', error);
         alert('Failed to update automation: ' + error.message);
         return;
       }
-      
+
       // Track automation status toggle
       capture('automation_status_toggled', {
         automation_id: id,
         new_status: currentStatus !== 'active' ? 'active' : 'inactive',
       });
-      
+
       fetchData();
     } catch (error) {
       console.error('Error updating automation:', error);
@@ -245,269 +247,268 @@ export default function AIStudioPage() {
 
       <div className="p-4 md:p-6">
 
-      {/* No Accounts Warning */}
-      {!isLoading && accounts.length === 0 && (
-        <div className="mb-8 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          <AlertCircle className="h-5 w-5 text-amber-400 flex-shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-amber-400 font-medium">No Instagram accounts connected</p>
-            <p className="text-amber-400/70 text-sm">Connect an Instagram account first to create automations</p>
-          </div>
-          <Button variant="secondary" size="sm" onClick={() => window.location.href = '/settings/instagram'} className="w-full sm:w-auto">
-            <Instagram className="h-4 w-4" />
-            Connect Account
-          </Button>
-        </div>
-      )}
-
-      {/* Quick Templates */}
-      <div className="mb-8">
-        <h2 className="text-lg font-semibold text-foreground mb-4">Quick Templates</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {templates.map((template) => {
-            const Icon = template.icon;
-            return (
-              <button
-                key={template.name}
-                onClick={() => {
-                  setNewAutomation(prev => ({ ...prev, name: template.name, description: template.description }));
-                  setShowCreateModal(true);
-                }}
-                className="flex items-start gap-4 p-4 rounded-xl border border-border bg-background-elevated hover:border-accent/50 hover:bg-background-secondary transition-all text-left"
-              >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-pink-500/20 to-purple-500/20 text-pink-400">
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-foreground mb-1">{template.name}</h3>
-                  <p className="text-sm text-foreground-subtle">{template.description}</p>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Automations List */}
-      <div>
-        <h2 className="text-lg font-semibold text-foreground mb-4">Your Automations</h2>
-        {isLoading ? (
-          <div className="rounded-xl border border-border bg-background-elevated p-8 text-center">
-            <div className="animate-spin h-8 w-8 border-2 border-pink-500 border-t-transparent rounded-full mx-auto mb-4" />
-            <p className="text-foreground-muted">Loading automations...</p>
-          </div>
-        ) : automations.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border bg-background-tertiary p-12 text-center">
-            <Bot className="h-12 w-12 text-foreground-subtle mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-foreground mb-2">No automations yet</h3>
-            <p className="text-foreground-muted mb-6">Create your first AI automation to handle DMs automatically</p>
-            <Button onClick={() => setShowCreateModal(true)}>
-              <Plus className="h-4 w-4" />
-              Create Automation
+        {/* No Accounts Warning */}
+        {!isLoading && accounts.length === 0 && (
+          <div className="mb-8 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <AlertCircle className="h-5 w-5 text-amber-400 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-amber-400 font-medium">No Instagram accounts connected</p>
+              <p className="text-amber-400/70 text-sm">Connect an Instagram account first to create automations</p>
+            </div>
+            <Button variant="secondary" size="sm" onClick={() => window.location.href = '/settings/instagram'} className="w-full sm:w-auto">
+              <Instagram className="h-4 w-4" />
+              Connect Account
             </Button>
           </div>
-        ) : (
-          <div className="rounded-xl border border-border bg-background-elevated overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="px-6 py-4 text-left text-xs font-medium text-foreground-subtle uppercase tracking-wider">
-                    Automation
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-foreground-subtle uppercase tracking-wider">
-                    Account
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-foreground-subtle uppercase tracking-wider">
-                    Trigger
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-foreground-subtle uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-foreground-subtle uppercase tracking-wider">
-                    Messages
-                  </th>
-                  <th className="px-6 py-4 text-right text-xs font-medium text-foreground-subtle uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {automations.map((automation) => (
-                  <tr
-                    key={automation.id}
-                    className={`hover:bg-background-secondary transition-colors cursor-pointer ${
-                      selectedAutomation === automation.id ? 'bg-background-secondary' : ''
-                    }`}
-                    onClick={() => setSelectedAutomation(automation.id)}
-                  >
-                    <td className="px-6 py-4">
-                      <div>
-                        <p className="font-medium text-foreground">{automation.name}</p>
-                        <p className="text-sm text-foreground-muted max-w-xs truncate">
-                          {automation.description}
-                        </p>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm text-foreground-muted">
-                        @{automation.instagramUsername || 'Not set'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-background-tertiary text-xs font-medium text-foreground">
-                        {automation.trigger}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(automation.status)}`}>
-                        {automation.status.charAt(0).toUpperCase() + automation.status.slice(1)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-foreground-muted">
-                      {automation.messagesHandled.toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-end gap-2">
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleAutomationStatus(automation.id, automation.status);
-                          }}
-                          className="p-2 rounded-lg hover:bg-background-tertiary text-foreground-muted hover:text-foreground transition-colors"
-                        >
-                          {automation.status === 'active' ? (
-                            <Pause className="h-4 w-4" />
-                          ) : (
-                            <Play className="h-4 w-4" />
-                          )}
-                        </button>
-                        <button className="p-2 rounded-lg hover:bg-background-tertiary text-foreground-muted hover:text-foreground transition-colors">
-                          <Settings2 className="h-4 w-4" />
-                        </button>
-                        <button className="p-2 rounded-lg hover:bg-background-tertiary text-foreground-muted hover:text-foreground transition-colors">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
+        )}
+
+        {/* Quick Templates */}
+        <div className="mb-8">
+          <h2 className="text-lg font-semibold text-foreground mb-4">Quick Templates</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {templates.map((template) => {
+              const Icon = template.icon;
+              return (
+                <button
+                  key={template.name}
+                  onClick={() => {
+                    setNewAutomation(prev => ({ ...prev, name: template.name, description: template.description }));
+                    setShowCreateModal(true);
+                  }}
+                  className="flex items-start gap-4 p-4 rounded-xl border border-border bg-background-elevated hover:border-accent/50 hover:bg-background-secondary transition-all text-left"
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-pink-500/20 to-purple-500/20 text-pink-400">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-foreground mb-1">{template.name}</h3>
+                    <p className="text-sm text-foreground-subtle">{template.description}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Automations List */}
+        <div>
+          <h2 className="text-lg font-semibold text-foreground mb-4">Your Automations</h2>
+          {isLoading ? (
+            <div className="rounded-xl border border-border bg-background-elevated p-8 text-center">
+              <div className="animate-spin h-8 w-8 border-2 border-pink-500 border-t-transparent rounded-full mx-auto mb-4" />
+              <p className="text-foreground-muted">Loading automations...</p>
+            </div>
+          ) : automations.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border bg-background-tertiary p-12 text-center">
+              <Bot className="h-12 w-12 text-foreground-subtle mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-foreground mb-2">No automations yet</h3>
+              <p className="text-foreground-muted mb-6">Create your first AI automation to handle DMs automatically</p>
+              <Button onClick={() => setShowCreateModal(true)}>
+                <Plus className="h-4 w-4" />
+                Create Automation
+              </Button>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-border bg-background-elevated overflow-hidden">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="px-6 py-4 text-left text-xs font-medium text-foreground-subtle uppercase tracking-wider">
+                      Automation
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-foreground-subtle uppercase tracking-wider">
+                      Account
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-foreground-subtle uppercase tracking-wider">
+                      Trigger
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-foreground-subtle uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-foreground-subtle uppercase tracking-wider">
+                      Messages
+                    </th>
+                    <th className="px-6 py-4 text-right text-xs font-medium text-foreground-subtle uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {automations.map((automation) => (
+                    <tr
+                      key={automation.id}
+                      className={`hover:bg-background-secondary transition-colors cursor-pointer ${selectedAutomation === automation.id ? 'bg-background-secondary' : ''
+                        }`}
+                      onClick={() => setSelectedAutomation(automation.id)}
+                    >
+                      <td className="px-6 py-4">
+                        <div>
+                          <p className="font-medium text-foreground">{automation.name}</p>
+                          <p className="text-sm text-foreground-muted max-w-xs truncate">
+                            {automation.description}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-sm text-foreground-muted">
+                          @{automation.instagramUsername || 'Not set'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-background-tertiary text-xs font-medium text-foreground">
+                          {automation.trigger}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(automation.status)}`}>
+                          {automation.status.charAt(0).toUpperCase() + automation.status.slice(1)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-foreground-muted">
+                        {automation.messagesHandled.toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleAutomationStatus(automation.id, automation.status);
+                            }}
+                            className="p-2 rounded-lg hover:bg-background-tertiary text-foreground-muted hover:text-foreground transition-colors"
+                          >
+                            {automation.status === 'active' ? (
+                              <Pause className="h-4 w-4" />
+                            ) : (
+                              <Play className="h-4 w-4" />
+                            )}
+                          </button>
+                          <button className="p-2 rounded-lg hover:bg-background-tertiary text-foreground-muted hover:text-foreground transition-colors">
+                            <Settings2 className="h-4 w-4" />
+                          </button>
+                          <button className="p-2 rounded-lg hover:bg-background-tertiary text-foreground-muted hover:text-foreground transition-colors">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* AI Stats */}
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="rounded-xl border border-border bg-background-elevated p-5">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400">
+                <Zap className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-foreground">
+                  {automations.reduce((sum, a) => sum + a.messagesHandled, 0).toLocaleString()}
+                </p>
+                <p className="text-sm text-foreground-muted">Total messages automated</p>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-xl border border-border bg-background-elevated p-5">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-pink-500/20 text-pink-400">
+                <Bot className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-foreground">
+                  {automations.filter(a => a.status === 'active').length}
+                </p>
+                <p className="text-sm text-foreground-muted">Active automations</p>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-xl border border-border bg-background-elevated p-5">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-500/20 text-purple-400">
+                <Instagram className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-foreground">{accounts.length}</p>
+                <p className="text-sm text-foreground-muted">Connected accounts</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Create Automation Modal */}
+        {showCreateModal && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div className="bg-background-secondary rounded-2xl border border-border max-w-md w-full">
+              <div className="p-6 border-b border-border">
+                <h2 className="text-lg font-semibold text-foreground">Create Automation</h2>
+              </div>
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-foreground-muted mb-2">Instagram Account</label>
+                  <select
+                    value={newAutomation.accountId}
+                    onChange={(e) => setNewAutomation(prev => ({ ...prev, accountId: e.target.value }))}
+                    className="w-full px-4 py-2.5 rounded-lg bg-background-tertiary border border-border text-foreground focus:border-pink-500 outline-none"
+                  >
+                    <option value="">Select account</option>
+                    {accounts.map(acc => (
+                      <option key={acc.id} value={acc.id}>@{acc.igUsername}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground-muted mb-2">Name</label>
+                  <input
+                    type="text"
+                    value={newAutomation.name}
+                    onChange={(e) => setNewAutomation(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="e.g., Welcome Message"
+                    className="w-full px-4 py-2.5 rounded-lg bg-background-tertiary border border-border text-foreground placeholder-foreground-subtle focus:border-pink-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground-muted mb-2">Description</label>
+                  <textarea
+                    value={newAutomation.description}
+                    onChange={(e) => setNewAutomation(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="What does this automation do?"
+                    rows={3}
+                    className="w-full px-4 py-2.5 rounded-lg bg-background-tertiary border border-border text-foreground placeholder-foreground-subtle focus:border-pink-500 outline-none resize-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground-muted mb-2">Trigger</label>
+                  <select
+                    value={newAutomation.trigger}
+                    onChange={(e) => setNewAutomation(prev => ({ ...prev, trigger: e.target.value }))}
+                    className="w-full px-4 py-2.5 rounded-lg bg-background-tertiary border border-border text-foreground focus:border-pink-500 outline-none"
+                  >
+                    <option value="New follower">New follower</option>
+                    <option value="New message">New message</option>
+                    <option value="Keyword match">Keyword match</option>
+                    <option value="Story mention">Story mention</option>
+                  </select>
+                </div>
+              </div>
+              <div className="p-6 border-t border-border flex gap-3">
+                <Button variant="secondary" className="flex-1" onClick={() => setShowCreateModal(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={handleCreateAutomation}
+                  disabled={!newAutomation.name || !newAutomation.accountId}
+                >
+                  Create
+                </Button>
+              </div>
+            </div>
           </div>
         )}
-      </div>
-
-      {/* AI Stats */}
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="rounded-xl border border-border bg-background-elevated p-5">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-400">
-              <Zap className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">
-                {automations.reduce((sum, a) => sum + a.messagesHandled, 0).toLocaleString()}
-              </p>
-              <p className="text-sm text-foreground-muted">Total messages automated</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-xl border border-border bg-background-elevated p-5">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-pink-500/20 text-pink-400">
-              <Bot className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">
-                {automations.filter(a => a.status === 'active').length}
-              </p>
-              <p className="text-sm text-foreground-muted">Active automations</p>
-            </div>
-          </div>
-        </div>
-        <div className="rounded-xl border border-border bg-background-elevated p-5">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-500/20 text-purple-400">
-              <Instagram className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">{accounts.length}</p>
-              <p className="text-sm text-foreground-muted">Connected accounts</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Create Automation Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-background-secondary rounded-2xl border border-border max-w-md w-full">
-            <div className="p-6 border-b border-border">
-              <h2 className="text-lg font-semibold text-foreground">Create Automation</h2>
-            </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-foreground-muted mb-2">Instagram Account</label>
-                <select
-                  value={newAutomation.accountId}
-                  onChange={(e) => setNewAutomation(prev => ({ ...prev, accountId: e.target.value }))}
-                  className="w-full px-4 py-2.5 rounded-lg bg-background-tertiary border border-border text-foreground focus:border-pink-500 outline-none"
-                >
-                  <option value="">Select account</option>
-                  {accounts.map(acc => (
-                    <option key={acc.id} value={acc.id}>@{acc.igUsername}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground-muted mb-2">Name</label>
-                <input
-                  type="text"
-                  value={newAutomation.name}
-                  onChange={(e) => setNewAutomation(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="e.g., Welcome Message"
-                  className="w-full px-4 py-2.5 rounded-lg bg-background-tertiary border border-border text-foreground placeholder-foreground-subtle focus:border-pink-500 outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground-muted mb-2">Description</label>
-                <textarea
-                  value={newAutomation.description}
-                  onChange={(e) => setNewAutomation(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="What does this automation do?"
-                  rows={3}
-                  className="w-full px-4 py-2.5 rounded-lg bg-background-tertiary border border-border text-foreground placeholder-foreground-subtle focus:border-pink-500 outline-none resize-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground-muted mb-2">Trigger</label>
-                <select
-                  value={newAutomation.trigger}
-                  onChange={(e) => setNewAutomation(prev => ({ ...prev, trigger: e.target.value }))}
-                  className="w-full px-4 py-2.5 rounded-lg bg-background-tertiary border border-border text-foreground focus:border-pink-500 outline-none"
-                >
-                  <option value="New follower">New follower</option>
-                  <option value="New message">New message</option>
-                  <option value="Keyword match">Keyword match</option>
-                  <option value="Story mention">Story mention</option>
-                </select>
-              </div>
-            </div>
-            <div className="p-6 border-t border-border flex gap-3">
-              <Button variant="secondary" className="flex-1" onClick={() => setShowCreateModal(false)}>
-                Cancel
-              </Button>
-              <Button 
-                className="flex-1" 
-                onClick={handleCreateAutomation}
-                disabled={!newAutomation.name || !newAutomation.accountId}
-              >
-                Create
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
       </div>
     </div>
   );
