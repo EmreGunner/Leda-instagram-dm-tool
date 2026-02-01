@@ -34,7 +34,7 @@ export class InstagramCookieService {
   async createClientFromCookies(cookies: InstagramCookies): Promise<IgApiClient> {
     const ig = new IgApiClient();
     ig.state.generateDevice(cookies.dsUserId);
-    
+
     try {
       const cookieJar = {
         version: 'tough-cookie@4.1.3',
@@ -53,7 +53,7 @@ export class InstagramCookieService {
 
       await ig.state.deserializeCookieJar(JSON.stringify(cookieJar));
       await ig.account.currentUser();
-      
+
       clientCache.set(cookies.dsUserId, {
         client: ig,
         expiresAt: Date.now() + 30 * 60 * 1000,
@@ -96,7 +96,7 @@ export class InstagramCookieService {
   async verifySession(cookies: InstagramCookies): Promise<InstagramUserInfo> {
     const ig = await this.createClientFromCookies(cookies);
     const currentUser = await ig.account.currentUser();
-    
+
     return {
       pk: currentUser.pk.toString(),
       username: currentUser.username,
@@ -120,10 +120,10 @@ export class InstagramCookieService {
       const algorithm = 'aes-256-cbc';
       const iv = crypto.randomBytes(16);
       const cipher = crypto.createCipheriv(algorithm, Buffer.from(key, 'utf8'), iv);
-      
+
       let encrypted = cipher.update(JSON.stringify(cookies), 'utf8', 'hex');
       encrypted += cipher.final('hex');
-      
+
       return iv.toString('hex') + ':' + encrypted;
     } catch (error) {
       // Fallback to base64 if encryption fails (for development)
@@ -144,10 +144,10 @@ export class InstagramCookieService {
         const algorithm = 'aes-256-cbc';
         const iv = Buffer.from(ivHex, 'hex');
         const decipher = crypto.createDecipheriv(algorithm, Buffer.from(key, 'utf8'), iv);
-        
+
         let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
         decrypted += decipher.final('utf8');
-        
+
         return JSON.parse(decrypted);
       } else {
         // Fallback: base64 decode
@@ -212,7 +212,7 @@ export class InstagramCookieService {
       const userId = await ig.user.getIdByUsername(request.recipientUsername);
       const thread = ig.entity.directThread([userId.toString()]);
       const result = await thread.broadcastText(request.message) as any;
-      
+
       return {
         success: true,
         threadId: result.thread_id || result.payload?.thread_id,
@@ -245,14 +245,14 @@ export class InstagramCookieService {
 
       // Convert user ID to string (Instagram API expects string format)
       const userIdStr = String(userId).trim();
-      
+
       // Validate it's a numeric string (Instagram user IDs are numeric)
       if (!/^\d+$/.test(userIdStr)) {
         return { success: false, error: `Invalid user ID format: ${userIdStr}. User ID must be numeric.` };
       }
 
       const ig = await this.getClient(cookies);
-      
+
       // Try to get user info to validate the user exists (optional check)
       try {
         await ig.user.info(userIdStr);
@@ -263,9 +263,9 @@ export class InstagramCookieService {
       // Create thread and send message
       // Note: Instagram requires the user ID to be in the thread array
       const thread = ig.entity.directThread([userIdStr]);
-      
+
       const result = await thread.broadcastText(message) as any;
-      
+
       return {
         success: true,
         threadId: result.thread_id || result.payload?.thread_id,
@@ -275,7 +275,7 @@ export class InstagramCookieService {
       const errorMessage = error?.message || 'Unknown error';
       const errorResponse = error?.response || {};
       const errorBody = errorResponse?.body || {};
-      
+
       // Log full error details for debugging
       console.error('Instagram DM send error:', {
         message: errorMessage,
@@ -283,7 +283,7 @@ export class InstagramCookieService {
         body: errorBody,
         userId: userId,
       });
-      
+
       // Handle specific Instagram error cases
       if (errorMessage.includes('400') || errorMessage.includes('Bad Request') || errorResponse?.status === 400) {
         if (errorMessage.includes('feedback_required') || errorResponse?.feedback_required) {
@@ -298,27 +298,27 @@ export class InstagramCookieService {
         if (errorMessage.includes('spam') || errorResponse?.spam) {
           return { success: false, error: 'Message blocked by Instagram spam filters. Please try again later.' };
         }
-        return { 
-          success: false, 
-          error: `Instagram API error: ${errorMessage}. This might be due to invalid user ID, rate limiting, or account restrictions.` 
+        return {
+          success: false,
+          error: `Instagram API error: ${errorMessage}. This might be due to invalid user ID, rate limiting, or account restrictions.`
         };
       }
-      
+
       if (errorMessage.includes('User not found') || errorMessage.includes('not found')) {
         return { success: false, error: `User with ID ${userId} not found` };
       }
-      
+
       if (errorMessage.includes('feedback_required')) {
         return { success: false, error: 'Instagram has temporarily blocked messaging. Please try again later.' };
       }
-      
+
       if (errorMessage.includes('login_required')) {
         return { success: false, error: 'Session expired. Please re-authenticate with fresh cookies.' };
       }
 
-      return { 
-        success: false, 
-        error: errorMessage || 'Failed to send DM. Please check your cookies and try again.' 
+      return {
+        success: false,
+        error: errorMessage || 'Failed to send DM. Please check your cookies and try again.'
       };
     }
   }
@@ -331,7 +331,7 @@ export class InstagramCookieService {
       const ig = await this.getClient(cookies);
       const threadFeed = ig.feed.directThread({ thread_id: threadId, oldest_cursor: '' } as any);
       const items = await threadFeed.items();
-      
+
       return items.slice(0, limit).map((item: any) => ({
         itemId: item.item_id,
         userId: String(item.user_id || ''),
@@ -430,30 +430,30 @@ export class InstagramCookieService {
       const ig = await this.getClient(cookies);
       const searchResults = await ig.user.search(keyword);
       const users: any[] = [];
-      
+
       // Prepare keyword variations for flexible matching
       const keywordLower = keyword.toLowerCase();
       const keywordWords = keywordLower.split(/[\s,]+/).filter(w => w.length > 2);
-      
+
       for (const user of searchResults.users) {
         if (users.length >= limit) break;
-        
+
         try {
           const profile = await ig.user.info(user.pk);
           const bio = (profile.biography || '').toLowerCase();
           const username = profile.username.toLowerCase();
           const fullName = (profile.full_name || '').toLowerCase();
-          
+
           // Check if keyword or its variations appear in bio, username, or full name
           let matchedInBio = false;
           let relevanceScore = 0;
-          
+
           // Exact match in bio (highest priority)
           if (bio.includes(keywordLower)) {
             matchedInBio = true;
             relevanceScore += 10;
           }
-          
+
           // Word-by-word match in bio
           for (const word of keywordWords) {
             if (bio.includes(word)) {
@@ -467,7 +467,7 @@ export class InstagramCookieService {
               relevanceScore += 1;
             }
           }
-          
+
           // If Instagram found this user relevant through search, include them
           // even if bio doesn't match perfectly (Instagram's algorithm is good)
           if (relevanceScore > 0 || users.length < 10) {
@@ -485,7 +485,7 @@ export class InstagramCookieService {
               relevanceScore,
             });
           }
-          
+
           // Use random delay to avoid rate limiting
           const delay = getRandomDelay();
           await new Promise(resolve => setTimeout(resolve, delay));
@@ -493,10 +493,10 @@ export class InstagramCookieService {
           console.warn(`Could not fetch profile for ${user.username}:`, e);
         }
       }
-      
+
       // Sort by relevance score (highest first)
       users.sort((a, b) => b.relevanceScore - a.relevanceScore);
-      
+
       return users;
     } catch (error) {
       console.error('Failed to search users by bio:', error);
@@ -509,7 +509,7 @@ export class InstagramCookieService {
    */
   async getBulkUserProfiles(cookies: InstagramCookies, userIds: string[]): Promise<any[]> {
     const profiles: any[] = [];
-    
+
     for (const userId of userIds) {
       try {
         const profile = await this.getUserProfile(cookies, userId);
@@ -523,7 +523,7 @@ export class InstagramCookieService {
         console.warn(`Failed to fetch profile for user ${userId}`);
       }
     }
-    
+
     return profiles;
   }
 
@@ -534,7 +534,7 @@ export class InstagramCookieService {
     try {
       const ig = await this.getClient(cookies);
       const users = await ig.user.search(query);
-      
+
       return users.users.slice(0, limit).map((user: any) => ({
         pk: user.pk.toString(),
         username: user.username,
@@ -556,14 +556,14 @@ export class InstagramCookieService {
     try {
       const ig = await this.getClient(cookies);
       const user = await ig.user.info(userId);
-      
+
       let friendshipStatus: any = null;
       try {
         friendshipStatus = await ig.friendship.show(userId);
       } catch (e) {
         // Ignore friendship errors
       }
-      
+
       return {
         pk: user.pk.toString(),
         username: user.username,
@@ -610,7 +610,7 @@ export class InstagramCookieService {
       const ig = await this.getClient(cookies);
       const user = await ig.user.searchExact(username);
       if (!user) return null;
-      
+
       return {
         pk: user.pk.toString(),
         username: user.username,
@@ -771,7 +771,7 @@ export class InstagramCookieService {
       const ig = await this.getClient(cookies);
       const inboxFeed = ig.feed.directInbox();
       const threads = await inboxFeed.items();
-      
+
       return threads.slice(0, limit).map((thread: any) => ({
         threadId: thread.thread_id,
         users: thread.users.map((u: any) => ({
@@ -790,6 +790,130 @@ export class InstagramCookieService {
   }
 
   /**
+   * Get recently posted media for a hashtag
+   * Returns the posts themselves, not just users
+   */
+  async getHashtagPosts(cookies: InstagramCookies, hashtag: string, limit = 20): Promise<any[]> {
+    try {
+      const ig = await this.getClient(cookies);
+      const cleanHashtag = hashtag.replace(/^#/, "");
+
+      console.log(`Fetching posts for hashtag: #${cleanHashtag}`);
+
+      const hashtagFeed = ig.feed.tag(cleanHashtag);
+      const posts: any[] = [];
+      let page: any[] = [];
+
+      try {
+        page = await hashtagFeed.items();
+      } catch (e) {
+        console.warn(`Hashtag feed error for #${cleanHashtag}:`, e);
+        return [];
+      }
+
+      while (posts.length < limit && page.length > 0) {
+        for (const item of page) {
+          if (posts.length >= limit) break;
+
+          const caption = item.caption?.text || '';
+
+          posts.push({
+            id: item.pk || item.id,
+            code: item.code,
+            caption: caption,
+            likeCount: item.like_count,
+            commentCount: item.comment_count,
+            takenAt: item.taken_at,
+            user: {
+              pk: item.user?.pk?.toString(),
+              username: item.user?.username,
+              fullName: item.user?.full_name,
+              isPrivate: item.user?.is_private,
+            },
+            location: item.location ? {
+              name: item.location.name,
+              city: item.location.city,
+              pk: item.location.pk
+            } : null
+          });
+        }
+
+        if (!hashtagFeed.isMoreAvailable() || posts.length >= limit) break;
+
+        try {
+          page = await hashtagFeed.items();
+          await new Promise((resolve) => setTimeout(resolve, 500 + Math.random() * 500));
+        } catch (e) {
+          console.warn("Error fetching more hashtag items:", e);
+          break;
+        }
+      }
+
+      return posts;
+    } catch (error) {
+      console.error('Failed to get hashtag posts:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get comments for a media item
+   */
+  async getPostComments(cookies: InstagramCookies, mediaId: string, limit = 50): Promise<any[]> {
+    try {
+      const ig = await this.getClient(cookies);
+      console.log(`Fetching comments for media: ${mediaId}`);
+
+      const commentsFeed = ig.feed.mediaComments(mediaId);
+      const comments: any[] = [];
+      let page: any[] = [];
+
+      try {
+        page = await commentsFeed.items();
+      } catch (e) {
+        console.warn(`Comments feed error for ${mediaId}:`, e);
+        return [];
+      }
+
+      while (comments.length < limit && page.length > 0) {
+        for (const item of page) {
+          if (comments.length >= limit) break;
+
+          comments.push({
+            pk: item.pk,
+            text: item.text,
+            userId: item.user_id,
+            createdAt: item.created_at,
+            user: {
+              pk: item.user.pk.toString(),
+              username: item.user.username,
+              fullName: item.user.full_name,
+              profilePicUrl: item.user.profile_pic_url,
+              isPrivate: item.user.is_private,
+              isVerified: item.user.is_verified
+            },
+            likeCount: item.comment_like_count
+          });
+        }
+
+        if (!commentsFeed.isMoreAvailable() || comments.length >= limit) break;
+
+        try {
+          page = await commentsFeed.items();
+          await new Promise((resolve) => setTimeout(resolve, 300));
+        } catch (e) {
+          break;
+        }
+      }
+
+      return comments;
+    } catch (error) {
+      console.error('Failed to get post comments:', error);
+      return [];
+    }
+  }
+
+  /**
    * Get user's recent posts and reels
    */
   async getUserRecentMedia(
@@ -800,7 +924,7 @@ export class InstagramCookieService {
   ): Promise<any[]> {
     try {
       const ig = await this.getClient(cookies);
-      
+
       // Get user profile first
       const profile = await this.getUserProfileByUsername(cookies, username);
       if (!profile) {
@@ -810,22 +934,22 @@ export class InstagramCookieService {
       // Get user feed
       const userFeed = ig.feed.user(profile.pk);
       const media: any[] = [];
-      
+
       // Fetch items
       const items = await userFeed.items();
       console.log(`[Media] Found ${items.length} media items for @${username}`);
-      
+
       for (const item of items) {
         if (media.length >= limit) break;
-        
+
         // Filter by content type
         const itemAny = item as any;
         const isReel = item.media_type === 2 && itemAny.product_type === 'clips';
         const isPost = item.media_type === 1 || (item.media_type === 8); // Photo or carousel
-        
+
         if (contentType === 'reels' && !isReel) continue;
         if (contentType === 'posts' && !isPost) continue;
-        
+
         media.push({
           id: item.id,
           shortcode: item.code,
@@ -840,7 +964,7 @@ export class InstagramCookieService {
           url: `https://www.instagram.com/p/${item.code}/`,
         });
       }
-      
+
       console.log(`[Media] Filtered ${media.length} ${contentType} items`);
       return media;
     } catch (error: any) {
@@ -855,15 +979,15 @@ export class InstagramCookieService {
   async getMediaByShortcode(cookies: InstagramCookies, shortcode: string): Promise<any | null> {
     try {
       const ig = await this.getClient(cookies);
-      
+
       // Use search to find the media by shortcode
       // Instagram API doesn't have a direct shortcode method, so we construct the URL pattern
       const mediaInfo = await ig.media.info((await ig.media as any).getMediaIdFromShortcode(shortcode));
-      
+
       return mediaInfo.items?.[0] || null;
     } catch (error) {
       console.error('Failed to get media by shortcode:', shortcode, error);
-      
+
       // Fallback: try alternative approach
       try {
         const ig = await this.getClient(cookies);

@@ -170,7 +170,7 @@ export default function LeadsPage() {
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
 
   // Search state
-  const [searchType, setSearchType] = useState<'username' | 'hashtag' | 'followers'>('username');
+  const [searchType, setSearchType] = useState<'username' | 'hashtag' | 'followers' | 'comment-to-lead'>('username');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -178,6 +178,12 @@ export default function LeadsPage() {
   const [hasMoreResults, setHasMoreResults] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [targetUserId, setTargetUserId] = useState<string | null>(null); // For followers search
+
+  // Comment-to-Lead configuration state
+  const [commentLocation, setCommentLocation] = useState('');
+  const [commentListingKeywords, setCommentListingKeywords] = useState('satılık, kiralık, daire, konut');
+  const [commentIntentKeywords, setCommentIntentKeywords] = useState('fiyat, fiat, ne kadar, kaç tl');
+  const [commentDateRange, setCommentDateRange] = useState(30);
 
   // Hashtag search now defaults to bio only (posts option removed)
 
@@ -425,6 +431,13 @@ export default function LeadsPage() {
           // Use followListType to decide followers or following
           endpoint = `/api/instagram/cookie/user/by-id/${userId}/${followListType}`;
           body.limit = currentLimit;
+          break;
+        case 'comment-to-lead':
+          endpoint = '/api/leads/comment-search';
+          body.location = commentLocation;
+          body.listingKeywords = commentListingKeywords.split(',').map(k => k.trim()).filter(Boolean);
+          body.intentKeywords = commentIntentKeywords.split(',').map(k => k.trim()).filter(Boolean);
+          body.dateRange = commentDateRange;
           break;
       }
 
@@ -1245,6 +1258,7 @@ export default function LeadsPage() {
               },
               { type: "hashtag", icon: Hash, label: "Hashtag" },
               { type: "followers", icon: Users, label: "User's Followers" },
+              { type: "comment-to-lead", icon: MessageSquare, label: "Real Estate Comment To Lead Generation" },
             ].map(({ type, icon: Icon, label }) => (
               <button
                 key={type}
@@ -1263,68 +1277,130 @@ export default function LeadsPage() {
           </div>
 
           {/* Search Input */}
-          <div className="flex flex-col sm:flex-row gap-3 mb-4">
-            <div className="flex-1">
-              <Input
-                placeholder={
-                  searchType === "username"
-                    ? "Search target audience by name or niche..."
-                    : searchType === "hashtag"
-                      ? "Enter hashtag (e.g., entrepreneur)"
-                      : "Enter username to get their followers/following"
-                }
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  // Reset target user when query changes for followers search
-                  if (searchType === "followers") {
-                    setTargetUserProfile(null);
+          {searchType === 'comment-to-lead' ? (
+            <div className="bg-background-elevated rounded-xl p-4 border border-border mb-4 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-foreground-muted mb-2">Location / Neighborhood</label>
+                  <Input
+                    placeholder="e.g., Beşiktaş, Kadıköy, Şişli"
+                    value={commentLocation}
+                    onChange={(e) => {
+                      setCommentLocation(e.target.value);
+                      // Update main search query for compatibility checks if needed
+                      setSearchQuery(e.target.value);
+                    }}
+                  />
+                  <p className="text-xs text-foreground-subtle mt-1">Target specific areas for real estate posts</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground-muted mb-2">Date Range</label>
+                  <select
+                    value={commentDateRange}
+                    onChange={(e) => setCommentDateRange(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground text-sm h-10"
+                  >
+                    <option value={7}>Last 7 Days</option>
+                    <option value={30}>Last 30 Days</option>
+                    <option value={90}>Last 3 Months</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-foreground-muted mb-2">Listing Keywords</label>
+                  <Input
+                    value={commentListingKeywords}
+                    onChange={(e) => setCommentListingKeywords(e.target.value)}
+                  />
+                  <p className="text-xs text-foreground-subtle mt-1">Identify real estate posts (e.g., satılık, daire)</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground-muted mb-2">Intent Keywords</label>
+                  <Input
+                    value={commentIntentKeywords}
+                    onChange={(e) => setCommentIntentKeywords(e.target.value)}
+                  />
+                  <p className="text-xs text-foreground-subtle mt-1">Identify interested commenters (e.g., fiyat, ne kadar)</p>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <Button
+                  onClick={() => handleSearch()}
+                  disabled={isSearching || !commentLocation.trim()}
+                  className="w-full md:w-auto"
+                >
+                  {isSearching ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
+                  {isSearching ? "Scraping Leads..." : "Start Scraping for Leads"}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col sm:flex-row gap-3 mb-4">
+              <div className="flex-1">
+                <Input
+                  placeholder={
+                    searchType === "username"
+                      ? "Search target audience by name or niche..."
+                      : searchType === "hashtag"
+                        ? "Enter hashtag (e.g., entrepreneur)"
+                        : "Enter username to get their followers/following"
                   }
-                }}
-                onKeyDown={(e) =>
-                  e.key === "Enter" &&
-                  (searchType === "followers"
-                    ? handleLookupUser()
-                    : handleSearch())
-                }
-                leftIcon={
-                  searchType === "hashtag" ? (
-                    <Hash className="h-4 w-4" />
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    // Reset target user when query changes for followers search
+                    if (searchType === "followers") {
+                      setTargetUserProfile(null);
+                    }
+                  }}
+                  onKeyDown={(e) =>
+                    e.key === "Enter" &&
+                    (searchType === "followers"
+                      ? handleLookupUser()
+                      : handleSearch())
+                  }
+                  leftIcon={
+                    searchType === "hashtag" ? (
+                      <Hash className="h-4 w-4" />
+                    ) : (
+                      <Search className="h-4 w-4" />
+                    )
+                  }
+                />
+              </div>
+              {searchType === "followers" ? (
+                <Button
+                  onClick={handleLookupUser}
+                  disabled={isLoadingTargetUser || !searchQuery.trim()}
+                  variant="secondary"
+                  className="w-full sm:w-auto">
+                  {isLoadingTargetUser ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                  <span className="hidden sm:inline">Lookup User</span>
+                  <span className="sm:hidden">Lookup</span>
+                </Button>
+              ) : (
+                <Button
+                  data-search-btn
+                  onClick={() => handleSearch()}
+                  disabled={isSearching || !searchQuery.trim()}
+                  className="w-full sm:w-auto">
+                  {isSearching ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
                   ) : (
                     <Search className="h-4 w-4" />
-                  )
-                }
-              />
+                  )}
+                  {isSearching ? "Searching..." : "Search"}
+                </Button>
+              )}
             </div>
-            {searchType === "followers" ? (
-              <Button
-                onClick={handleLookupUser}
-                disabled={isLoadingTargetUser || !searchQuery.trim()}
-                variant="secondary"
-                className="w-full sm:w-auto">
-                {isLoadingTargetUser ? (
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
-                <span className="hidden sm:inline">Lookup User</span>
-                <span className="sm:hidden">Lookup</span>
-              </Button>
-            ) : (
-              <Button
-                data-search-btn
-                onClick={() => handleSearch()}
-                disabled={isSearching || !searchQuery.trim()}
-                className="w-full sm:w-auto">
-                {isSearching ? (
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Search className="h-4 w-4" />
-                )}
-                {isSearching ? "Searching..." : "Search"}
-              </Button>
-            )}
-          </div>
+          )}
 
           {/* Followers/Following User Card */}
           {searchType === "followers" && targetUserProfile && (
