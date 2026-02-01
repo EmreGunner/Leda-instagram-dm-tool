@@ -12,6 +12,7 @@ import { MobileConversationCard } from '@/components/inbox/mobile-conversation-c
 import { MobileContactCard } from '@/components/inbox/mobile-contact-card';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase/client';
+import { getCookies as getCookiesFromStorage } from '@/lib/instagram-cookie-storage';
 import type { Conversation, Message, MessageType, MessageDirection, MessageStatus } from '@/types';
 
 // All API calls use relative URLs since backend and frontend are on the same domain
@@ -235,9 +236,12 @@ export default function InboxPage() {
         return;
       }
 
-      // Get cookies from localStorage
-      const cookiesStr = localStorage.getItem(`socialora_cookies_${selectedAccount.igUserId}`);
-      if (!cookiesStr) {
+      // Get cookies using utility with fallback mechanisms
+      const cookies = getCookiesFromStorage({
+        igUserId: selectedAccount.igUserId,
+        igUsername: selectedAccount.igUsername,
+      });
+      if (!cookies) {
         console.error('No cookies found for account');
         if (!silent) {
           toast.error('Session expired', {
@@ -247,8 +251,6 @@ export default function InboxPage() {
         }
         return;
       }
-
-      const cookies = JSON.parse(cookiesStr);
 
       // If no thread ID, we need to get it first by fetching inbox
       let threadId = conversation.igThreadId;
@@ -532,8 +534,11 @@ export default function InboxPage() {
     try {
       const supabase = createClient();
 
-      // Get cookies from localStorage
-      const cookiesStr = localStorage.getItem(`socialora_cookies_${selectedAccount.igUserId}`);
+      // Get cookies using utility with fallback mechanisms
+      const cookies = getCookiesFromStorage({
+        igUserId: selectedAccount.igUserId,
+        igUsername: selectedAccount.igUsername,
+      });
 
       // Insert new message into database
       const msgId = crypto.randomUUID();
@@ -577,10 +582,8 @@ export default function InboxPage() {
       });
 
       // If we have cookies, actually send via Instagram
-      if (cookiesStr) {
+      if (cookies) {
         try {
-          const cookies = JSON.parse(cookiesStr);
-
           // Check if user ID is valid (numeric) or use username fallback
           const userId = selectedConversation.contact.igUserId;
           const username = selectedConversation.contact.igUsername;
@@ -723,18 +726,19 @@ export default function InboxPage() {
       const supabase = createClient();
       const username = newDmUsername.replace('@', '').trim();
 
-      // Get cookies from localStorage
-      const cookiesStr = localStorage.getItem(`socialora_cookies_${accountToUse.igUserId}`);
+      // Get cookies using utility with fallback mechanisms
+      const cookies = getCookiesFromStorage({
+        igUserId: accountToUse.igUserId,
+        igUsername: accountToUse.igUsername,
+      });
 
-      if (!cookiesStr) {
+      if (!cookies) {
         toast.error('Session expired', {
           description: 'Please reconnect your Instagram account.',
         });
         setIsSendingNewDm(false);
         return;
       }
-
-      const cookies = JSON.parse(cookiesStr);
 
       // First, get user info from Instagram
       let recipientInfo: any = null;
@@ -1045,11 +1049,13 @@ export default function InboxPage() {
     }
   };
 
-  // Get cookies helper
+  // Get cookies helper - now uses utility with fallback mechanisms
   const getCookies = () => {
     if (!selectedAccount) return null;
-    const cookiesStr = localStorage.getItem(`socialora_cookies_${selectedAccount.igUserId}`);
-    return cookiesStr ? JSON.parse(cookiesStr) : null;
+    return getCookiesFromStorage({
+      igUserId: selectedAccount.igUserId,
+      igUsername: selectedAccount.igUsername,
+    });
   };
 
   // Filter conversations

@@ -1,10 +1,21 @@
 'use client';
 
+import { useEffect } from 'react';
 import { Sidebar } from '@/components/layout/sidebar';
 import { SidebarProvider, useSidebar } from '@/contexts/sidebar-context';
+import { migrateCookieStorage } from '@/lib/instagram-cookie-storage';
 
 function DashboardContent({ children }: { children: React.ReactNode }) {
   const { isOpen, openSidebar, closeSidebar } = useSidebar();
+
+  // Migrate cookie storage on mount to ensure dual-key format
+  useEffect(() => {
+    try {
+      migrateCookieStorage();
+    } catch (e) {
+      console.warn('Cookie migration failed:', e);
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -15,13 +26,13 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
           onClick={closeSidebar}
         />
       )}
-      
-      <Sidebar 
+
+      <Sidebar
         isOpen={isOpen}
         onClose={closeSidebar}
         onMenuClick={openSidebar}
       />
-      
+
       <main className="pl-0 lg:pl-64">
         {children}
       </main>
@@ -40,4 +51,3 @@ export default function DashboardLayout({
     </SidebarProvider>
   );
 }
-

@@ -37,6 +37,7 @@ import { toast } from 'sonner';
 import { MobileLeadCard } from "@/components/leads/mobile-lead-card";
 import { LeadProfileModal } from '@/components/leads/lead-profile-modal';
 import { getRandomDelay, formatDelayTime } from '@/lib/utils/rate-limit';
+import { getCookies as getCookiesFromStorage } from '@/lib/instagram-cookie-storage';
 
 // Use relative URLs since we're on the same domain (Next.js API routes)
 // All API calls use relative URLs since backend and frontend are on the same domain
@@ -328,29 +329,23 @@ export default function LeadsPage() {
     fetchLeads();
   }, [fetchAccounts, fetchLeads]);
 
-  // Get cookies from localStorage
+  // Get cookies using centralized utility with fallback mechanisms
   const getCookies = () => {
     if (!selectedAccount) {
       console.log('getCookies: No selected account');
       return null;
     }
-    // Try different possible cookie keys
-    const possibleKeys = [
-      `socialora_cookies_${selectedAccount.igUserId}`,
-      `socialora_cookies_${selectedAccount.igUsername}`,
-      `instagram_cookies_${selectedAccount.igUserId}`,
-    ];
 
-    for (const key of possibleKeys) {
-      const cookiesStr = localStorage.getItem(key);
-      if (cookiesStr) {
-        console.log(`getCookies: Found cookies with key ${key}`);
-        return JSON.parse(cookiesStr);
-      }
+    const cookies = getCookiesFromStorage({
+      igUserId: selectedAccount.igUserId,
+      igUsername: selectedAccount.igUsername,
+    });
+
+    if (!cookies) {
+      console.log('getCookies: No cookies found for account:', selectedAccount.igUsername);
     }
 
-    console.log('getCookies: No cookies found. Available keys:', Object.keys(localStorage).filter(k => k.includes('cookie') || k.includes('socialora')));
-    return null;
+    return cookies;
   };
 
   // State for search errors

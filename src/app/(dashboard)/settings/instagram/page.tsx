@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { saveCookies as saveCookiesToStorage, getCookies as getCookiesFromStorage } from '@/lib/instagram-cookie-storage';
 
 const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID;
 const META_OAUTH_REDIRECT_URI =
@@ -783,13 +784,13 @@ export default function InstagramSettingsPage() {
             accountData
           );
 
-          // Save cookies to localStorage
+          // Save cookies to localStorage using dual-key storage
           const localStorageKey = `socialora_cookies_${accountData.pk}`;
           if (accountData.cookies) {
-            localStorage.setItem(
-              localStorageKey,
-              JSON.stringify(accountData.cookies)
-            );
+            saveCookiesToStorage(accountData.cookies, {
+              igUserId: accountData.pk,
+              igUsername: accountData.username,
+            });
           }
 
           // Save account metadata
@@ -1020,11 +1021,11 @@ export default function InstagramSettingsPage() {
           is_new_account: !existingAccount,
         });
 
-        // Always save cookies to localStorage for quick access
-        localStorage.setItem(
-          `socialora_cookies_${data.account.pk}`,
-          JSON.stringify(cookies)
-        );
+        // Always save cookies using dual-key storage for reliable retrieval
+        saveCookiesToStorage(cookies, {
+          igUserId: data.account.pk,
+          igUsername: data.account.username,
+        });
 
         let savedAccount = null;
 
