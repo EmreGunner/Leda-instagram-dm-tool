@@ -11,10 +11,10 @@ type Workspace = Database['public']['Tables']['workspaces']['Row'];
  */
 export async function getOrCreateUserWorkspaceId(): Promise<string | null> {
   const supabase = createClient();
-  
+
   // Get current authenticated user
   const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-  
+
   if (authError || !authUser) {
     console.error('Not authenticated:', authError);
     return null;
@@ -34,15 +34,17 @@ export async function getOrCreateUserWorkspaceId(): Promise<string | null> {
   // If user doesn't exist, create user and workspace
   if (userError || !user) {
     console.log('User not found in database, creating workspace...');
-    
+
     const email = authUser.email || '';
     const name = authUser.user_metadata?.full_name || authUser.user_metadata?.name;
     const workspaceSlug = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '-');
-    
+
     // Create workspace
+    const workspaceId = crypto.randomUUID();
     const { data: workspace, error: workspaceError } = await supabase
       .from('workspaces')
       .insert({
+        id: workspaceId,
         name: name || email.split('@')[0] || 'My Workspace',
         slug: workspaceSlug,
       })
@@ -55,9 +57,11 @@ export async function getOrCreateUserWorkspaceId(): Promise<string | null> {
     }
 
     // Create user record linked to workspace
+    const userId = crypto.randomUUID();
     const { data: newUser, error: newUserError } = await supabase
       .from('users')
       .insert({
+        id: userId,
         email,
         supabase_auth_id: authUser.id,
         workspace_id: workspace.id,
@@ -81,13 +85,15 @@ export async function getOrCreateUserWorkspaceId(): Promise<string | null> {
   // If user exists but has no workspace, create one
   if (!user.workspace_id || !user.workspace) {
     console.log('User has no workspace, creating one...');
-    
+
     const email = user.email || authUser.email || '';
     const workspaceSlug = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '-');
-    
+
+    const workspaceId2 = crypto.randomUUID();
     const { data: workspace, error: workspaceError } = await supabase
       .from('workspaces')
       .insert({
+        id: workspaceId2,
         name: user.name || email.split('@')[0] || 'My Workspace',
         slug: workspaceSlug,
       })

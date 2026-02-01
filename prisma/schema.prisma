@@ -16,7 +16,7 @@ datasource db {
 // ============================================================================
 
 model Workspace {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id        String   @id @default(uuid())
   name      String
   slug      String   @unique
   createdAt DateTime @default(now()) @map("created_at")
@@ -36,7 +36,7 @@ model Workspace {
 }
 
 model User {
-  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id              String    @id @default(uuid())
   email           String    @unique
   supabaseAuthId String?   @unique @map("supabase_auth_id") // Links to Supabase auth.users.id
   passwordHash    String?   @map("password_hash")
