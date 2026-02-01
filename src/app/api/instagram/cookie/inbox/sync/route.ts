@@ -4,6 +4,33 @@ import { prisma } from '@/lib/server/prisma/client';
 import { requireAuth } from '@/lib/server/auth';
 import type { InstagramCookies } from '@/lib/server/instagram/types';
 
+// Helper to safely parse Instagram timestamps (may be in microseconds or invalid)
+function safeDate(timestamp: any): string {
+  if (!timestamp) return new Date().toISOString();
+
+  try {
+    // Instagram timestamps can be in microseconds (13+ digits) or milliseconds
+    let ts = Number(timestamp);
+    if (isNaN(ts)) return new Date().toISOString();
+
+    // If timestamp is in microseconds (13+ digits), convert to milliseconds
+    if (ts > 9999999999999) {
+      ts = Math.floor(ts / 1000);
+    }
+    // If timestamp is in seconds (10 digits), convert to milliseconds
+    if (ts < 10000000000) {
+      ts = ts * 1000;
+    }
+
+    const date = new Date(ts);
+    if (isNaN(date.getTime())) return new Date().toISOString();
+
+    return date.toISOString();
+  } catch {
+    return new Date().toISOString();
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireAuth(request);
@@ -29,10 +56,10 @@ export async function POST(request: NextRequest) {
     }
 
     const finalWorkspaceId = auth.workspaceId;
-    
+
     // Get inbox threads from Instagram
     const threads = await instagramCookieService.getInbox(cookies, 20);
-    
+
     let syncedConversations = 0;
     let syncedMessages = 0;
 
@@ -76,11 +103,11 @@ export async function POST(request: NextRequest) {
             instagramAccountId: accountId,
             contactId: contact.id,
             status: 'OPEN',
-            lastMessageAt: new Date(thread.lastActivity).toISOString(),
+            lastMessageAt: safeDate(thread.lastActivity),
             unreadCount: thread.unreadCount,
           },
           update: {
-            lastMessageAt: new Date(thread.lastActivity).toISOString(),
+            lastMessageAt: safeDate(thread.lastActivity),
             unreadCount: thread.unreadCount,
           },
         });
@@ -125,10 +152,10 @@ export async function POST(request: NextRequest) {
                 messageType: 'TEXT',
                 direction: isFromUs ? 'OUTBOUND' : 'INBOUND',
                 status: messageStatus,
-                sentAt: new Date(msg.timestamp).toISOString(),
-                deliveredAt: (msg as any).deliveredAt ? new Date((msg as any).deliveredAt).toISOString() : null,
-                readAt: (msg as any).readAt ? new Date((msg as any).readAt).toISOString() : null,
-                createdAt: new Date(msg.timestamp).toISOString(),
+                sentAt: safeDate(msg.timestamp),
+                deliveredAt: (msg as any).deliveredAt ? safeDate((msg as any).deliveredAt) : null,
+                readAt: (msg as any).readAt ? safeDate((msg as any).readAt) : null,
+                createdAt: safeDate(msg.timestamp),
               },
             });
 
@@ -138,10 +165,10 @@ export async function POST(request: NextRequest) {
             if (isFromUs && existing.direction === 'OUTBOUND') {
               const updateData: any = {};
               if ((msg as any).readAt && !existing.readAt) {
-                updateData.readAt = new Date((msg as any).readAt).toISOString();
+                updateData.readAt = safeDate((msg as any).readAt);
                 updateData.status = 'READ';
               } else if ((msg as any).deliveredAt && !existing.deliveredAt) {
-                updateData.deliveredAt = new Date((msg as any).deliveredAt).toISOString();
+                updateData.deliveredAt = safeDate((msg as any).deliveredAt);
                 if (existing.status !== 'READ') {
                   updateData.status = 'DELIVERED';
                 }

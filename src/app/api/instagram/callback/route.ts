@@ -88,7 +88,7 @@ export async function GET(request: Request) {
     }
 
     // Find page with Instagram business account
-    const pageWithIg = pagesData.data?.find((page: { instagram_business_account?: { id: string } }) => 
+    const pageWithIg = pagesData.data?.find((page: { instagram_business_account?: { id: string } }) =>
       page.instagram_business_account
     );
 
@@ -124,7 +124,7 @@ export async function GET(request: Request) {
           getAll() {
             return cookieStore.getAll();
           },
-          setAll(cookiesToSet) {
+          setAll(cookiesToSet: { name: string; value: string; options?: any }[]) {
             try {
               cookiesToSet.forEach(({ name, value, options }) =>
                 cookieStore.set(name, value, options)

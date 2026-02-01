@@ -14,7 +14,7 @@ export async function updateSession(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet: { name: string; value: string; options?: any }[]) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
           supabaseResponse = NextResponse.next({
             request,
@@ -36,13 +36,13 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   // Protected routes - redirect to login if not authenticated
-  const isAuthRoute = request.nextUrl.pathname.startsWith('/login') || 
-                      request.nextUrl.pathname.startsWith('/signup');
+  const isAuthRoute = request.nextUrl.pathname.startsWith('/login') ||
+    request.nextUrl.pathname.startsWith('/signup');
   const isProtectedRoute = request.nextUrl.pathname.startsWith('/inbox') ||
-                           request.nextUrl.pathname.startsWith('/campaigns') ||
-                           request.nextUrl.pathname.startsWith('/settings') ||
-                           request.nextUrl.pathname.startsWith('/analytics') ||
-                           request.nextUrl.pathname.startsWith('/ai');
+    request.nextUrl.pathname.startsWith('/campaigns') ||
+    request.nextUrl.pathname.startsWith('/settings') ||
+    request.nextUrl.pathname.startsWith('/analytics') ||
+    request.nextUrl.pathname.startsWith('/ai');
 
   if (!user && isProtectedRoute) {
     const url = request.nextUrl.clone();
