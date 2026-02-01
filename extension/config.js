@@ -3,13 +3,13 @@
 
 const CONFIG = {
   // Environment detection: 'auto', 'production', or 'local'
-  ENV_MODE: "local", // Changed to 'local' for localhost development
+  ENV_MODE: "production", // Changed to 'local' for localhost development
 
   // Production URLs (Vercel deployment)
   PRODUCTION: {
-    APP_URL: "https://www.socialora.app",
+    APP_URL: "https://www.gobno.com/",
     // Since we're using Next.js API routes, backend is on the same domain
-    BACKEND_URL: "https://www.socialora.app",
+    BACKEND_URL: "https://www.gobno.com/",
   },
 
   // Development URLs (localhost)
