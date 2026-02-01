@@ -89,7 +89,7 @@ export default function InboxPage() {
       }));
 
       setAccounts(transformedAccounts);
-      
+
       // Select first account by default
       if (transformedAccounts.length > 0 && !selectedAccount) {
         setSelectedAccount(transformedAccounts[0]);
@@ -146,7 +146,7 @@ export default function InboxPage() {
     setIsLoadingConversations(true);
     try {
       const supabase = createClient();
-      
+
       // Build query based on view mode
       let query = supabase
         .from('conversations')
@@ -160,13 +160,13 @@ export default function InboxPage() {
           contact:contacts(*),
           instagram_account:instagram_accounts(id, ig_username)
         `);
-      
+
       // If viewing specific account, filter by account ID
       if (viewMode === 'account' && selectedAccount) {
         query = query.eq('instagram_account_id', selectedAccount.id);
       }
       // If viewing all, get all conversations (no filter)
-      
+
       const { data, error } = await query
         .order('last_message_at', { ascending: false, nullsFirst: false });
 
@@ -216,9 +216,9 @@ export default function InboxPage() {
     if (!silent) {
       setIsLoadingMessages(true);
     }
-    
+
     isFetchingMessagesRef.current = true;
-    
+
     try {
       if (!selectedAccount) {
         console.error('No account selected');
@@ -226,9 +226,9 @@ export default function InboxPage() {
         return;
       }
 
-  // Get conversation details to find thread ID (use ref to avoid changing)
-  // fetchMessages identity when the conversations state updates)
-  const conversation = conversationsRef.current.find(c => c.id === conversationId);
+      // Get conversation details to find thread ID (use ref to avoid changing)
+      // fetchMessages identity when the conversations state updates)
+      const conversation = conversationsRef.current.find(c => c.id === conversationId);
       if (!conversation) {
         console.error('Conversation not found');
         if (!silent) setMessages([]);
@@ -252,7 +252,7 @@ export default function InboxPage() {
 
       // If no thread ID, we need to get it first by fetching inbox
       let threadId = conversation.igThreadId;
-      
+
       if (!threadId) {
         console.log('No thread ID found, checking inbox...');
         // Fetch inbox to find thread ID for this contact
@@ -264,10 +264,10 @@ export default function InboxPage() {
 
         if (inboxResponse.ok) {
           const inboxData = await inboxResponse.json();
-          const thread = inboxData.threads?.find((t: any) => 
+          const thread = inboxData.threads?.find((t: any) =>
             t.users?.some((u: any) => u.pk === conversation.contact.igUserId)
           );
-          
+
           if (thread) {
             threadId = thread.threadId;
             // Update conversation with thread ID
@@ -302,7 +302,7 @@ export default function InboxPage() {
       }
 
       const result = await response.json();
-      
+
       if (result.success && result.messages) {
         // Transform Instagram messages to our Message type
         const transformedMessages: Message[] = result.messages.map((msg: any) => ({
@@ -326,10 +326,10 @@ export default function InboxPage() {
         // Only update if messages changed (prevents unnecessary re-renders)
         setMessages(prev => {
           // Compare by length and last message ID to avoid JSON.stringify performance issue
-          if (prev.length === transformedMessages.length && 
-              prev.length > 0 && 
-              transformedMessages.length > 0 &&
-              prev[prev.length - 1].igMessageId === transformedMessages[transformedMessages.length - 1].igMessageId) {
+          if (prev.length === transformedMessages.length &&
+            prev.length > 0 &&
+            transformedMessages.length > 0 &&
+            prev[prev.length - 1].igMessageId === transformedMessages[transformedMessages.length - 1].igMessageId) {
             return prev; // No change, return same reference
           }
           return transformedMessages;
@@ -429,7 +429,7 @@ export default function InboxPage() {
       }
 
       const supabase = createClient();
-      
+
       // Try to find existing conversation
       const { data: existingConv } = await supabase
         .from('conversations')
@@ -471,12 +471,16 @@ export default function InboxPage() {
         await fetchMessages(conversation.id);
       } else {
         // No conversation yet, create a new one
+        const convId = crypto.randomUUID();
+        const now = new Date().toISOString();
         const { data: newConv, error } = await supabase
           .from('conversations')
           .insert({
+            id: convId,
             instagram_account_id: selectedAccount.id,
             contact_id: contact.id,
             status: 'OPEN',
+            updated_at: now,
           })
           .select(`
             *,
@@ -527,19 +531,23 @@ export default function InboxPage() {
 
     try {
       const supabase = createClient();
-      
+
       // Get cookies from localStorage
       const cookiesStr = localStorage.getItem(`socialora_cookies_${selectedAccount.igUserId}`);
-      
+
       // Insert new message into database
+      const msgId = crypto.randomUUID();
+      const msgNow = new Date().toISOString();
       const { data: newMessage, error } = await supabase
         .from('messages')
         .insert({
+          id: msgId,
           conversation_id: selectedConversation.id,
           content,
           direction: 'OUTBOUND',
           status: 'PENDING',
-          sent_at: new Date().toISOString(),
+          sent_at: msgNow,
+          updated_at: msgNow,
         })
         .select()
         .single();
@@ -572,15 +580,15 @@ export default function InboxPage() {
       if (cookiesStr) {
         try {
           const cookies = JSON.parse(cookiesStr);
-          
+
           // Check if user ID is valid (numeric) or use username fallback
           const userId = selectedConversation.contact.igUserId;
           const username = selectedConversation.contact.igUsername;
           const isValidUserId = userId && /^\d+$/.test(String(userId).trim());
-          
+
           let response;
           let result;
-          
+
           if (isValidUserId) {
             // Use user ID-based sending
             response = await fetch('/api/instagram/cookie/dm/send-by-id', {
@@ -616,7 +624,7 @@ export default function InboxPage() {
           }
 
           result = await response.json();
-          
+
           if (result.success) {
             // Update message status to SENT
             await supabase
@@ -628,22 +636,22 @@ export default function InboxPage() {
               const updated = prev.map(m => m.id === newMessage.id ? { ...m, status: 'SENT' as MessageStatus, igMessageId: result.itemId } : m);
               return updated.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
             });
-            
+
             // Update conversation last message time
             await supabase
               .from('conversations')
               .update({ last_message_at: new Date().toISOString() })
               .eq('id', selectedConversation.id);
-            
+
             // Show success toast
             toast.success('Message sent!', {
               description: `Message sent to @${selectedConversation.contact.igUsername}`,
             });
-            
+
             // Refresh conversations to update the list and show new messages
             await fetchConversations();
             await fetchAccounts();
-            
+
             // Refresh messages to show the updated message with correct status
             await fetchMessages(selectedConversation.id);
           } else {
@@ -661,7 +669,7 @@ export default function InboxPage() {
             const updated = prev.map(m => m.id === newMessage.id ? { ...m, status: 'FAILED' as MessageStatus } : m);
             return updated.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
           });
-          
+
           // Show error toast
           toast.error('Failed to send message', {
             description: (sendError as Error).message || 'Please try again.',
@@ -714,10 +722,10 @@ export default function InboxPage() {
     try {
       const supabase = createClient();
       const username = newDmUsername.replace('@', '').trim();
-      
+
       // Get cookies from localStorage
       const cookiesStr = localStorage.getItem(`socialora_cookies_${accountToUse.igUserId}`);
-      
+
       if (!cookiesStr) {
         toast.error('Session expired', {
           description: 'Please reconnect your Instagram account.',
@@ -727,7 +735,7 @@ export default function InboxPage() {
       }
 
       const cookies = JSON.parse(cookiesStr);
-      
+
       // First, get user info from Instagram
       let recipientInfo: any = null;
       try {
@@ -757,7 +765,7 @@ export default function InboxPage() {
       });
 
       const result = await response.json();
-      
+
       if (result.success) {
         // Get current user's workspace
         const { data: { user: authUser } } = await supabase.auth.getUser();
@@ -783,10 +791,10 @@ export default function InboxPage() {
 
         // Get valid user ID - only use numeric IDs, otherwise use a placeholder
         const recipientUserId = recipientInfo?.pk || result.recipientId;
-        const validUserId = recipientUserId && /^\d+$/.test(String(recipientUserId).trim()) 
-          ? String(recipientUserId).trim() 
+        const validUserId = recipientUserId && /^\d+$/.test(String(recipientUserId).trim())
+          ? String(recipientUserId).trim()
           : `username_${username}`; // Use username-based ID if no valid numeric ID
-        
+
         // Upsert contact (RLS will verify workspace_id)
         // First try to find existing contact by username
         const { data: existingContact } = await supabase
@@ -795,7 +803,7 @@ export default function InboxPage() {
           .eq('workspace_id', user.workspace_id)
           .eq('ig_username', username)
           .maybeSingle();
-        
+
         let contact;
         if (existingContact) {
           // Update existing contact
@@ -812,14 +820,18 @@ export default function InboxPage() {
           contact = updatedContact;
         } else {
           // Create new contact
+          const contactId = crypto.randomUUID();
+          const contactNow = new Date().toISOString();
           const { data: newContact } = await supabase
             .from('contacts')
             .insert({
+              id: contactId,
               workspace_id: user.workspace_id,
               ig_user_id: validUserId,
               ig_username: username,
               name: recipientInfo?.fullName || username,
               profile_picture_url: recipientInfo?.profilePicUrl,
+              updated_at: contactNow,
             })
             .select()
             .single();
@@ -828,14 +840,18 @@ export default function InboxPage() {
 
         if (contact) {
           // Upsert conversation
+          const convUpsertId = crypto.randomUUID();
+          const convUpsertNow = new Date().toISOString();
           const { data: conversation } = await supabase
             .from('conversations')
             .upsert({
+              id: convUpsertId,
               instagram_account_id: accountToUse.id,
               contact_id: contact.id,
               status: 'OPEN',
-              last_message_at: new Date().toISOString(),
+              last_message_at: convUpsertNow,
               unread_count: 0,
+              updated_at: convUpsertNow,
             }, {
               onConflict: 'instagram_account_id,contact_id'
             })
@@ -844,15 +860,19 @@ export default function InboxPage() {
 
           if (conversation) {
             // Insert message
+            const msgId2 = crypto.randomUUID();
+            const msgNow2 = new Date().toISOString();
             await supabase
               .from('messages')
               .insert({
+                id: msgId2,
                 conversation_id: conversation.id,
                 content: newDmMessage,
                 direction: 'OUTBOUND',
                 status: 'SENT',
-                sent_at: new Date().toISOString(),
+                sent_at: msgNow2,
                 ig_message_id: result.itemId,
+                updated_at: msgNow2,
               });
           }
         }
@@ -860,28 +880,28 @@ export default function InboxPage() {
         setShowNewDmModal(false);
         setNewDmUsername('');
         setNewDmMessage('');
-        
+
         // Refresh conversations and accounts (to update daily limit)
         await fetchConversations();
         await fetchAccounts();
-        
+
         // Select the newly created conversation if it exists
         if (contact) {
-            // Wait a moment for the conversation to be in the list
-            setTimeout(async () => {
-              const { data: updatedConversations } = await supabase
-                .from('conversations')
-                .select(`
+          // Wait a moment for the conversation to be in the list
+          setTimeout(async () => {
+            const { data: updatedConversations } = await supabase
+              .from('conversations')
+              .select(`
                   *,
                   contact:contacts(*),
                   instagram_account:instagram_accounts(id, ig_username)
                 `)
-                .eq('instagram_account_id', accountToUse.id)
+              .eq('instagram_account_id', accountToUse.id)
               .eq('contact_id', contact.id)
               .order('last_message_at', { ascending: false })
               .limit(1)
               .single();
-            
+
             if (updatedConversations) {
               // Transform to match Conversation type
               const transformedConv: Conversation = {
@@ -906,13 +926,13 @@ export default function InboxPage() {
                   igUsername: updatedConversations.instagram_account.ig_username,
                 },
               };
-              
+
               setSelectedConversation(transformedConv);
               await fetchMessages(transformedConv.id);
             }
           }, 500);
         }
-        
+
         // Show success
         toast.success('Message sent!', {
           description: `Successfully sent message to @${username}`,
@@ -1001,7 +1021,7 @@ export default function InboxPage() {
           });
         }
         await fetchConversations();
-        
+
         // Refresh messages if conversation is selected
         if (selectedConversation) {
           await fetchMessages(selectedConversation.id);
@@ -1050,9 +1070,9 @@ export default function InboxPage() {
     // Only auto-select on desktop (lg and above, 1024px+) to show better UX
     // On mobile/tablet, let users explicitly select a conversation
     if (typeof window === 'undefined' || hasAutoSelectedRef.current) return;
-    
+
     const isMobileOrTablet = window.innerWidth < 1024;
-    
+
     // Only auto-select on desktop and only once
     if (!isMobileOrTablet && filteredConversations.length > 0 && !selectedConversation) {
       hasAutoSelectedRef.current = true;
@@ -1216,7 +1236,7 @@ export default function InboxPage() {
                 )}
               </div>
               <p className="text-xs text-foreground-subtle mt-2 line-clamp-1">
-                {viewMode === 'all' 
+                {viewMode === 'all'
                   ? `${accounts.length} account${accounts.length > 1 ? 's' : ''} connected`
                   : selectedAccount && `Viewing @${selectedAccount.igUsername} inbox`
                 }
@@ -1230,8 +1250,8 @@ export default function InboxPage() {
               <div className="p-3 md:p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 flex flex-col items-center text-center gap-2">
                 <AlertCircle className="h-5 w-5 md:h-6 md:w-6 text-amber-400" />
                 <p className="text-xs md:text-sm text-amber-400">No Instagram accounts connected</p>
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   variant="secondary"
                   onClick={() => window.location.href = '/settings/instagram'}
                   className="w-full sm:w-auto"
@@ -1364,8 +1384,8 @@ export default function InboxPage() {
                   <div className="text-center">
                     <MessageSquare className="h-10 w-10 md:h-12 md:w-12 text-foreground-subtle mx-auto mb-3" />
                     <p className="text-foreground-muted text-sm">No conversations yet</p>
-                    <Button 
-                      size="sm" 
+                    <Button
+                      size="sm"
                       className="mt-4"
                       onClick={() => setShowNewDmModal(true)}
                     >
@@ -1388,8 +1408,8 @@ export default function InboxPage() {
               ) : (
                 <div className="flex-1 overflow-y-auto">
                   {contacts
-                    .filter(contact => 
-                      !searchQuery || 
+                    .filter(contact =>
+                      !searchQuery ||
                       contact.igUsername?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                       contact.name?.toLowerCase().includes(searchQuery.toLowerCase())
                     )
@@ -1403,23 +1423,23 @@ export default function InboxPage() {
                       />
                     ))
                   }
-                  {contacts.filter(contact => 
-                    !searchQuery || 
+                  {contacts.filter(contact =>
+                    !searchQuery ||
                     contact.igUsername?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                     contact.name?.toLowerCase().includes(searchQuery.toLowerCase())
                   ).length === 0 && (
-                    <div className="flex-1 flex items-center justify-center p-4 md:p-6">
-                      <div className="text-center">
-                        <Users className="h-10 w-10 md:h-12 md:w-12 text-foreground-subtle mx-auto mb-3" />
-                        <p className="text-foreground-muted text-sm">
-                          {searchQuery ? 'No contacts found' : 'No contacts yet'}
-                        </p>
-                        <p className="text-foreground-subtle text-xs mt-1">
-                          {searchQuery ? 'Try a different search' : 'Contacts will appear here after syncing inbox'}
-                        </p>
+                      <div className="flex-1 flex items-center justify-center p-4 md:p-6">
+                        <div className="text-center">
+                          <Users className="h-10 w-10 md:h-12 md:w-12 text-foreground-subtle mx-auto mb-3" />
+                          <p className="text-foreground-muted text-sm">
+                            {searchQuery ? 'No contacts found' : 'No contacts yet'}
+                          </p>
+                          <p className="text-foreground-subtle text-xs mt-1">
+                            {searchQuery ? 'Try a different search' : 'Contacts will appear here after syncing inbox'}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
                 </div>
               )}
             </>
@@ -1513,15 +1533,15 @@ export default function InboxPage() {
               </div>
             </div>
             <div className="p-4 md:p-6 border-t border-border flex flex-col sm:flex-row gap-2 sm:gap-3 sticky bottom-0 bg-background-secondary">
-              <Button 
-                variant="secondary" 
-                className="flex-1 w-full sm:w-auto min-h-[44px]" 
+              <Button
+                variant="secondary"
+                className="flex-1 w-full sm:w-auto min-h-[44px]"
                 onClick={() => setShowNewDmModal(false)}
               >
                 Cancel
               </Button>
-              <Button 
-                className="flex-1 w-full sm:w-auto min-h-[44px]" 
+              <Button
+                className="flex-1 w-full sm:w-auto min-h-[44px]"
                 onClick={handleSendNewDm}
                 disabled={!newDmUsername || !newDmMessage || isSendingNewDm}
               >

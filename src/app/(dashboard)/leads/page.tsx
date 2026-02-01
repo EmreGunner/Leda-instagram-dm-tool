@@ -3,14 +3,14 @@
 export const dynamic = 'force-dynamic';
 
 import { useState, useEffect, useCallback } from 'react';
-import { 
-  Search, 
-  Users, 
-  Hash, 
-  UserPlus, 
-  Filter, 
-  Send, 
-  RefreshCw, 
+import {
+  Search,
+  Users,
+  Hash,
+  UserPlus,
+  Filter,
+  Send,
+  RefreshCw,
   CheckCircle2,
   XCircle,
   Instagram,
@@ -136,17 +136,17 @@ const KEYWORD_PRESETS = [
 function matchKeywordsInBio(bio: string, keywords: string[]): string[] {
   const lowerBio = bio.toLowerCase();
   const matched: string[] = [];
-  
+
   for (const keyword of keywords) {
     const lowerKeyword = keyword.toLowerCase().trim();
     if (!lowerKeyword) continue;
-    
+
     // Check for exact phrase match
     if (lowerBio.includes(lowerKeyword)) {
       matched.push(keyword);
       continue;
     }
-    
+
     // Check for word-by-word match (for multi-word phrases)
     const words = lowerKeyword.split(' ').filter(w => w.length > 2);
     if (words.length > 1) {
@@ -156,7 +156,7 @@ function matchKeywordsInBio(bio: string, keywords: string[]): string[] {
       }
     }
   }
-  
+
   return Array.from(new Set(matched)); // Remove duplicates
 }
 
@@ -167,7 +167,7 @@ export default function LeadsPage() {
   const [selectedAccount, setSelectedAccount] = useState<InstagramAccount | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
-  
+
   // Search state
   const [searchType, setSearchType] = useState<'username' | 'hashtag' | 'followers'>('username');
   const [searchQuery, setSearchQuery] = useState('');
@@ -177,21 +177,21 @@ export default function LeadsPage() {
   const [hasMoreResults, setHasMoreResults] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [targetUserId, setTargetUserId] = useState<string | null>(null); // For followers search
-  
+
   // Hashtag search now defaults to bio only (posts option removed)
-  
+
   // Followers/Following search state
   const [targetUserProfile, setTargetUserProfile] = useState<any>(null);
   const [followListType, setFollowListType] = useState<'followers' | 'following'>('followers');
   const [isLoadingTargetUser, setIsLoadingTargetUser] = useState(false);
-  
+
   // Filter state
   const [bioKeywords, setBioKeywords] = useState('');
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const [customKeyword, setCustomKeyword] = useState('');
   const [filterKeywords, setFilterKeywords] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  
+
   // Advanced filters
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [followerRange, setFollowerRange] = useState<[number, number] | null>(null);
@@ -199,13 +199,13 @@ export default function LeadsPage() {
   const [accountAgeRange, setAccountAgeRange] = useState<[number, number] | null>(null);
   const [postFrequencyRange, setPostFrequencyRange] = useState<[number, number] | null>(null);
   const [minLeadScore, setMinLeadScore] = useState<number | null>(null);
-  
+
   // Bulk actions
   const [showBulkActionsModal, setShowBulkActionsModal] = useState(false);
   const [bulkActionType, setBulkActionType] = useState<'status' | 'tags' | null>(null);
   const [bulkActionValue, setBulkActionValue] = useState('');
   const [isPerformingBulkAction, setIsPerformingBulkAction] = useState(false);
-  
+
   // Lead Lists
   const [leadLists, setLeadLists] = useState<any[]>([]);
   const [showLeadListsModal, setShowLeadListsModal] = useState(false);
@@ -214,13 +214,13 @@ export default function LeadsPage() {
   const [newListDescription, setNewListDescription] = useState('');
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [isLoadingLists, setIsLoadingLists] = useState(false);
-  
+
   // Leads list state
   const [leadsSearchQuery, setLeadsSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'followers' | 'name' | 'score' | 'engagement'>('newest');
   const [displayedLeadsCount, setDisplayedLeadsCount] = useState(50); // Start with 50 leads
   const leadsPerBatch = 50; // Load 50 more at a time
-  
+
   // Modals
   const [showBulkDmModal, setShowBulkDmModal] = useState(false);
   const [bulkDmMessage, setBulkDmMessage] = useState('');
@@ -228,7 +228,7 @@ export default function LeadsPage() {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState<any>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
-  
+
   // Batch loading states
   const [displayedSearchResults, setDisplayedSearchResults] = useState<any[]>([]);
   const [isLoadingBatch, setIsLoadingBatch] = useState(false);
@@ -236,7 +236,7 @@ export default function LeadsPage() {
   const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 0 });
   const [batchSize] = useState(10); // Load 10 initially
   const [moreBatchSize] = useState(5); // Load 5 more on button click
-  
+
   // Profile modal state
   const [showLeadProfileModal, setShowLeadProfileModal] = useState(false);
   const [profileModalUsername, setProfileModalUsername] = useState('');
@@ -340,7 +340,7 @@ export default function LeadsPage() {
       `socialora_cookies_${selectedAccount.igUsername}`,
       `instagram_cookies_${selectedAccount.igUserId}`,
     ];
-    
+
     for (const key of possibleKeys) {
       const cookiesStr = localStorage.getItem(key);
       if (cookiesStr) {
@@ -348,11 +348,11 @@ export default function LeadsPage() {
         return JSON.parse(cookiesStr);
       }
     }
-    
+
     console.log('getCookies: No cookies found. Available keys:', Object.keys(localStorage).filter(k => k.includes('cookie') || k.includes('socialora')));
     return null;
   };
-  
+
   // State for search errors
   const [searchError, setSearchError] = useState<string | null>(null);
 
@@ -360,15 +360,15 @@ export default function LeadsPage() {
   const handleSearch = async (loadMore = false, overrideQuery?: string, overrideType?: 'username' | 'hashtag' | 'followers') => {
     const query = overrideQuery || searchQuery;
     const type = overrideType || searchType;
-    
+
     setSearchError(null);
     console.log('handleSearch called:', { query, type, selectedAccount, loadMore });
-    
+
     if (!query.trim()) {
       setSearchError('Please enter a search query');
       return;
     }
-    
+
     if (!selectedAccount) {
       setSearchError('Please select an Instagram account first');
       return;
@@ -376,7 +376,7 @@ export default function LeadsPage() {
 
     const cookies = getCookies();
     console.log('Cookies found:', !!cookies);
-    
+
     if (!cookies) {
       setSearchError('No session found. Please reconnect your Instagram account from Settings > Instagram Accounts. Use the Chrome extension to grab your session.');
       return;
@@ -434,7 +434,7 @@ export default function LeadsPage() {
       }
 
       console.log('Making request to:', endpoint, body);
-      
+
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -442,7 +442,7 @@ export default function LeadsPage() {
       });
 
       console.log('Response status:', response.status);
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error('API Error:', errorText);
@@ -454,13 +454,13 @@ export default function LeadsPage() {
 
       if (result.success) {
         const results = result.users || result.followers || result.following || [];
-        
+
         if (!loadMore) {
           // Reset batch loading state on new search
           setSearchResults(results);
           setDisplayedSearchResults([]);
           setCurrentBatchIndex(0);
-          
+
           // Automatically trigger loading first batch if we have results
           if (results.length > 0) {
             setTimeout(() => {
@@ -471,10 +471,10 @@ export default function LeadsPage() {
           // For load more, just add to search results
           setSearchResults(results);
         }
-        
+
         setSearchLimit(currentLimit);
         setSearchError(''); // Clear any previous errors
-        
+
         // Track lead search
         capture('lead_search_performed', {
           search_type: type,
@@ -483,7 +483,7 @@ export default function LeadsPage() {
           has_preset: !!selectedPreset,
           has_custom_keywords: !!bioKeywords,
         });
-        
+
         if (results.length === 0) {
           // Provide more helpful error messages based on search type
           if (type === 'hashtag') {
@@ -500,7 +500,7 @@ export default function LeadsPage() {
             setSearchError('No users found. Try a different keyword or check your Instagram session.');
           }
         }
-        
+
         // Check if there might be more results
         // For followers/hashtag, if we got the full limit, there might be more
         if (type !== 'username' && results.length >= currentLimit) {
@@ -606,17 +606,17 @@ export default function LeadsPage() {
     const startIndex = currentBatchIndex;
     const endIndex = Math.min(startIndex + count, searchResults.length);
     const batch = searchResults.slice(startIndex, endIndex);
-    
+
     setLoadingProgress({ current: 0, total: batch.length });
 
     const newDisplayedResults: any[] = [];
 
     for (let i = 0; i < batch.length; i++) {
       const userProfile = batch[i];
-      
+
       try {
         setLoadingProgress({ current: i + 1, total: batch.length });
-        
+
         // Fetch full profile with bio
         const profileRes = await fetch(`/api/instagram/cookie/user/${userProfile.username}/profile`, {
           method: 'POST',
@@ -624,13 +624,13 @@ export default function LeadsPage() {
           body: JSON.stringify({ cookies }),
         });
         const profileData = await profileRes.json();
-        
+
         const profile = profileData.success ? profileData.profile : userProfile;
         const bio = profile.bio || '';
-        
+
         // Use smart keyword matching
         const matchedKeywords = matchKeywordsInBio(bio, keywords);
-        
+
         // Add to displayed results with full profile data
         newDisplayedResults.push({
           ...profile,
@@ -696,7 +696,7 @@ export default function LeadsPage() {
     // Add custom keywords
     const customKeywords = bioKeywords.split(',').map(k => k.trim()).filter(k => k);
     keywords = [...keywords, ...customKeywords];
-    
+
     const supabase = createClient();
     // Get current user's workspace
     const { data: { user: authUser } } = await supabase.auth.getUser();
@@ -733,7 +733,10 @@ export default function LeadsPage() {
     for (const profile of users) {
       try {
         // Insert into database (RLS will verify workspace_id)
+        const leadId = crypto.randomUUID();
+        const leadNow = new Date().toISOString();
         await supabase.from('leads').upsert({
+          id: leadId,
           workspace_id: workspaceId,
           instagram_account_id: selectedAccount.id,
           ig_user_id: profile.pk,
@@ -751,6 +754,7 @@ export default function LeadsPage() {
           source: searchType,
           source_query: searchQuery,
           matched_keywords: profile.matchedKeywords || [],
+          updated_at: leadNow,
         }, {
           onConflict: 'ig_user_id,workspace_id'
         });
@@ -775,7 +779,7 @@ export default function LeadsPage() {
   const handleViewProfile = async (lead: Lead) => {
     setShowProfileModal(true);
     setIsLoadingProfile(true);
-    
+
     // Always fetch full lead data including history and enrichment
     const supabase = createClient();
     const { data: leadData } = await supabase
@@ -785,8 +789,8 @@ export default function LeadsPage() {
       .single();
 
     // Set initial profile with history data
-    setSelectedProfile({ 
-      ...lead, 
+    setSelectedProfile({
+      ...lead,
       // Include history and enrichment data
       leadScore: leadData?.lead_score,
       engagementRate: leadData?.engagement_rate,
@@ -802,7 +806,7 @@ export default function LeadsPage() {
       dmSentAt: leadData?.dm_sent_at,
       dmRepliedAt: leadData?.dm_replied_at,
     });
-    
+
     // Fetch fresh profile data from Instagram if account is connected
     if (selectedAccount) {
       const cookies = getCookies();
@@ -815,11 +819,11 @@ export default function LeadsPage() {
           });
           const data = await res.json();
           if (data.success) {
-            setSelectedProfile((prev: any) => ({ 
+            setSelectedProfile((prev: any) => ({
               ...prev,
               ...data.profile,
             }));
-            
+
             // Update in database
             await supabase.from('leads').update({
               bio: data.profile.bio,
@@ -920,7 +924,7 @@ export default function LeadsPage() {
         body: JSON.stringify({
           action: bulkActionType === 'status' ? 'updateStatus' : 'addTags',
           leadIds: Array.from(selectedLeads),
-          data: bulkActionType === 'status' 
+          data: bulkActionType === 'status'
             ? { status: bulkActionValue }
             : { tags: bulkActionValue.split(',').map(t => t.trim()).filter(Boolean) },
         }),
@@ -954,7 +958,7 @@ export default function LeadsPage() {
   // Export leads to CSV
   const handleExportLeads = async () => {
     const leadIds = selectedLeads.size > 0 ? Array.from(selectedLeads) : undefined;
-    
+
     try {
       const response = await fetch('/api/leads/export', {
         method: 'POST',
@@ -1105,13 +1109,13 @@ export default function LeadsPage() {
     .filter(lead => {
       // Status filter
       if (statusFilter !== 'all' && lead.status !== statusFilter) return false;
-      
+
       // Bio keywords filter
       if (filterKeywords.length > 0) {
         const bio = (lead.bio || '').toLowerCase();
         if (!filterKeywords.some(k => bio.includes(k.toLowerCase()))) return false;
       }
-      
+
       // Search query filter
       if (leadsSearchQuery) {
         const query = leadsSearchQuery.toLowerCase();
@@ -1121,29 +1125,29 @@ export default function LeadsPage() {
         const matchesTags = lead.matchedKeywords?.some(k => k.toLowerCase().includes(query));
         if (!matchesUsername && !matchesName && !matchesBio && !matchesTags) return false;
       }
-      
+
       // Advanced filters
       if (followerRange) {
         const followers = lead.followerCount || 0;
         if (followers < followerRange[0] || followers > followerRange[1]) return false;
       }
-      
+
       if (engagementRateRange && lead.engagementRate !== undefined && lead.engagementRate !== null) {
         if (lead.engagementRate < engagementRateRange[0] || lead.engagementRate > engagementRateRange[1]) return false;
       }
-      
+
       if (accountAgeRange && lead.accountAge !== undefined && lead.accountAge !== null) {
         if (lead.accountAge < accountAgeRange[0] || lead.accountAge > accountAgeRange[1]) return false;
       }
-      
+
       if (postFrequencyRange && lead.postFrequency !== undefined && lead.postFrequency !== null) {
         if (lead.postFrequency < postFrequencyRange[0] || lead.postFrequency > postFrequencyRange[1]) return false;
       }
-      
+
       if (minLeadScore !== null && (lead.leadScore === undefined || lead.leadScore === null || lead.leadScore < minLeadScore)) {
         return false;
       }
-      
+
       return true;
     })
     .sort((a, b) => {
@@ -1271,8 +1275,8 @@ export default function LeadsPage() {
                   searchType === "username"
                     ? "Search target audience by name or niche..."
                     : searchType === "hashtag"
-                    ? "Enter hashtag (e.g., entrepreneur)"
-                    : "Enter username to get their followers/following"
+                      ? "Enter hashtag (e.g., entrepreneur)"
+                      : "Enter username to get their followers/following"
                 }
                 value={searchQuery}
                 onChange={(e) => {
@@ -1472,11 +1476,10 @@ export default function LeadsPage() {
                   )}
                   {isSearching
                     ? "Loading..."
-                    : `Get ${
-                        followListType === "followers"
-                          ? "Followers"
-                          : "Following"
-                      }`}
+                    : `Get ${followListType === "followers"
+                      ? "Followers"
+                      : "Following"
+                    }`}
                 </Button>
               </div>
             </div>
@@ -1580,7 +1583,7 @@ export default function LeadsPage() {
                   </p>
                 </div>
               )}
-              
+
               {/* Loading indicator */}
               {isLoadingBatch && (
                 <div className="mb-4 p-4 rounded-lg bg-accent/10 border border-accent/20">
@@ -1591,7 +1594,7 @@ export default function LeadsPage() {
                         Loading profile {loadingProgress.current} of {loadingProgress.total}...
                       </p>
                       <div className="mt-2 bg-background-muted rounded-full h-2 overflow-hidden">
-                        <div 
+                        <div
                           className="bg-accent h-full transition-all duration-300"
                           style={{ width: `${(loadingProgress.current / loadingProgress.total) * 100}%` }}
                         />
@@ -1726,7 +1729,7 @@ export default function LeadsPage() {
                         onClick={() => loadNextBatch(moreBatchSize)}
                         disabled={isLoadingBatch}
                       >
-                        Load {Math.min(moreBatchSize, searchResults.length - currentBatchIndex)} More 
+                        Load {Math.min(moreBatchSize, searchResults.length - currentBatchIndex)} More
                         ({searchResults.length - currentBatchIndex} remaining)
                       </Button>
                       <p className="text-xs text-foreground-muted">
@@ -2296,7 +2299,7 @@ export default function LeadsPage() {
                         </td>
                         <td className="p-2 md:p-4 hidden md:table-cell">
                           {lead.leadScore !== undefined &&
-                          lead.leadScore !== null ? (
+                            lead.leadScore !== null ? (
                             <div className="flex items-center gap-2">
                               <span
                                 className={cn(
@@ -2304,8 +2307,8 @@ export default function LeadsPage() {
                                   lead.leadScore >= 70
                                     ? "text-emerald-400"
                                     : lead.leadScore >= 50
-                                    ? "text-amber-400"
-                                    : "text-foreground-muted"
+                                      ? "text-amber-400"
+                                      : "text-foreground-muted"
                                 )}>
                                 {lead.leadScore}
                               </span>
@@ -2316,7 +2319,7 @@ export default function LeadsPage() {
                         </td>
                         <td className="p-2 md:p-4 hidden lg:table-cell">
                           {lead.engagementRate !== undefined &&
-                          lead.engagementRate !== null ? (
+                            lead.engagementRate !== null ? (
                             <span className="text-sm text-foreground-muted">
                               {lead.engagementRate.toFixed(1)}%
                             </span>
@@ -2791,166 +2794,166 @@ export default function LeadsPage() {
                     selectedProfile.leadScore !== null) ||
                     (selectedProfile.engagementRate !== undefined &&
                       selectedProfile.engagementRate !== null)) && (
-                    <div className="grid grid-cols-2 gap-4">
-                      {selectedProfile.leadScore !== undefined &&
-                        selectedProfile.leadScore !== null && (
-                          <div className="p-3 rounded-lg bg-background-elevated">
-                            <p className="text-sm text-foreground-muted mb-1">
-                              Lead Score
-                            </p>
-                            <p
-                              className={cn(
-                                "text-2xl font-bold",
-                                selectedProfile.leadScore >= 70
-                                  ? "text-emerald-400"
-                                  : selectedProfile.leadScore >= 50
-                                  ? "text-amber-400"
-                                  : "text-foreground-muted"
-                              )}>
-                              {selectedProfile.leadScore}/100
-                            </p>
-                          </div>
-                        )}
-                      {selectedProfile.engagementRate !== undefined &&
-                        selectedProfile.engagementRate !== null && (
-                          <div className="p-3 rounded-lg bg-background-elevated">
-                            <p className="text-sm text-foreground-muted mb-1">
-                              Engagement Rate
-                            </p>
-                            <p className="text-2xl font-bold text-foreground">
-                              {selectedProfile.engagementRate.toFixed(1)}%
-                            </p>
-                          </div>
-                        )}
-                    </div>
-                  )}
+                      <div className="grid grid-cols-2 gap-4">
+                        {selectedProfile.leadScore !== undefined &&
+                          selectedProfile.leadScore !== null && (
+                            <div className="p-3 rounded-lg bg-background-elevated">
+                              <p className="text-sm text-foreground-muted mb-1">
+                                Lead Score
+                              </p>
+                              <p
+                                className={cn(
+                                  "text-2xl font-bold",
+                                  selectedProfile.leadScore >= 70
+                                    ? "text-emerald-400"
+                                    : selectedProfile.leadScore >= 50
+                                      ? "text-amber-400"
+                                      : "text-foreground-muted"
+                                )}>
+                                {selectedProfile.leadScore}/100
+                              </p>
+                            </div>
+                          )}
+                        {selectedProfile.engagementRate !== undefined &&
+                          selectedProfile.engagementRate !== null && (
+                            <div className="p-3 rounded-lg bg-background-elevated">
+                              <p className="text-sm text-foreground-muted mb-1">
+                                Engagement Rate
+                              </p>
+                              <p className="text-2xl font-bold text-foreground">
+                                {selectedProfile.engagementRate.toFixed(1)}%
+                              </p>
+                            </div>
+                          )}
+                      </div>
+                    )}
 
                   {/* Lead History */}
                   {(selectedProfile.timesContacted ||
                     selectedProfile.lastContactedAt ||
                     selectedProfile.lastInteractionAt) && (
-                    <div className="p-4 rounded-lg bg-background-elevated border border-border">
-                      <h4 className="text-sm font-medium text-foreground-muted mb-3 flex items-center gap-2">
-                        <Clock className="h-4 w-4" />
-                        Interaction History
-                      </h4>
-                      <div className="space-y-2">
-                        {selectedProfile.timesContacted !== undefined &&
-                          selectedProfile.timesContacted > 0 && (
+                      <div className="p-4 rounded-lg bg-background-elevated border border-border">
+                        <h4 className="text-sm font-medium text-foreground-muted mb-3 flex items-center gap-2">
+                          <Clock className="h-4 w-4" />
+                          Interaction History
+                        </h4>
+                        <div className="space-y-2">
+                          {selectedProfile.timesContacted !== undefined &&
+                            selectedProfile.timesContacted > 0 && (
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-foreground-muted">
+                                  Times Contacted
+                                </span>
+                                <span className="font-medium text-foreground">
+                                  {selectedProfile.timesContacted}
+                                </span>
+                              </div>
+                            )}
+                          {selectedProfile.lastContactedAt && (
                             <div className="flex items-center justify-between text-sm">
                               <span className="text-foreground-muted">
-                                Times Contacted
+                                Last Contacted
                               </span>
                               <span className="font-medium text-foreground">
-                                {selectedProfile.timesContacted}
+                                {new Date(
+                                  selectedProfile.lastContactedAt
+                                ).toLocaleDateString()}
                               </span>
                             </div>
                           )}
-                        {selectedProfile.lastContactedAt && (
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-foreground-muted">
-                              Last Contacted
-                            </span>
-                            <span className="font-medium text-foreground">
-                              {new Date(
-                                selectedProfile.lastContactedAt
-                              ).toLocaleDateString()}
-                            </span>
-                          </div>
-                        )}
-                        {selectedProfile.lastInteractionAt && (
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-foreground-muted">
-                              Last Interaction
-                            </span>
-                            <span className="font-medium text-foreground">
-                              {new Date(
-                                selectedProfile.lastInteractionAt
-                              ).toLocaleDateString()}
-                            </span>
-                          </div>
-                        )}
-                        {selectedProfile.dmSentAt && (
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-foreground-muted flex items-center gap-1">
-                              <MessageSquare className="h-3 w-3" />
-                              DM Sent
-                            </span>
-                            <span className="font-medium text-foreground">
-                              {new Date(
-                                selectedProfile.dmSentAt
-                              ).toLocaleDateString()}
-                            </span>
-                          </div>
-                        )}
-                        {selectedProfile.dmRepliedAt && (
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-foreground-muted flex items-center gap-1">
-                              <MessageSquare className="h-3 w-3" />
-                              Replied
-                            </span>
-                            <span className="font-medium text-emerald-400">
-                              {new Date(
-                                selectedProfile.dmRepliedAt
-                              ).toLocaleDateString()}
-                            </span>
-                          </div>
-                        )}
+                          {selectedProfile.lastInteractionAt && (
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-foreground-muted">
+                                Last Interaction
+                              </span>
+                              <span className="font-medium text-foreground">
+                                {new Date(
+                                  selectedProfile.lastInteractionAt
+                                ).toLocaleDateString()}
+                              </span>
+                            </div>
+                          )}
+                          {selectedProfile.dmSentAt && (
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-foreground-muted flex items-center gap-1">
+                                <MessageSquare className="h-3 w-3" />
+                                DM Sent
+                              </span>
+                              <span className="font-medium text-foreground">
+                                {new Date(
+                                  selectedProfile.dmSentAt
+                                ).toLocaleDateString()}
+                              </span>
+                            </div>
+                          )}
+                          {selectedProfile.dmRepliedAt && (
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-foreground-muted flex items-center gap-1">
+                                <MessageSquare className="h-3 w-3" />
+                                Replied
+                              </span>
+                              <span className="font-medium text-emerald-400">
+                                {new Date(
+                                  selectedProfile.dmRepliedAt
+                                ).toLocaleDateString()}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
                   {/* Enrichment Data */}
                   {(selectedProfile.email ||
                     selectedProfile.phone ||
                     selectedProfile.website ||
                     selectedProfile.location) && (
-                    <div>
-                      <h4 className="text-sm font-medium text-foreground-muted mb-2">
-                        Contact Information
-                      </h4>
-                      <div className="space-y-1 text-sm">
-                        {selectedProfile.email && (
-                          <p className="text-foreground">
-                            <span className="text-foreground-muted">
-                              Email:{" "}
-                            </span>
-                            {selectedProfile.email}
-                          </p>
-                        )}
-                        {selectedProfile.phone && (
-                          <p className="text-foreground">
-                            <span className="text-foreground-muted">
-                              Phone:{" "}
-                            </span>
-                            {selectedProfile.phone}
-                          </p>
-                        )}
-                        {selectedProfile.website && (
-                          <p className="text-foreground">
-                            <span className="text-foreground-muted">
-                              Website:{" "}
-                            </span>
-                            <a
-                              href={selectedProfile.website}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-accent hover:underline">
-                              {selectedProfile.website}
-                            </a>
-                          </p>
-                        )}
-                        {selectedProfile.location && (
-                          <p className="text-foreground">
-                            <span className="text-foreground-muted">
-                              Location:{" "}
-                            </span>
-                            {selectedProfile.location}
-                          </p>
-                        )}
+                      <div>
+                        <h4 className="text-sm font-medium text-foreground-muted mb-2">
+                          Contact Information
+                        </h4>
+                        <div className="space-y-1 text-sm">
+                          {selectedProfile.email && (
+                            <p className="text-foreground">
+                              <span className="text-foreground-muted">
+                                Email:{" "}
+                              </span>
+                              {selectedProfile.email}
+                            </p>
+                          )}
+                          {selectedProfile.phone && (
+                            <p className="text-foreground">
+                              <span className="text-foreground-muted">
+                                Phone:{" "}
+                              </span>
+                              {selectedProfile.phone}
+                            </p>
+                          )}
+                          {selectedProfile.website && (
+                            <p className="text-foreground">
+                              <span className="text-foreground-muted">
+                                Website:{" "}
+                              </span>
+                              <a
+                                href={selectedProfile.website}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-accent hover:underline">
+                                {selectedProfile.website}
+                              </a>
+                            </p>
+                          )}
+                          {selectedProfile.location && (
+                            <p className="text-foreground">
+                              <span className="text-foreground-muted">
+                                Location:{" "}
+                              </span>
+                              {selectedProfile.location}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
 
                   {/* Bio */}
                   {selectedProfile.bio && (

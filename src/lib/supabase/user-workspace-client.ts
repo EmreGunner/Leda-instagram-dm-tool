@@ -41,12 +41,14 @@ export async function getOrCreateUserWorkspaceId(): Promise<string | null> {
 
     // Create workspace
     const workspaceId = crypto.randomUUID();
+    const now = new Date().toISOString();
     const { data: workspace, error: workspaceError } = await supabase
       .from('workspaces')
       .insert({
         id: workspaceId,
         name: name || email.split('@')[0] || 'My Workspace',
         slug: workspaceSlug,
+        updated_at: now,
       })
       .select()
       .single();
@@ -67,6 +69,7 @@ export async function getOrCreateUserWorkspaceId(): Promise<string | null> {
         workspace_id: workspace.id,
         name: name || null,
         role: 'MEMBER',
+        updated_at: now,
       })
       .select()
       .single();
@@ -90,12 +93,14 @@ export async function getOrCreateUserWorkspaceId(): Promise<string | null> {
     const workspaceSlug = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '-');
 
     const workspaceId2 = crypto.randomUUID();
+    const now2 = new Date().toISOString();
     const { data: workspace, error: workspaceError } = await supabase
       .from('workspaces')
       .insert({
         id: workspaceId2,
         name: user.name || email.split('@')[0] || 'My Workspace',
         slug: workspaceSlug,
+        updated_at: now2,
       })
       .select()
       .single();
