@@ -12,19 +12,19 @@ import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import type { InstagramAccount } from '@/types';
 import {
-    AlertCircle,
-    Check,
-    CheckCircle,
-    Cookie,
-    Copy,
-    ExternalLink,
-    Instagram,
-    Loader2,
-    Plus,
-    RefreshCw,
-    Send,
-    Trash2,
-    X
+  AlertCircle,
+  Check,
+  CheckCircle,
+  Cookie,
+  Copy,
+  ExternalLink,
+  Instagram,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Send,
+  Trash2,
+  X
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -32,8 +32,7 @@ import { toast } from "sonner";
 const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID;
 const META_OAUTH_REDIRECT_URI =
   process.env.NEXT_PUBLIC_META_OAUTH_REDIRECT_URI ||
-  `${
-    typeof window !== "undefined" ? window.location.origin : ""
+  `${typeof window !== "undefined" ? window.location.origin : ""
   }/api/instagram/callback`;
 // Use relative URLs since we're on the same domain (Next.js API routes)
 // All API calls use relative URLs since backend and frontend are on the same domain
@@ -71,12 +70,64 @@ export default function InstagramSettingsPage() {
     mid: "",
     rur: "",
   });
+  const [rawCookieJson, setRawCookieJson] = useState("");
+  const [cookieInputMode, setCookieInputMode] = useState<"manual" | "json">("json");
+  const [jsonParseError, setJsonParseError] = useState<string | null>(null);
   const [isVerifyingCookies, setIsVerifyingCookies] = useState(false);
   const [cookieUser, setCookieUser] = useState<{
     username: string;
     fullName: string;
     profilePicUrl?: string;
   } | null>(null);
+
+  // Parse JSON cookie array and extract Instagram cookies
+  const parseJsonCookies = (jsonString: string) => {
+    setJsonParseError(null);
+    try {
+      const cookieArray = JSON.parse(jsonString);
+      if (!Array.isArray(cookieArray)) {
+        setJsonParseError("Input must be a JSON array of cookies");
+        return;
+      }
+
+      // Filter for instagram.com cookies only
+      const instagramCookies = cookieArray.filter(
+        (c: any) => c.domain?.includes("instagram.com") || c.domain?.includes(".instagram.com")
+      );
+
+      if (instagramCookies.length === 0) {
+        setJsonParseError("No Instagram cookies found. Make sure you export cookies from instagram.com, not localhost.");
+        return;
+      }
+
+      // Extract required values
+      const findCookie = (name: string) =>
+        instagramCookies.find((c: any) => c.name === name)?.value || "";
+
+      const extracted = {
+        sessionId: findCookie("sessionid"),
+        csrfToken: findCookie("csrftoken"),
+        dsUserId: findCookie("ds_user_id"),
+        igDid: findCookie("ig_did"),
+        mid: findCookie("mid"),
+        rur: findCookie("rur"),
+      };
+
+      if (!extracted.sessionId || !extracted.csrfToken || !extracted.dsUserId) {
+        const missing = [];
+        if (!extracted.sessionId) missing.push("sessionid");
+        if (!extracted.csrfToken) missing.push("csrftoken");
+        if (!extracted.dsUserId) missing.push("ds_user_id");
+        setJsonParseError(`Missing required cookies: ${missing.join(", ")}. Make sure you're logged into Instagram.`);
+        return;
+      }
+
+      setCookies(extracted);
+      setSuccessMessage(`✓ Found ${instagramCookies.length} Instagram cookies. Required values extracted!`);
+    } catch (e: any) {
+      setJsonParseError(`Invalid JSON: ${e.message}`);
+    }
+  };
 
   // Browser login state
   const [isBrowserLoggingIn, setIsBrowserLoggingIn] = useState(false);
@@ -409,7 +460,7 @@ export default function InstagramSettingsPage() {
       if (cookiesStr) {
         try {
           const cookies = JSON.parse(cookiesStr);
-          
+
           // Call the API endpoint which properly encrypts and saves cookies
           const response = await fetch("/api/instagram/cookie/connect", {
             method: "POST",
@@ -519,9 +570,8 @@ export default function InstagramSettingsPage() {
         savedAccountsRef.current.add(igUserId);
         setErrorMessage(null);
         toast.success("Account connected!", {
-          description: `Successfully connected @${
-            accountMetadata.username || igUserId
-          }. Cookies stored securely.`,
+          description: `Successfully connected @${accountMetadata.username || igUserId
+            }. Cookies stored securely.`,
         });
         fetchAccounts();
       } else if (saveError) {
@@ -998,7 +1048,7 @@ export default function InstagramSettingsPage() {
           // But we should NOT overwrite the encrypted access_token if it exists
           // Only update if account doesn't exist or if we need to add cookies
           console.log("API didn't save to database, checking if account exists");
-          
+
           const { data: existingAccountData } = await supabase
             .from("instagram_accounts")
             .select("*")
@@ -1290,7 +1340,7 @@ export default function InstagramSettingsPage() {
                           </h4>
                           {/* Only show badge if account is active AND has valid cookies */}
                           {account.isActive &&
-                          accountsWithCookies.has(account.id) ? (
+                            accountsWithCookies.has(account.id) ? (
                             <Badge variant="success">Active</Badge>
                           ) : account.isActive ? (
                             <Badge variant="warning">Needs Reconnect</Badge>
@@ -1323,11 +1373,10 @@ export default function InstagramSettingsPage() {
                                     : "bg-accent"
                                 )}
                                 style={{
-                                  width: `${
-                                    (account.dmsSentToday /
-                                      account.dailyDmLimit) *
+                                  width: `${(account.dmsSentToday /
+                                    account.dailyDmLimit) *
                                     100
-                                  }%`,
+                                    }%`,
                                 }}
                               />
                             </div>
@@ -1335,18 +1384,18 @@ export default function InstagramSettingsPage() {
 
                           {account.dmsSentToday / account.dailyDmLimit >
                             0.8 && (
-                            <div className="flex items-center gap-1 text-warning text-xs">
-                              <AlertCircle className="h-3 w-3" />
-                              <span>Nearing limit</span>
-                            </div>
-                          )}
+                              <div className="flex items-center gap-1 text-warning text-xs">
+                                <AlertCircle className="h-3 w-3" />
+                                <span>Nearing limit</span>
+                              </div>
+                            )}
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2">
                         {/* Show only one status: Active if connected, Reconnect if not */}
                         {account.isActive &&
-                        accountsWithCookies.has(account.id) ? (
+                          accountsWithCookies.has(account.id) ? (
                           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
                             <CheckCircle className="h-4 w-4" />
                             <span className="text-sm font-medium">
@@ -1396,10 +1445,10 @@ export default function InstagramSettingsPage() {
                   <Instagram className="h-4 w-4" />
                   Login with Instagram
                 </Button>
-                {/* <Button variant="secondary" onClick={() => setShowCookieModal(true)}>
+                <Button variant="secondary" onClick={() => setShowCookieModal(true)}>
                   <Cookie className="h-4 w-4" />
-                  Use Cookies
-                </Button> */}
+                  Use Cookies (Manual)
+                </Button>
               </div>
               {browserLoginStatus && (
                 <div className="mt-4 p-3 rounded-lg bg-accent/10 border border-accent/20 inline-flex items-center gap-3">
@@ -1465,10 +1514,10 @@ export default function InstagramSettingsPage() {
                   </Button>
                 )}
 
-                {/* <Button variant="ghost" onClick={() => setShowCookieModal(true)}>
+                <Button variant="ghost" onClick={() => setShowCookieModal(true)}>
                   <Cookie className="h-4 w-4" />
-                  Manual Connection
-                </Button> */}
+                  Manual Cookie Entry
+                </Button>
               </div>
             </div>
           </div>
@@ -1652,145 +1701,243 @@ export default function InstagramSettingsPage() {
             </div>
 
             <div className="p-6 space-y-6">
-              {/* Instructions */}
-              <div className="bg-background-elevated rounded-xl p-4 space-y-3">
-                <h3 className="font-medium text-foreground flex items-center gap-2">
-                  <span className="h-5 w-5 rounded-full bg-accent/20 text-accent text-xs flex items-center justify-center">
-                    ?
-                  </span>
-                  How to get your Instagram cookies
-                </h3>
-                <ol className="text-sm text-foreground-muted space-y-2 ml-7 list-decimal">
-                  <li>Open Instagram.com in your browser and login</li>
-                  <li>Press F12 to open Developer Tools</li>
-                  <li>Go to Application tab → Cookies → instagram.com</li>
-                  <li>
-                    Copy the values for:{" "}
-                    <code className="px-1.5 py-0.5 rounded bg-background-secondary text-accent text-xs">
-                      sessionid
-                    </code>
-                    ,{" "}
-                    <code className="px-1.5 py-0.5 rounded bg-background-secondary text-accent text-xs">
-                      csrftoken
-                    </code>
-                    ,{" "}
-                    <code className="px-1.5 py-0.5 rounded bg-background-secondary text-accent text-xs">
-                      ds_user_id
-                    </code>
-                  </li>
-                </ol>
+              {/* Input Mode Toggle */}
+              <div className="flex bg-background-elevated rounded-xl p-1">
+                <button
+                  onClick={() => setCookieInputMode("json")}
+                  className={cn(
+                    "flex-1 py-2.5 rounded-lg text-sm font-medium transition-all",
+                    cookieInputMode === "json"
+                      ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-sm"
+                      : "text-foreground-muted hover:text-foreground"
+                  )}
+                >
+                  Paste JSON (Easy)
+                </button>
+                <button
+                  onClick={() => setCookieInputMode("manual")}
+                  className={cn(
+                    "flex-1 py-2.5 rounded-lg text-sm font-medium transition-all",
+                    cookieInputMode === "manual"
+                      ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-sm"
+                      : "text-foreground-muted hover:text-foreground"
+                  )}
+                >
+                  Manual Entry
+                </button>
               </div>
 
-              {/* Cookie Inputs */}
-              <div className="grid gap-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      Session ID <span className="text-error">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={cookies.sessionId}
-                      onChange={(e) =>
-                        setCookies((prev) => ({
-                          ...prev,
-                          sessionId: e.target.value,
-                        }))
-                      }
-                      placeholder="sessionid cookie value"
-                      className="w-full px-4 py-2.5 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors text-sm font-mono"
-                    />
+              {/* JSON Paste Mode */}
+              {cookieInputMode === "json" && (
+                <>
+                  <div className="bg-background-elevated rounded-xl p-4 space-y-3">
+                    <h3 className="font-medium text-foreground flex items-center gap-2">
+                      <span className="h-5 w-5 rounded-full bg-accent/20 text-accent text-xs flex items-center justify-center">
+                        1
+                      </span>
+                      Export cookies from Instagram.com
+                    </h3>
+                    <ol className="text-sm text-foreground-muted space-y-2 ml-7 list-decimal">
+                      <li>Install a cookie export extension (e.g., "Cookie-Editor" or "EditThisCookie")</li>
+                      <li>Go to <a href="https://www.instagram.com" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">instagram.com</a> and login</li>
+                      <li>Click the cookie extension → Export as JSON</li>
+                      <li>Paste the JSON array below</li>
+                    </ol>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      CSRF Token <span className="text-error">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={cookies.csrfToken}
-                      onChange={(e) =>
-                        setCookies((prev) => ({
-                          ...prev,
-                          csrfToken: e.target.value,
-                        }))
-                      }
-                      placeholder="csrftoken cookie value"
-                      className="w-full px-4 py-2.5 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors text-sm font-mono"
-                    />
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-2">
-                      DS User ID <span className="text-error">*</span>
+                      Paste Cookie JSON Array
                     </label>
-                    <input
-                      type="text"
-                      value={cookies.dsUserId}
-                      onChange={(e) =>
-                        setCookies((prev) => ({
-                          ...prev,
-                          dsUserId: e.target.value,
-                        }))
-                      }
-                      placeholder="ds_user_id cookie value"
-                      className="w-full px-4 py-2.5 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors text-sm font-mono"
+                    <textarea
+                      value={rawCookieJson}
+                      onChange={(e) => setRawCookieJson(e.target.value)}
+                      placeholder='[{"name": "sessionid", "value": "...", "domain": ".instagram.com"}, ...]'
+                      rows={6}
+                      className="w-full px-4 py-3 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors text-sm font-mono"
                     />
+                    {jsonParseError && (
+                      <p className="mt-2 text-sm text-error flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4" />
+                        {jsonParseError}
+                      </p>
+                    )}
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      IG DID{" "}
-                      <span className="text-foreground-subtle">(optional)</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={cookies.igDid}
-                      onChange={(e) =>
-                        setCookies((prev) => ({
-                          ...prev,
-                          igDid: e.target.value,
-                        }))
-                      }
-                      placeholder="ig_did cookie value"
-                      className="w-full px-4 py-2.5 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors text-sm font-mono"
-                    />
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      MID{" "}
-                      <span className="text-foreground-subtle">(optional)</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={cookies.mid}
-                      onChange={(e) =>
-                        setCookies((prev) => ({ ...prev, mid: e.target.value }))
-                      }
-                      placeholder="mid cookie value"
-                      className="w-full px-4 py-2.5 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors text-sm font-mono"
-                    />
+                  <Button
+                    onClick={() => parseJsonCookies(rawCookieJson)}
+                    disabled={!rawCookieJson.trim()}
+                    className="w-full"
+                  >
+                    <Cookie className="h-4 w-4" />
+                    Parse & Extract Instagram Cookies
+                  </Button>
+
+                  {/* Show extracted values */}
+                  {cookies.sessionId && cookies.csrfToken && cookies.dsUserId && (
+                    <div className="bg-success/10 border border-success/20 rounded-lg p-3">
+                      <p className="text-sm text-success font-medium mb-2">✓ Cookies extracted successfully!</p>
+                      <div className="grid grid-cols-3 gap-2 text-xs text-foreground-muted">
+                        <div>
+                          <span className="block text-foreground-subtle">Session ID:</span>
+                          <span className="font-mono">{cookies.sessionId.slice(0, 12)}...</span>
+                        </div>
+                        <div>
+                          <span className="block text-foreground-subtle">CSRF Token:</span>
+                          <span className="font-mono">{cookies.csrfToken.slice(0, 12)}...</span>
+                        </div>
+                        <div>
+                          <span className="block text-foreground-subtle">User ID:</span>
+                          <span className="font-mono">{cookies.dsUserId}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Manual Entry Mode */}
+              {cookieInputMode === "manual" && (
+                <>
+                  <div className="bg-background-elevated rounded-xl p-4 space-y-3">
+                    <h3 className="font-medium text-foreground flex items-center gap-2">
+                      <span className="h-5 w-5 rounded-full bg-accent/20 text-accent text-xs flex items-center justify-center">
+                        ?
+                      </span>
+                      How to get your Instagram cookies
+                    </h3>
+                    <ol className="text-sm text-foreground-muted space-y-2 ml-7 list-decimal">
+                      <li>Open Instagram.com in your browser and login</li>
+                      <li>Press F12 to open Developer Tools</li>
+                      <li>Go to Application tab → Cookies → instagram.com</li>
+                      <li>
+                        Copy the values for:{" "}
+                        <code className="px-1.5 py-0.5 rounded bg-background-secondary text-accent text-xs">
+                          sessionid
+                        </code>
+                        ,{" "}
+                        <code className="px-1.5 py-0.5 rounded bg-background-secondary text-accent text-xs">
+                          csrftoken
+                        </code>
+                        ,{" "}
+                        <code className="px-1.5 py-0.5 rounded bg-background-secondary text-accent text-xs">
+                          ds_user_id
+                        </code>
+                      </li>
+                    </ol>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      RUR{" "}
-                      <span className="text-foreground-subtle">(optional)</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={cookies.rur}
-                      onChange={(e) =>
-                        setCookies((prev) => ({ ...prev, rur: e.target.value }))
-                      }
-                      placeholder="rur cookie value"
-                      className="w-full px-4 py-2.5 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors text-sm font-mono"
-                    />
+
+                  <div className="grid gap-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">
+                          Session ID <span className="text-error">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={cookies.sessionId}
+                          onChange={(e) =>
+                            setCookies((prev) => ({
+                              ...prev,
+                              sessionId: e.target.value,
+                            }))
+                          }
+                          placeholder="sessionid cookie value"
+                          className="w-full px-4 py-2.5 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors text-sm font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">
+                          CSRF Token <span className="text-error">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={cookies.csrfToken}
+                          onChange={(e) =>
+                            setCookies((prev) => ({
+                              ...prev,
+                              csrfToken: e.target.value,
+                            }))
+                          }
+                          placeholder="csrftoken cookie value"
+                          className="w-full px-4 py-2.5 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors text-sm font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">
+                          DS User ID <span className="text-error">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={cookies.dsUserId}
+                          onChange={(e) =>
+                            setCookies((prev) => ({
+                              ...prev,
+                              dsUserId: e.target.value,
+                            }))
+                          }
+                          placeholder="ds_user_id cookie value"
+                          className="w-full px-4 py-2.5 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors text-sm font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">
+                          IG DID{" "}
+                          <span className="text-foreground-subtle">(optional)</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={cookies.igDid}
+                          onChange={(e) =>
+                            setCookies((prev) => ({
+                              ...prev,
+                              igDid: e.target.value,
+                            }))
+                          }
+                          placeholder="ig_did cookie value"
+                          className="w-full px-4 py-2.5 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors text-sm font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">
+                          MID{" "}
+                          <span className="text-foreground-subtle">(optional)</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={cookies.mid}
+                          onChange={(e) =>
+                            setCookies((prev) => ({ ...prev, mid: e.target.value }))
+                          }
+                          placeholder="mid cookie value"
+                          className="w-full px-4 py-2.5 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors text-sm font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">
+                          RUR{" "}
+                          <span className="text-foreground-subtle">(optional)</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={cookies.rur}
+                          onChange={(e) =>
+                            setCookies((prev) => ({ ...prev, rur: e.target.value }))
+                          }
+                          placeholder="rur cookie value"
+                          className="w-full px-4 py-2.5 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors text-sm font-mono"
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+                </>
+              )}
 
               {/* Verified User */}
               {cookieUser && (
@@ -1961,7 +2108,7 @@ export default function InstagramSettingsPage() {
 
               {/* Step 3 */}
               <div className="flex gap-4">
-                 <div className="h-8 w-8 rounded-full bg-accent/20 text-accent flex items-center justify-center flex-shrink-0 font-semibold text-sm">
+                <div className="h-8 w-8 rounded-full bg-accent/20 text-accent flex items-center justify-center flex-shrink-0 font-semibold text-sm">
                   3
                 </div>
                 <div className="flex-1">
@@ -2160,7 +2307,7 @@ export default function InstagramSettingsPage() {
                       </button>
                     </p>
                   </div>
-                </div>  
+                </div>
               )}
 
               {/* Mini cookie inputs for quick use */}

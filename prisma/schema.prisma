@@ -607,3 +607,20 @@ model JobQueue {
   @@index([senderIgUserId])
   @@map("job_queue")
 }
+
+// ============================================================================
+// Waiting List Model
+// ================================================== // ============================================================================
+
+model WaitingList {
+  id                      String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                   String?   @unique
+  instagramId             String?   @map("instagram_id")
+  message                 String?
+  slackNotificationSent   Boolean   @default(false) @map("slack_notification_sent")
+  slackNotificationSentAt DateTime? @map("slack_notification_sent_at")
+  slackNotificationError  String?   @map("slack_notification_error")
+  createdAt               DateTime  @default(now()) @map("created_at")
+
+  @@map("waiting_list")
+}
