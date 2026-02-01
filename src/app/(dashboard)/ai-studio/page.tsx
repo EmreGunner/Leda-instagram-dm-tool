@@ -27,9 +27,12 @@ interface AIAutomation {
   description: string;
   trigger: string;
   status: 'active' | 'paused' | 'draft';
+
   messagesHandled: number;
   instagramAccountId?: string;
   instagramUsername?: string;
+  responseTemplate?: string;
+  keywords?: string[];
 }
 
 interface InstagramAccount {
@@ -64,11 +67,14 @@ export default function AIStudioPage() {
   const [selectedAutomation, setSelectedAutomation] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [newAutomation, setNewAutomation] = useState({
     name: '',
     description: '',
     trigger: 'New follower',
     accountId: '',
+    responseTemplate: '',
+    keywords: '',
   });
 
   const fetchData = useCallback(async () => {
@@ -114,6 +120,8 @@ export default function AIStudioPage() {
           messagesHandled: auto.messages_handled || 0,
           instagramAccountId: auto.instagram_account_id,
           instagramUsername: auto.instagram_account?.ig_username,
+          responseTemplate: auto.response_template,
+          keywords: auto.trigger_keywords || [],
         })));
       } else {
         setAutomations([]);
@@ -130,70 +138,97 @@ export default function AIStudioPage() {
   }, [fetchData]);
 
   const handleCreateAutomation = async () => {
-    if (!newAutomation.name || !newAutomation.accountId) {
-      alert('Please fill in all required fields');
+    if (!newAutomation.name || !newAutomation.accountId || !newAutomation.responseTemplate) {
+      alert('Please fill in all required fields (Name, Account, Response)');
       return;
     }
 
     try {
       const supabase = createClient();
 
-      // Get workspace
-      const { data: workspaces } = await supabase
-        .from('workspaces')
-        .select('id')
-        .limit(1)
-        .single();
+      const keywordsArray = newAutomation.trigger === 'Keyword match'
+        ? newAutomation.keywords.split(',').map(k => k.trim()).filter(Boolean)
+        : [];
 
-      if (!workspaces?.id) {
-        alert('No workspace found');
-        return;
+      if (editingId) {
+        // UPDATE existing automation
+        const { error } = await supabase
+          .from('automations')
+          .update({
+            name: newAutomation.name,
+            description: newAutomation.description || null,
+            trigger_type: newAutomation.trigger,
+            trigger_keywords: keywordsArray,
+            response_template: newAutomation.responseTemplate,
+            instagram_account_id: newAutomation.accountId,
+            // Don't update workspace_id or created_at
+          })
+          .eq('id', editingId);
+
+        if (error) throw error;
+
+        alert('Automation updated successfully!');
+      } else {
+        // CREATE new automation
+        // Get workspace
+        const { data: workspaces } = await supabase
+          .from('workspaces')
+          .select('id')
+          .limit(1)
+          .single();
+
+        if (!workspaces?.id) {
+          alert('No workspace found');
+          return;
+        }
+
+        const insertData: any = {
+          id: crypto.randomUUID(),
+          name: newAutomation.name,
+          description: newAutomation.description || null,
+          trigger_type: newAutomation.trigger,
+          trigger_keywords: keywordsArray,
+          response_template: newAutomation.responseTemplate,
+          instagram_account_id: newAutomation.accountId,
+          workspace_id: workspaces.id,
+          is_active: false,
+          messages_handled: 0,
+          updated_at: new Date().toISOString(),
+        };
+
+        const { data, error } = await supabase
+          .from('automations')
+          .insert(insertData)
+          .select()
+          .single();
+
+        if (error) {
+          throw error;
+        }
+
+        capture('automation_created', {
+          automation_id: data.id,
+          trigger_type: newAutomation.trigger,
+        });
+
+        alert('Automation created successfully!');
       }
-
-      // Build insert object with all required fields
-      const insertData: any = {
-        id: crypto.randomUUID(), // Generate UUID for the id since table doesn't auto-generate
-        name: newAutomation.name,
-        description: newAutomation.description || null,
-        trigger_type: newAutomation.trigger,
-        trigger_keywords: [], // Empty array for now, can be configured later
-        instagram_account_id: newAutomation.accountId,
-        workspace_id: workspaces.id,
-        is_active: false,
-        messages_handled: 0,
-        updated_at: new Date().toISOString(),
-      };
-
-      const { data, error } = await supabase
-        .from('automations')
-        .insert(insertData)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error creating automation:', error);
-        alert('Failed to create automation: ' + error.message);
-        return;
-      }
-
-
-      // Track automation creation
-      capture('automation_created', {
-        automation_id: data.id,
-        trigger_type: newAutomation.trigger,
-        has_description: !!newAutomation.description,
-      });
 
       setShowCreateModal(false);
-      setNewAutomation({ name: '', description: '', trigger: 'New follower', accountId: '' });
-      fetchData();
-      alert('Automation created successfully!');
-    } catch (error) {
-      console.error('Error creating automation:', error);
-      capture('automation_creation_failed', {
-        error: (error as Error).message,
+      setEditingId(null);
+      setNewAutomation({
+        name: '',
+        description: '',
+        trigger: 'New follower',
+        accountId: '',
+        responseTemplate: '',
+        keywords: ''
       });
-      alert('Failed to create automation: ' + (error as Error).message);
+      fetchData();
+
+    } catch (error) {
+      console.error('Error saving automation:', error);
+      alert('Failed to save automation: ' + (error as Error).message);
     }
   };
 
@@ -244,9 +279,18 @@ export default function AIStudioPage() {
     }
   };
 
-  const handleEditAutomation = (e: React.MouseEvent) => {
+  const handleEditAutomation = (automation: AIAutomation, e: React.MouseEvent) => {
     e.stopPropagation();
-    alert('Edit feature is coming soon!');
+    setEditingId(automation.id);
+    setNewAutomation({
+      name: automation.name,
+      description: automation.description,
+      trigger: automation.trigger,
+      accountId: automation.instagramAccountId || '',
+      responseTemplate: automation.responseTemplate || '',
+      keywords: automation.keywords?.join(', ') || '',
+    });
+    setShowCreateModal(true);
   };
 
   const getStatusColor = (status: AIAutomation['status']) => {
@@ -267,7 +311,18 @@ export default function AIStudioPage() {
         subtitle="Create intelligent automations for your Instagram DMs"
         action={{
           label: 'Create Automation',
-          onClick: () => setShowCreateModal(true),
+          onClick: () => {
+            setEditingId(null);
+            setNewAutomation({
+              name: '',
+              description: '',
+              trigger: 'New follower',
+              accountId: '',
+              responseTemplate: '',
+              keywords: ''
+            });
+            setShowCreateModal(true);
+          },
         }}
       />
 
@@ -409,7 +464,7 @@ export default function AIStudioPage() {
                             )}
                           </button>
                           <button
-                            onClick={handleEditAutomation}
+                            onClick={(e) => handleEditAutomation(automation, e)}
                             className="p-2 rounded-lg hover:bg-background-tertiary text-foreground-muted hover:text-foreground transition-colors"
                           >
                             <Settings2 className="h-4 w-4" />
@@ -476,7 +531,9 @@ export default function AIStudioPage() {
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
             <div className="bg-background-secondary rounded-2xl border border-border max-w-md w-full">
               <div className="p-6 border-b border-border">
-                <h2 className="text-lg font-semibold text-foreground">Create Automation</h2>
+                <h2 className="text-lg font-semibold text-foreground">
+                  {editingId ? 'Edit Automation' : 'Create Automation'}
+                </h2>
               </div>
               <div className="p-6 space-y-4">
                 <div>
@@ -525,6 +582,37 @@ export default function AIStudioPage() {
                     <option value="Story mention">Story mention</option>
                   </select>
                 </div>
+
+                {newAutomation.trigger === 'Keyword match' && (
+                  <div>
+                    <label className="block text-sm font-medium text-foreground-muted mb-2">
+                      Keywords (comma separated)
+                    </label>
+                    <input
+                      type="text"
+                      value={newAutomation.keywords}
+                      onChange={(e) => setNewAutomation(prev => ({ ...prev, keywords: e.target.value }))}
+                      placeholder="e.g. price, cost, how much"
+                      className="w-full px-4 py-2.5 rounded-lg bg-background-tertiary border border-border text-foreground placeholder-foreground-subtle focus:border-pink-500 outline-none"
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-foreground-muted mb-2">
+                    Response Message <span className="text-pink-500">*</span>
+                  </label>
+                  <textarea
+                    value={newAutomation.responseTemplate}
+                    onChange={(e) => setNewAutomation(prev => ({ ...prev, responseTemplate: e.target.value }))}
+                    placeholder="Hi {name}! Thanks for reaching out..."
+                    rows={4}
+                    className="w-full px-4 py-2.5 rounded-lg bg-background-tertiary border border-border text-foreground placeholder-foreground-subtle focus:border-pink-500 outline-none resize-none form-textarea"
+                  />
+                  <p className="text-xs text-foreground-subtle mt-1">
+                    Variables available: {'{name}'}, {'{username}'}
+                  </p>
+                </div>
               </div>
               <div className="p-6 border-t border-border flex gap-3">
                 <Button variant="secondary" className="flex-1" onClick={() => setShowCreateModal(false)}>
@@ -533,7 +621,7 @@ export default function AIStudioPage() {
                 <Button
                   className="flex-1"
                   onClick={handleCreateAutomation}
-                  disabled={!newAutomation.name || !newAutomation.accountId}
+                  disabled={!newAutomation.name || !newAutomation.accountId || !newAutomation.responseTemplate}
                 >
                   Create
                 </Button>
