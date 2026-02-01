@@ -161,6 +161,7 @@ export default function AIStudioPage() {
         workspace_id: workspaces.id,
         is_active: false,
         messages_handled: 0,
+        updated_at: new Date().toISOString(),
       };
 
       const { data, error } = await supabase
