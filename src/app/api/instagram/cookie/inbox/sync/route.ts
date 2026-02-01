@@ -3,6 +3,7 @@ import { instagramCookieService } from '@/lib/server/instagram/cookie-service';
 import { prisma } from '@/lib/server/prisma/client';
 import { requireAuth } from '@/lib/server/auth';
 import type { InstagramCookies } from '@/lib/server/instagram/types';
+import { automationEngine } from '@/lib/server/automation/engine';
 
 // Helper to safely parse Instagram timestamps (may be in microseconds or invalid)
 function safeDate(timestamp: any): string {
@@ -158,6 +159,19 @@ export async function POST(request: NextRequest) {
                 createdAt: safeDate(msg.timestamp),
               },
             });
+
+            // Trigger Automation (only for new inbound messages)
+            if (!isFromUs) {
+              await automationEngine.processMessage({
+                workspaceId: finalWorkspaceId,
+                instagramAccountId: accountId,
+                contactId: contact.id,
+                contactUsername: otherUser.username,
+                contactIgUserId: otherUser.pk,
+                messageContent: msg.text,
+                conversationId: conversation.id,
+              });
+            }
 
             syncedMessages++;
           } else {

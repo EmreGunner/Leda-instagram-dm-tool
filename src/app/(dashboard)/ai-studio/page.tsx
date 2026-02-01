@@ -224,6 +224,31 @@ export default function AIStudioPage() {
     }
   };
 
+  const handleDeleteAutomation = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('Are you sure you want to delete this automation?')) return;
+
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from('automations')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      fetchData();
+    } catch (error) {
+      console.error('Error deleting automation:', error);
+      alert('Failed to delete automation');
+    }
+  };
+
+  const handleEditAutomation = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    alert('Edit feature is coming soon!');
+  };
+
   const getStatusColor = (status: AIAutomation['status']) => {
     switch (status) {
       case 'active':
@@ -383,10 +408,16 @@ export default function AIStudioPage() {
                               <Play className="h-4 w-4" />
                             )}
                           </button>
-                          <button className="p-2 rounded-lg hover:bg-background-tertiary text-foreground-muted hover:text-foreground transition-colors">
+                          <button
+                            onClick={handleEditAutomation}
+                            className="p-2 rounded-lg hover:bg-background-tertiary text-foreground-muted hover:text-foreground transition-colors"
+                          >
                             <Settings2 className="h-4 w-4" />
                           </button>
-                          <button className="p-2 rounded-lg hover:bg-background-tertiary text-foreground-muted hover:text-foreground transition-colors">
+                          <button
+                            onClick={(e) => handleDeleteAutomation(automation.id, e)}
+                            className="p-2 rounded-lg hover:bg-background-tertiary text-foreground-muted hover:text-foreground transition-colors"
+                          >
                             <MoreHorizontal className="h-4 w-4" />
                           </button>
                         </div>
