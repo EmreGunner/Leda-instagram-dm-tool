@@ -576,8 +576,8 @@ model JobQueue {
   id        String   @id @default(uuid())
 
   workspaceId String @map("workspace_id")
-  campaignId  String @map("campaign_id")
-  leadId      String @map("lead_id")
+  campaignId  String? @map("campaign_id")
+  leadId      String? @map("lead_id")
 
   // Required (matches NOT NULL)
   senderUsername String @map("sender_username")
