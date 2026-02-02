@@ -189,31 +189,35 @@ export async function POST(req: NextRequest) {
       }
 
       // 2.6 UPDATE CAMPAIGN COUNTERS
-      await tx.campaign.update({
-        where: { id: job.campaignId },
-        data: {
-          sentCount: { increment: 1 },
-          updatedAt: now,
-        },
-      });
-
-      // 2.7 CHECK IF ALL JOBS ARE COMPLETED FOR THIS CAMPAIGN
-      const remainingJobs = await tx.jobQueue.count({
-        where: {
-          campaignId: job.campaignId,
-          // Treat FAILED as terminal too, otherwise campaigns can get stuck
-          status: { notIn: ["COMPLETED", "FAILED"] },
-        },
-      });
-      if (remainingJobs === 0) {
+      if (job.campaignId) {
         await tx.campaign.update({
           where: { id: job.campaignId },
           data: {
-            status: "COMPLETED",
-            completedAt: now,
+            sentCount: { increment: 1 },
             updatedAt: now,
           },
         });
+      }
+
+      // 2.7 CHECK IF ALL JOBS ARE COMPLETED FOR THIS CAMPAIGN
+      if (job.campaignId) {
+        const remainingJobs = await tx.jobQueue.count({
+          where: {
+            campaignId: job.campaignId,
+            // Treat FAILED as terminal too, otherwise campaigns can get stuck
+            status: { notIn: ["COMPLETED", "FAILED"] },
+          },
+        });
+        if (remainingJobs === 0) {
+          await tx.campaign.update({
+            where: { id: job.campaignId },
+            data: {
+              status: "COMPLETED",
+              completedAt: now,
+              updatedAt: now,
+            },
+          });
+        }
       }
     });
 
