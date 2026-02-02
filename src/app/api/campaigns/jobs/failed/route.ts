@@ -72,31 +72,35 @@ export async function POST(req: NextRequest) {
       }
 
       // 2.3 UPDATE CAMPAIGN COUNTERS
-      await tx.campaign.update({
-        where: { id: job.campaignId },
-        data: {
-          failedCount: { increment: 1 },
-          updatedAt: now,
-        },
-      });
-
-      // 2.4 CHECK IF ALL JOBS ARE TERMINAL FOR THIS CAMPAIGN
-      // Terminal statuses: COMPLETED, FAILED
-      const remainingJobs = await tx.jobQueue.count({
-        where: {
-          campaignId: job.campaignId,
-          status: { notIn: ["COMPLETED", "FAILED"] },
-        },
-      });
-      if (remainingJobs === 0) {
+      if (job.campaignId) {
         await tx.campaign.update({
           where: { id: job.campaignId },
           data: {
-            status: "COMPLETED",
-            completedAt: now,
+            failedCount: { increment: 1 },
             updatedAt: now,
           },
         });
+      }
+
+      // 2.4 CHECK IF ALL JOBS ARE TERMINAL FOR THIS CAMPAIGN
+      // Terminal statuses: COMPLETED, FAILED
+      if (job.campaignId) {
+        const remainingJobs = await tx.jobQueue.count({
+          where: {
+            campaignId: job.campaignId,
+            status: { notIn: ["COMPLETED", "FAILED"] },
+          },
+        });
+        if (remainingJobs === 0) {
+          await tx.campaign.update({
+            where: { id: job.campaignId },
+            data: {
+              status: "COMPLETED",
+              completedAt: now,
+              updatedAt: now,
+            },
+          });
+        }
       }
     });
 
