@@ -12,19 +12,32 @@ export async function POST(req: NextRequest) {
         const cookieService = new InstagramCookieService();
         const media = await cookieService.getUserRecentMedia(cookies, username, limit, 'posts');
 
+        console.log('[API] Fetched media count:', media.length);
+        if (media.length > 0) {
+            console.log('[API] First post sample:', JSON.stringify(media[0], null, 2));
+        }
+
+        // Service already returns data in camelCase format, pass it through directly
+        const mappedMedia = media.map(item => ({
+            id: item.id,
+            code: item.shortcode || item.code, // Service returns 'shortcode'
+            shortcode: item.shortcode,
+            caption: item.caption, // Already a string from service
+            thumbnailUrl: item.thumbnailUrl, // Direct field from service (camelCase)
+            likeCount: item.likeCount, // Service uses camelCase
+            commentCount: item.commentCount, // Service uses camelCase
+            takenAt: item.takenAt, // Service uses camelCase
+            mediaType: item.mediaType,
+            url: item.url
+        }));
+
+        if (mappedMedia.length > 0) {
+            console.log('[API] Mapped first post:', JSON.stringify(mappedMedia[0], null, 2));
+        }
+
         return NextResponse.json({
             success: true,
-            media: media.map(item => ({
-                id: item.id || item.pk,
-                code: item.code,
-                caption: item.caption?.text || '',
-                thumbnailUrl: item.thumbnail_url || item.image_versions2?.candidates?.[0]?.url,
-                likeCount: item.like_count,
-                commentCount: item.comment_count,
-                takenAt: item.taken_at,
-                mediaType: item.media_type, // 1=Image, 2=Video, 8=Carousel
-                productType: item.product_type
-            }))
+            media: mappedMedia
         });
 
     } catch (error: any) {

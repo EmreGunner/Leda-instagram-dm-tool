@@ -862,18 +862,34 @@ export class InstagramCookieService {
   async getPostComments(cookies: InstagramCookies, mediaId: string, limit = 50): Promise<any[]> {
     try {
       const ig = await this.getClient(cookies);
-      console.log(`Fetching comments for media: ${mediaId}`);
 
-      const commentsFeed = ig.feed.mediaComments(mediaId);
+      // Try to clean media ID if it has underscore format (e.g., "123_456" → "123")
+      let cleanMediaId = mediaId;
+      if (mediaId.includes('_')) {
+        cleanMediaId = mediaId.split('_')[0];
+        console.log(`[Comments] Cleaned media ID: ${mediaId} → ${cleanMediaId}`);
+      }
+
+      console.log(`Fetching comments for media: ${cleanMediaId}`);
+
+      const commentsFeed = ig.feed.mediaComments(cleanMediaId);
       const comments: any[] = [];
       let page: any[] = [];
 
       try {
         page = await commentsFeed.items();
-      } catch (e) {
-        console.warn(`Comments feed error for ${mediaId}:`, e);
+      } catch (e: any) {
+        console.warn(`Comments feed error for ${cleanMediaId}:`, e.message);
+
+        // If this fails, it might be because the post doesn't allow comments
+        // or the ID format is wrong
+        if (e.message?.includes('Media not found') || e.message?.includes('404')) {
+          console.log('[Comments] Media not found, checking if post exists...');
+        }
         return [];
       }
+
+      console.log(`[Comments] Fetched first page: ${page.length} comments`);
 
       while (comments.length < limit && page.length > 0) {
         for (const item of page) {
@@ -998,6 +1014,53 @@ export class InstagramCookieService {
         console.error('Fallback also failed:', fallbackError);
         return null;
       }
+    }
+  }
+
+  /**
+   * Get formatted post data by shortcode (for manual URL parsing)
+   */
+  async getPostByShortcode(cookies: InstagramCookies, shortcode: string): Promise<any> {
+    try {
+      const ig = await this.getClient(cookies);
+
+      console.log('[Post] Fetching by shortcode:', shortcode);
+
+      // Get media ID from shortcode first
+      const mediaId = await (ig.media as any).getIdFromShortcode(shortcode);
+      console.log('[Post] Media ID:', mediaId);
+
+      // Get full media info which includes accurate comment count
+      const mediaInfo = await ig.media.info(mediaId);
+      const item = mediaInfo.items?.[0];
+
+      if (!item) {
+        throw new Error('Post not found');
+      }
+
+      console.log('[Post] Raw data:', {
+        id: item.id,
+        comment_count: item.comment_count,
+        has_more_comments: item.has_more_comments
+      });
+
+      const isPost = item.media_type === 1 || item.media_type === 8;
+
+      return {
+        id: item.id,
+        shortcode: item.code || shortcode,
+        code: item.code || shortcode,
+        mediaType: isPost ? 'post' : 'other',
+        likeCount: item.like_count || 0,
+        commentCount: item.comment_count || 0,
+        caption: item.caption?.text || '',
+        thumbnailUrl: item.image_versions2?.candidates?.[0]?.url || '',
+        takenAt: item.taken_at,
+        url: `https://www.instagram.com/p/${item.code || shortcode}/`,
+      };
+    } catch (error: any) {
+      console.error('[Post] Error fetching by shortcode:', error);
+      throw error;
     }
   }
 }

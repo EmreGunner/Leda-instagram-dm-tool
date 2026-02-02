@@ -453,20 +453,34 @@ export default function LeadsPage() {
 
     const selectedMedia = ctlTargetPosts.filter(p => ctlSelectedPostIds.has(p.id));
 
+    console.log('[Frontend] Sending posts for comment extraction:', selectedMedia.map(p => ({
+      id: p.id,
+      code: p.code || p.shortcode,
+      hasCaption: !!p.caption
+    })));
+
     try {
       const res = await fetch('/api/leads/comment-search', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           cookies,
-          mediaIds: selectedMedia,
+          mediaIds: selectedMedia.map(post => ({
+            id: post.id,
+            code: post.code || post.shortcode, // Normalize code field
+            caption: post.caption
+          })),
           intentKeywords: commentIntentKeywords.split(',').map(k => k.trim()).filter(Boolean)
         })
       });
       const data = await res.json();
 
       if (data.success) {
-        toast.success(`Found ${data.users.length} leads!`);
-        setCtlScrapingStatus(`Completed! Found ${data.users.length} leads.`);
+        const savedMsg = data.savedCount !== undefined
+          ? `Found ${data.users.length} leads, saved ${data.savedCount} new leads to database!`
+          : `Found ${data.users.length} leads!`;
+        toast.success(savedMsg);
+        setCtlScrapingStatus(`Completed! Found ${data.users.length} leads, saved ${data.savedCount || 0}.`);
         fetchLeads(); // Refresh leads table
       } else {
         setCtlScrapingStatus('Failed: ' + data.error);
@@ -1517,9 +1531,82 @@ export default function LeadsPage() {
                       <Button
                         onClick={async () => {
                           setCtlIsParsingPosts(true);
-                          // TODO: Implement post parsing
-                          toast.info('Post parsing will be implemented');
-                          setCtlIsParsingPosts(false);
+
+                          try {
+                            // Extract shortcodes from pasted text
+                            const lines = ctlPastedPostLinks.split('\n').filter(l => l.trim());
+                            const shortcodes: string[] = [];
+
+                            for (const line of lines) {
+                              // Support multiple formats:
+                              // https://www.instagram.com/p/SHORTCODE/
+                              // instagram.com/p/SHORTCODE
+                              // SHORTCODE (raw)
+                              const match = line.match(/(?:instagram\.com\/p\/|\/p\/)([A-Za-z0-9_-]+)/);
+                              if (match) {
+                                shortcodes.push(match[1]);
+                              } else if (line.trim().match(/^[A-Za-z0-9_-]+$/)) {
+                                // Raw shortcode
+                                shortcodes.push(line.trim());
+                              }
+                            }
+
+                            if (shortcodes.length === 0) {
+                              toast.error('No valid Instagram post URLs found');
+                              setCtlIsParsingPosts(false);
+                              return;
+                            }
+
+                            console.log('[Manual Post] Parsing shortcodes:', shortcodes);
+                            toast.info(`Fetching ${shortcodes.length} post(s)...`);
+
+                            const cookies = getStoredCookies();
+                            if (!cookies) {
+                              toast.error('No Instagram account connected');
+                              setCtlIsParsingPosts(false);
+                              return;
+                            }
+
+                            // Fetch each post
+                            const fetchedPosts: any[] = [];
+                            for (const shortcode of shortcodes) {
+                              try {
+                                const res = await fetch(`/api/instagram/cookie/post/${shortcode}`, {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ cookies })
+                                });
+
+                                const data = await res.json();
+                                if (data.success && data.post) {
+                                  fetchedPosts.push(data.post);
+                                } else {
+                                  console.error('Failed to fetch post:', shortcode, data.error);
+                                  toast.error(`Failed to fetch ${shortcode}: ${data.error}`);
+                                }
+                              } catch (error) {
+                                console.error('Error fetching post:', shortcode, error);
+                              }
+                            }
+
+                            if (fetchedPosts.length > 0) {
+                              // Merge with existing posts (avoid duplicates by ID)
+                              const existingIds = new Set(ctlTargetPosts.map(p => p.id));
+                              const newPosts = fetchedPosts.filter(p => !existingIds.has(p.id));
+
+                              setCtlTargetPosts([...ctlTargetPosts, ...newPosts]);
+                              toast.success(`Added ${newPosts.length} post(s)`);
+                              setCtlPastedPostLinks(''); // Clear textarea
+                            } else {
+                              toast.error('Failed to fetch any posts');
+                            }
+
+                          } catch (error: any) {
+                            console.error('Post parsing error:', error);
+                            toast.error('Error parsing posts: ' + error.message);
+                          } finally {
+                            setCtlIsParsingPosts(false);
+                          }
                         }}
                         disabled={ctlIsParsingPosts}
                         size="sm"
@@ -1561,21 +1648,26 @@ export default function LeadsPage() {
                               >
                                 {/* Post Image */}
                                 <div className="aspect-square relative">
-                                  {imageUrl ? (
-                                    <img
-                                      src={imageUrl}
-                                      alt="Post"
-                                      className="w-full h-full object-cover"
-                                      onError={(e) => {
-                                        console.error('Image load error for post:', post.id, imageUrl);
-                                        e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23333" width="100" height="100"/%3E%3Ctext x="50%" y="50%" fill="%23999" text-anchor="middle" dy=".3em"%3ENo Image%3C/text%3E%3C/svg%3E';
-                                      }}
-                                    />
-                                  ) : (
-                                    <div className="w-full h-full bg-background-elevated flex items-center justify-center text-foreground-muted text-xs">
-                                      No preview
-                                    </div>
-                                  )}
+                                  {(() => {
+                                    // API now returns thumbnailUrl directly in camelCase
+                                    const imageUrl = post.thumbnailUrl || '';
+
+                                    return imageUrl ? (
+                                      <img
+                                        src={imageUrl}
+                                        alt="Post"
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          console.error('Image load error for post:', post.id, imageUrl);
+                                          e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23333" width="100" height="100"/%3E%3Ctext x="50%"  y="50%" fill="%23999" text-anchor="middle" dy=".3em"%3ENo Image%3C/text%3E%3C/svg%3E';
+                                        }}
+                                      />
+                                    ) : (
+                                      <div className="w-full h-full bg-background-elevated flex items-center justify-center text-foreground-muted text-xs">
+                                        No preview
+                                      </div>
+                                    );
+                                  })()}
                                   {/* Selection Overlay */}
                                   <div className={cn(
                                     "absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity",
