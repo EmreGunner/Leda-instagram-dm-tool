@@ -8,7 +8,7 @@
  */
 
 import { AutonomousEngine } from './src/lib/server/autonomous/engine';
-import { getCookiesFromStorage } from './src/lib/instagram/cookies';
+import { getCookies as getCookiesFromStorage } from './src/lib/instagram-cookie-storage';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();

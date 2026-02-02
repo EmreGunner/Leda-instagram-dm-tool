@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { AutonomousEngine } from '@/lib/server/autonomous/engine';
-import { getCookiesFromStorage } from '@/lib/instagram/cookies';
+import { getCookies as getCookiesFromStorage } from '@/lib/instagram-cookie-storage';
 
 /**
  * POST /api/autonomous/start
@@ -41,7 +41,6 @@ export async function POST(req: NextRequest) {
 
         const account = accounts[0];
 
-        // Get cookies
         const cookies = getCookiesFromStorage({
             igUserId: account.ig_user_id,
             igUsername: account.ig_username
