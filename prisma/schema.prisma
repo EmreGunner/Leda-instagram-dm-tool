@@ -477,6 +477,19 @@ model Lead {
   externalUrl       String?  @map("external_url")
   status            String   @default("new")
   tags              String[]
+  
+  // Leads 2.0 Enhanced Fields
+  propertyType      String?  @map("property_type") // e.g. "Villa", "Daire"
+  propertySubType   String?  @map("property_sub_type") // e.g. "Villa", "Rezidence"
+  listingType       String?  @map("listing_type") // e.g. "Sale", "Rent"
+  city              String?  // e.g. "Istanbul"
+  town              String?  // e.g. "Besiktas"
+  commentCount      Int      @default(1) @map("comment_count") // Tracks multiple comments from same user
+  postLink          String?  @map("post_link")
+  postCaption       String?  @map("post_caption")
+  commentLink       String?  @map("comment_link")
+  commentDate       DateTime? @map("comment_date")
+
   notes             String?
   source            String?  // e.g., "hashtag", "followers", "username"
   sourceQuery       String?  @map("source_query")

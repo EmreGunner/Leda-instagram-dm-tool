@@ -63,8 +63,8 @@ export class LeadService {
 
     if (factors.postFrequency) {
       // Active accounts (2-7 posts/week) score higher
-      const frequencyScore = factors.postFrequency >= 2 && factors.postFrequency <= 7 
-        ? 10 
+      const frequencyScore = factors.postFrequency >= 2 && factors.postFrequency <= 7
+        ? 10
         : Math.max(0, 10 - Math.abs(factors.postFrequency - 4.5));
       score += frequencyScore;
     }
@@ -99,7 +99,7 @@ export class LeadService {
    */
   calculateEngagementRate(followerCount?: number, postCount?: number): number | null {
     if (!followerCount || followerCount === 0) return null;
-    
+
     // Estimate engagement rate based on follower count
     // Typical engagement rates: 1-3% for accounts with 10K+ followers
     // Higher for smaller accounts
@@ -309,6 +309,14 @@ export class LeadService {
         source: true,
         matchedKeywords: true,
         createdAt: true,
+        listingType: true,
+        propertyType: true,
+        propertySubType: true,
+        city: true,
+        town: true,
+        commentDate: true,
+        postLink: true,
+        commentLink: true,
       },
     });
 
@@ -333,6 +341,14 @@ export class LeadService {
       'Source',
       'Matched Keywords',
       'Created At',
+      'Listing Type',
+      'Property Type',
+      'Property SubType',
+      'City',
+      'Town',
+      'Comment Date',
+      'Post Link',
+      'Comment Link',
     ];
 
     // CSV rows
@@ -356,6 +372,14 @@ export class LeadService {
       lead.source || '',
       (lead.matchedKeywords || []).join('; '),
       lead.createdAt.toISOString(),
+      lead.listingType || '',
+      lead.propertyType || '',
+      lead.propertySubType || '',
+      lead.city || '',
+      lead.town || '',
+      lead.commentDate ? new Date(lead.commentDate).toISOString() : '',
+      lead.postLink || '',
+      lead.commentLink || '',
     ]);
 
     // Combine header and rows

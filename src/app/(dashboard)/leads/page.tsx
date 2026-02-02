@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Search,
   Users,
@@ -73,6 +73,25 @@ interface Lead {
   timesContacted?: number;
   lastContactedAt?: string;
   lastInteractionAt?: string;
+  // New fields for Turkish real estate
+  listingType?: 'Sale' | 'Rent' | null;
+  propertyType?: string;
+  propertySubType?: string;
+  city?: string;
+  town?: string;
+  commentCount?: number;
+  notes?: string;
+  postLink?: string;
+  postCaption?: string;
+  commentDate?: string;
+  commentLink?: string;
+  matchedKeywords?: string[];
+  tags?: string[];
+  leadScore?: number;
+  engagementRate?: number;
+  accountAge?: number;
+  postFrequency?: number;
+  email?: string;
 }
 
 interface InstagramAccount {
@@ -81,12 +100,12 @@ interface InstagramAccount {
   igUsername: string;
 }
 
-const statusColors: Record<string, { bg: string; text: string }> = {
-  new: { bg: 'bg-blue-500/20', text: 'text-blue-400' },
-  contacted: { bg: 'bg-amber-500/20', text: 'text-amber-400' },
-  replied: { bg: 'bg-emerald-500/20', text: 'text-emerald-400' },
-  converted: { bg: 'bg-purple-500/20', text: 'text-purple-400' },
-  unsubscribed: { bg: 'bg-zinc-500/20', text: 'text-zinc-400' },
+const statusColors: Record<string, { bg: string; text: string; label: string }> = {
+  new: { bg: 'bg-blue-500/20', text: 'text-blue-400', label: 'New' },
+  contacted: { bg: 'bg-amber-500/20', text: 'text-amber-400', label: 'Contacted' },
+  replied: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', label: 'Replied' },
+  converted: { bg: 'bg-purple-500/20', text: 'text-purple-400', label: 'Converted' },
+  unsubscribed: { bg: 'bg-zinc-500/20', text: 'text-zinc-400', label: 'Unsubscribed' },
 };
 
 // Preset keyword categories for different target audiences
@@ -223,6 +242,9 @@ export default function LeadsPage() {
   const [accountAgeRange, setAccountAgeRange] = useState<[number, number] | null>(null);
   const [postFrequencyRange, setPostFrequencyRange] = useState<[number, number] | null>(null);
   const [minLeadScore, setMinLeadScore] = useState<number | null>(null);
+  const [estateCategoryFilter, setEstateCategoryFilter] = useState<'all' | 'sale' | 'rent'>('all');
+  const [cityFilter, setCityFilter] = useState<string>('all');
+  const [captionSearchTerm, setCaptionSearchTerm] = useState('');
 
   // Bulk actions
   const [showBulkActionsModal, setShowBulkActionsModal] = useState(false);
@@ -310,24 +332,49 @@ export default function LeadsPage() {
 
       setLeads((data || []).map((l: any) => ({
         id: l.id,
-        igUserId: l.ig_user_id,
-        igUsername: l.ig_username,
-        fullName: l.full_name,
+        igUserId: l.ig_user_id || l.igUserId,
+        igUsername: l.ig_username || l.igUsername,
+        fullName: l.full_name || l.fullName,
         bio: l.bio,
-        profilePicUrl: l.profile_pic_url,
-        followerCount: l.follower_count,
-        followingCount: l.following_count,
-        postCount: l.post_count,
-        isVerified: l.is_verified,
-        isPrivate: l.is_private,
-        isBusiness: l.is_business,
+        profilePicUrl: l.profile_pic_url || l.profilePicUrl,
+        followerCount: l.follower_count || l.followerCount,
+        followingCount: l.following_count || l.followingCount,
+        postCount: l.post_count || l.postCount,
+        isVerified: l.is_verified || l.isVerified,
+        isPrivate: l.is_private || l.isPrivate,
+        isBusiness: l.is_business || l.isBusiness,
         status: l.status,
         tags: l.tags || [],
-        matchedKeywords: l.matched_keywords || [],
+        matchedKeywords: l.matched_keywords || l.matchedKeywords || [],
         source: l.source,
-        sourceQuery: l.source_query,
-        createdAt: l.created_at,
+        sourceQuery: l.source_query || l.sourceQuery,
+        createdAt: l.created_at || l.createdAt,
         // Enhanced fields
+        leadScore: l.lead_score !== undefined ? l.lead_score : l.leadScore,
+        engagementRate: l.engagement_rate || l.engagementRate,
+        accountAge: l.account_age || l.accountAge,
+        postFrequency: l.post_frequency || l.postFrequency,
+        email: l.email,
+        phone: l.phone,
+        website: l.website,
+        location: l.location,
+        timesContacted: l.times_contacted || l.timesContacted || 0,
+        lastContactedAt: l.last_contacted_at || l.lastContactedAt,
+        lastInteractionAt: l.last_interaction_at || l.lastInteractionAt,
+        // New fields for Turkish real estate
+        // Leads 2.0
+        listingType: l.listing_type || l.listingType,
+        propertyType: l.property_type || l.propertyType,
+        propertySubType: l.property_sub_type || l.propertySubType,
+        city: l.city,
+        town: l.town,
+        commentCount: l.comment_count || l.commentCount,
+        postLink: l.post_link || l.postLink,
+        postCaption: l.post_caption || l.postCaption,
+        commentDate: l.comment_date || l.commentDate,
+        commentLink: l.comment_link || l.commentLink,
+        matchedKeywords: l.matched_keywords || l.matchedKeywords,
+        tags: l.tags,
         leadScore: l.lead_score,
         engagementRate: l.engagement_rate,
         accountAge: l.account_age,
@@ -336,9 +383,9 @@ export default function LeadsPage() {
         phone: l.phone,
         website: l.website,
         location: l.location,
-        timesContacted: l.times_contacted || 0,
-        lastContactedAt: l.last_contacted_at,
-        lastInteractionAt: l.last_interaction_at,
+        timesContacted: l.times_contacted,
+
+        notes: l.source === 'comment-to-lead' && l.source_post_caption ? l.source_post_caption : l.notes,
       })));
     } catch (error) {
       console.error('Error fetching leads:', error);
@@ -476,11 +523,13 @@ export default function LeadsPage() {
       const data = await res.json();
 
       if (data.success) {
-        const savedMsg = data.savedCount !== undefined
-          ? `Found ${data.users.length} leads, saved ${data.savedCount} new leads to database!`
-          : `Found ${data.users.length} leads!`;
+        const newLeads = data.users.filter((u: any) => u.isNew);
+        const savedMsg = newLeads.length > 0
+          ? `Found ${data.users.length} leads. Saved ${newLeads.length} new: ${newLeads.map((u: any) => '@' + u.username).join(', ')}`
+          : `Found ${data.users.length} leads (all existing).`;
+
         toast.success(savedMsg);
-        setCtlScrapingStatus(`Completed! Found ${data.users.length} leads, saved ${data.savedCount || 0}.`);
+        setCtlScrapingStatus(`Completed! ${savedMsg}`);
         fetchLeads(); // Refresh leads table
       } else {
         setCtlScrapingStatus('Failed: ' + data.error);
@@ -1250,6 +1299,15 @@ export default function LeadsPage() {
     }
   };
 
+  // Get unique cities for filter
+  const uniqueCities = useMemo(() => {
+    const cities = new Set<string>();
+    leads.forEach(l => {
+      if (l.city) cities.add(l.city);
+    });
+    return Array.from(cities).sort();
+  }, [leads]);
+
   // Filter, search, and sort leads
   const processedLeads = leads
     .filter(lead => {
@@ -1292,6 +1350,23 @@ export default function LeadsPage() {
 
       if (minLeadScore !== null && (lead.leadScore === undefined || lead.leadScore === null || lead.leadScore < minLeadScore)) {
         return false;
+      }
+
+      // Estate category filter
+      if (estateCategoryFilter !== 'all' && lead.listingType?.toLowerCase() !== estateCategoryFilter) {
+        return false;
+      }
+
+      // City filter
+      if (cityFilter !== 'all' && lead.city !== cityFilter) {
+        return false;
+      }
+
+      // Caption/Notes search
+      if (captionSearchTerm.trim()) {
+        const searchTerm = captionSearchTerm.toLowerCase();
+        const notes = (lead.notes || '').toLowerCase();
+        if (!notes.includes(searchTerm)) return false;
       }
 
       return true;
@@ -1560,7 +1635,7 @@ export default function LeadsPage() {
                             console.log('[Manual Post] Parsing shortcodes:', shortcodes);
                             toast.info(`Fetching ${shortcodes.length} post(s)...`);
 
-                            const cookies = getStoredCookies();
+                            const cookies = getCookies();
                             if (!cookies) {
                               toast.error('No Instagram account connected');
                               setCtlIsParsingPosts(false);
@@ -1780,9 +1855,45 @@ export default function LeadsPage() {
                                 return;
                               }
 
-                              // TODO: Implement API call to fetch post by shortcode
+                              // Fetch post by shortcode
                               toast.info('Fetching post details...');
-                              setCtlPastedPostLinks('');
+
+                              const response = await fetch(`/api/instagram/cookie/post/${shortcode}`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ cookies }),
+                              });
+
+                              const result = await response.json();
+
+                              if (result.success && result.post) {
+                                // Add post to target posts list
+                                const newPost = {
+                                  id: result.post.id,
+                                  code: result.post.shortcode,
+                                  caption: result.post.caption,
+                                  commentCount: result.post.commentCount,
+                                  imageUrl: result.post.displayUrl,
+                                  likeCount: result.post.likeCount,
+                                };
+
+                                // Add to posts list and auto-select it
+                                setCtlTargetPosts(prev => {
+                                  // Check if post already exists
+                                  if (prev.some(p => p.id === newPost.id)) {
+                                    toast.warning('Post already added');
+                                    return prev;
+                                  }
+                                  return [...prev, newPost];
+                                });
+
+                                setCtlSelectedPostIds(prev => new Set([...Array.from(prev), newPost.id]));
+                                toast.success(`Added post with ${newPost.commentCount.toLocaleString()} comments`);
+                                setCtlPastedPostLinks(''); // Clear input
+                                setCtlActiveCard(3); // Move to next card
+                              } else {
+                                toast.error(result.error || 'Failed to fetch post');
+                              }
                             } catch (e) {
                               console.error(e);
                               toast.error('Failed to fetch post');
@@ -2766,6 +2877,51 @@ export default function LeadsPage() {
                       className="w-full"
                     />
                   </div>
+
+                  {/* Estate Category Filter */}
+                  <div>
+                    <label className="block text-xs font-medium text-foreground-muted mb-2">
+                      Estate Category
+                    </label>
+                    <select
+                      value={estateCategoryFilter}
+                      onChange={(e) => setEstateCategoryFilter(e.target.value as 'all' | 'sale' | 'rent')}
+                      className="px-3 py-2 rounded-lg bg-background border border-border text-foreground text-sm w-full">
+                      <option value="all">All Categories</option>
+                      <option value="sale">🏷️ For Sale (Satılık)</option>
+                      <option value="rent">🏠 For Rent (Kiralık)</option>
+                    </select>
+                  </div>
+
+                  {/* City Filter */}
+                  <div>
+                    <label className="block text-xs font-medium text-foreground-muted mb-2">
+                      City
+                    </label>
+                    <select
+                      value={cityFilter}
+                      onChange={(e) => setCityFilter(e.target.value)}
+                      className="px-3 py-2 rounded-lg bg-background border border-border text-foreground text-sm w-full">
+                      <option value="all">All Cities</option>
+                      {uniqueCities.map(city => (
+                        <option key={city} value={city}>{city}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Caption/Notes Search */}
+                  <div>
+                    <label className="block text-xs font-medium text-foreground-muted mb-2">
+                      Search in Caption/Notes
+                    </label>
+                    <Input
+                      type="text"
+                      placeholder="Keywords in caption..."
+                      value={captionSearchTerm}
+                      onChange={(e) => setCaptionSearchTerm(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
                 </div>
 
                 {/* Clear Filters */}
@@ -2779,6 +2935,10 @@ export default function LeadsPage() {
                       setAccountAgeRange(null);
                       setPostFrequencyRange(null);
                       setMinLeadScore(null);
+                      setMinLeadScore(null);
+                      setEstateCategoryFilter('all');
+                      setCityFilter('all');
+                      setCaptionSearchTerm('');
                     }}>
                     Clear Filters
                   </Button>
@@ -2850,25 +3010,40 @@ export default function LeadsPage() {
                       <th className="p-2 md:p-4 text-xs font-medium text-foreground-muted uppercase">
                         User
                       </th>
-                      <th className="p-2 md:p-4 text-xs font-medium text-foreground-muted uppercase hidden lg:table-cell">
-                        Followers
-                      </th>
                       <th className="p-2 md:p-4 text-xs font-medium text-foreground-muted uppercase hidden md:table-cell">
                         Score
                       </th>
-                      <th className="p-2 md:p-4 text-xs font-medium text-foreground-muted uppercase hidden lg:table-cell">
-                        Engagement
-                      </th>
-                      <th className="p-2 md:p-4 text-xs font-medium text-foreground-muted uppercase hidden xl:table-cell">
+                      <th className="p-2 md:p-4 text-xs font-medium text-foreground-muted uppercase hidden md:table-cell">
                         Bio Keywords
                       </th>
-                      <th className="p-2 md:p-4 text-xs font-medium text-foreground-muted uppercase">
+                      <th className="p-2 md:p-4 text-xs font-medium text-foreground-muted uppercase hidden lg:table-cell">
+                        Tags
+                      </th>
+                      <th className="p-2 md:p-4 text-xs font-medium text-foreground-muted uppercase hidden md:table-cell">
                         Status
+                      </th>
+                      <th className="p-2 md:p-4 text-xs font-medium text-foreground-muted uppercase hidden md:table-cell">
+                        Listing Type
+                      </th>
+                      <th className="p-2 md:p-4 text-xs font-medium text-foreground-muted uppercase hidden lg:table-cell">
+                        Property
+                      </th>
+                      <th className="p-2 md:p-4 text-xs font-medium text-foreground-muted uppercase hidden lg:table-cell">
+                        Location
+                      </th>
+                      <th className="p-2 md:p-4 text-xs font-medium text-foreground-muted uppercase hidden xl:table-cell">
+                        Comment Date
+                      </th>
+                      <th className="p-2 md:p-4 text-xs font-medium text-foreground-muted uppercase hidden xl:table-cell">
+                        Post Caption
+                      </th>
+                      <th className="p-2 md:p-4 text-xs font-medium text-foreground-muted uppercase hidden xl:table-cell">
+                        Links
                       </th>
                       <th className="p-2 md:p-4 text-xs font-medium text-foreground-muted uppercase hidden md:table-cell">
                         Source
                       </th>
-                      <th className="p-2 md:p-4 text-xs font-medium text-foreground-muted uppercase">
+                      <th className="p-2 md:p-4 text-xs font-medium text-foreground-muted uppercase text-right">
                         Actions
                       </th>
                     </tr>
@@ -2911,12 +3086,8 @@ export default function LeadsPage() {
                             </div>
                           </div>
                         </td>
-                        <td className="p-2 md:p-4 text-foreground-muted hidden lg:table-cell">
-                          {lead.followerCount?.toLocaleString() || "-"}
-                        </td>
                         <td className="p-2 md:p-4 hidden md:table-cell">
-                          {lead.leadScore !== undefined &&
-                            lead.leadScore !== null ? (
+                          {lead.leadScore !== undefined && lead.leadScore !== null ? (
                             <div className="flex items-center gap-2">
                               <span
                                 className={cn(
@@ -2926,7 +3097,8 @@ export default function LeadsPage() {
                                     : lead.leadScore >= 50
                                       ? "text-amber-400"
                                       : "text-foreground-muted"
-                                )}>
+                                )}
+                              >
                                 {lead.leadScore}
                               </span>
                             </div>
@@ -2934,51 +3106,124 @@ export default function LeadsPage() {
                             <span className="text-foreground-subtle">-</span>
                           )}
                         </td>
-                        <td className="p-2 md:p-4 hidden lg:table-cell">
-                          {lead.engagementRate !== undefined &&
-                            lead.engagementRate !== null ? (
-                            <span className="text-sm text-foreground-muted">
-                              {lead.engagementRate.toFixed(1)}%
-                            </span>
+                        <td className="p-2 md:p-4 hidden md:table-cell">
+                          {lead.matchedKeywords?.length ? (
+                            <div className="flex flex-wrap gap-1">
+                              {lead.matchedKeywords.slice(0, 3).map((k, i) => (
+                                <Badge key={i} variant="outline" className="text-[10px] bg-background/50">
+                                  {k}
+                                </Badge>
+                              ))}
+                              {lead.matchedKeywords.length > 3 && (
+                                <span className="text-[10px] text-foreground-muted">+{lead.matchedKeywords.length - 3}</span>
+                              )}
+                            </div>
                           ) : (
-                            <span className="text-foreground-subtle">-</span>
+                            <span className="text-foreground-subtle text-xs">-</span>
+                          )}
+                        </td>
+                        <td className="p-2 md:p-4 hidden lg:table-cell">
+                          {lead.tags?.length ? (
+                            <div className="flex flex-wrap gap-1">
+                              {lead.tags.slice(0, 2).map((tag, i) => (
+                                <Badge key={i} variant="secondary" className="text-[10px]">
+                                  {tag}
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-foreground-subtle text-xs">-</span>
+                          )}
+                        </td>
+                        <td className="p-2 md:p-4 hidden md:table-cell">
+                          <span
+                            className={cn(
+                              "px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wider",
+                              statusColors[lead.status]?.bg,
+                              statusColors[lead.status]?.text
+                            )}
+                          >
+                            {statusColors[lead.status]?.label || lead.status}
+                          </span>
+                        </td>
+                        <td className="p-2 md:p-4 hidden md:table-cell">
+                          {lead.listingType ? (
+                            <Badge variant={lead.listingType === 'Sale' ? 'default' : 'secondary'} className={cn("text-[10px]", lead.listingType === 'Sale' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-blue-500/10 text-blue-500 border-blue-500/20')}>
+                              {lead.listingType === 'Sale' ? 'Satılık' : 'Kiralık'}
+                            </Badge>
+                          ) : (
+                            <span className="text-foreground-subtle text-xs">-</span>
+                          )}
+                        </td>
+                        <td className="p-2 md:p-4 hidden lg:table-cell">
+                          <div className="flex flex-col">
+                            {lead.propertyType && <span className="text-xs font-medium">{lead.propertyType}</span>}
+                            {lead.propertySubType && <span className="text-[10px] text-foreground-muted">{lead.propertySubType}</span>}
+                            {!lead.propertyType && !lead.propertySubType && <span className="text-foreground-subtle text-xs">-</span>}
+                          </div>
+                        </td>
+                        <td className="p-2 md:p-4 hidden lg:table-cell">
+                          {lead.city ? (
+                            <div className="flex flex-col">
+                              <span className="text-xs font-medium">{lead.city}</span>
+                              {lead.town && <span className="text-[10px] text-foreground-muted">{lead.town}</span>}
+                            </div>
+                          ) : (
+                            <span className="text-foreground-subtle text-xs">-</span>
                           )}
                         </td>
                         <td className="p-2 md:p-4 hidden xl:table-cell">
-                          {lead.matchedKeywords?.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {lead.matchedKeywords.slice(0, 3).map((kw, i) => (
-                                <Badge
-                                  key={i}
-                                  variant="accent"
-                                  className="text-xs">
-                                  {kw}
-                                </Badge>
-                              ))}
+                          {lead.commentDate ? (
+                            <span className="text-xs text-foreground-muted">
+                              {new Date(lead.commentDate).toLocaleDateString('tr-TR')}
+                            </span>
+                          ) : (
+                            <span className="text-foreground-subtle text-xs">-</span>
+                          )}
+                        </td>
+                        <td className="p-2 md:p-4 hidden xl:table-cell max-w-[200px]">
+                          {(lead.postCaption || lead.notes) ? (
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-xs text-foreground truncate block" title={lead.postCaption || lead.notes}>
+                                {(lead.postCaption || lead.notes?.split('\n')[0] || '').replace(/^[\"\']|[\"\']$/g, '')}
+                              </span>
                             </div>
                           ) : (
                             <span className="text-foreground-subtle">-</span>
                           )}
                         </td>
-                        <td className="p-2 md:p-4">
-                          <span
-                            className={cn(
-                              "px-2 py-1 rounded-full text-xs font-medium",
-                              statusColors[lead.status]?.bg,
-                              statusColors[lead.status]?.text
-                            )}>
-                            {lead.status}
-                          </span>
+                        <td className="p-2 md:p-4 hidden xl:table-cell">
+                          <div className="flex gap-2">
+                            {lead.postLink && (
+                              <a
+                                href={lead.postLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-500 hover:text-blue-600 flex items-center gap-1 text-[10px]"
+                                title="View Post"
+                              >
+                                <span className="hidden xl:inline">Post</span>
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                              </a>
+                            )}
+                            {lead.commentLink && (
+                              <a
+                                href={lead.commentLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-purple-500 hover:text-purple-600 flex items-center gap-1 text-[10px]"
+                                title="View Comment"
+                              >
+                                <span className="hidden xl:inline">Comment</span>
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg>
+                              </a>
+                            )}
+                            {!lead.postLink && !lead.commentLink && <span className="text-foreground-subtle text-xs">-</span>}
+                          </div>
                         </td>
-                        <td className="p-2 md:p-4 text-sm text-foreground-muted hidden md:table-cell">
-                          {lead.source === "hashtag" && (
-                            <Hash className="h-3 w-3 inline mr-1" />
-                          )}
-                          {lead.source === "followers" && (
-                            <Users className="h-3 w-3 inline mr-1" />
-                          )}
-                          <span className="truncate block max-w-[120px]">
-                            {lead.sourceQuery || lead.source}
+                        <td className="p-2 md:p-4 hidden md:table-cell">
+                          <span className="text-xs text-foreground-muted truncate block max-w-[100px]" title={lead.sourceQuery || lead.source}>
+                            {lead.sourceQuery ? lead.sourceQuery.replace('Comment Match:', 'Match:') : lead.source}
                           </span>
                         </td>
                         <td className="p-2 md:p-4">
@@ -3057,588 +3302,598 @@ export default function LeadsPage() {
       </div>
 
       {/* Bulk Actions Modal */}
-      {showBulkActionsModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-background-secondary rounded-2xl border border-border max-w-md w-full">
-            <div className="p-6 border-b border-border">
-              <h2 className="text-lg font-semibold text-foreground">
-                Bulk Actions
-              </h2>
-              <p className="text-sm text-foreground-muted mt-1">
-                Apply action to {selectedLeads.size} selected leads
-              </p>
-            </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-foreground-muted mb-2">
-                  Action Type
-                </label>
-                <select
-                  value={bulkActionType || ""}
-                  onChange={(e) => {
-                    setBulkActionType(
-                      e.target.value as "status" | "tags" | null
-                    );
-                    setBulkActionValue("");
-                  }}
-                  className="w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground">
-                  <option value="">Select action...</option>
-                  <option value="status">Update Status</option>
-                  <option value="tags">Add Tags</option>
-                </select>
-              </div>
-
-              {bulkActionType === "status" && (
-                <div>
-                  <label className="block text-sm font-medium text-foreground-muted mb-2">
-                    New Status
-                  </label>
-                  <select
-                    value={bulkActionValue}
-                    onChange={(e) => setBulkActionValue(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground">
-                    <option value="">Select status...</option>
-                    <option value="new">New</option>
-                    <option value="contacted">Contacted</option>
-                    <option value="replied">Replied</option>
-                    <option value="converted">Converted</option>
-                    <option value="unsubscribed">Unsubscribed</option>
-                  </select>
-                </div>
-              )}
-
-              {bulkActionType === "tags" && (
-                <div>
-                  <label className="block text-sm font-medium text-foreground-muted mb-2">
-                    Tags (comma-separated)
-                  </label>
-                  <Input
-                    value={bulkActionValue}
-                    onChange={(e) => setBulkActionValue(e.target.value)}
-                    placeholder="tag1, tag2, tag3"
-                  />
-                  <p className="text-xs text-foreground-subtle mt-1">
-                    Separate multiple tags with commas
-                  </p>
-                </div>
-              )}
-            </div>
-            <div className="p-6 border-t border-border flex gap-3">
-              <Button
-                variant="secondary"
-                className="flex-1"
-                onClick={() => {
-                  setShowBulkActionsModal(false);
-                  setBulkActionType(null);
-                  setBulkActionValue("");
-                }}>
-                Cancel
-              </Button>
-              <Button
-                className="flex-1"
-                onClick={handleBulkAction}
-                disabled={
-                  !bulkActionType ||
-                  !bulkActionValue.trim() ||
-                  isPerformingBulkAction
-                }>
-                {isPerformingBulkAction ? (
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                ) : (
-                  "Apply"
-                )}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Bulk DM Modal */}
-      {showBulkDmModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-background-secondary rounded-2xl border border-border max-w-md w-full">
-            <div className="p-6 border-b border-border">
-              <h2 className="text-lg font-semibold text-foreground">
-                Send Bulk DM
-              </h2>
-              <p className="text-sm text-foreground-muted mt-1">
-                Send a message to {selectedLeads.size} selected leads
-              </p>
-            </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-foreground-muted mb-2">
-                  Message
-                </label>
-                <textarea
-                  value={bulkDmMessage}
-                  onChange={(e) => setBulkDmMessage(e.target.value)}
-                  placeholder="Hi {{name}}, I noticed you're in the business space..."
-                  rows={5}
-                  className="w-full px-4 py-2.5 rounded-lg bg-background border border-border text-foreground placeholder-foreground-subtle focus:border-accent outline-none resize-none"
-                />
-                <p className="text-xs text-foreground-subtle mt-1">
-                  Use {"{{name}}"} to personalize with their name
-                </p>
-              </div>
-            </div>
-            <div className="p-6 border-t border-border flex gap-3">
-              <Button
-                variant="secondary"
-                className="flex-1"
-                onClick={() => setShowBulkDmModal(false)}>
-                Cancel
-              </Button>
-              <Button
-                className="flex-1"
-                onClick={handleSendBulkDm}
-                disabled={!bulkDmMessage.trim() || isSendingBulkDm}>
-                {isSendingBulkDm ? (
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-                {isSendingBulkDm
-                  ? "Sending..."
-                  : `Send to ${selectedLeads.size} leads`}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Lead Lists Modal */}
-      {showLeadListsModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-background-secondary rounded-2xl border border-border max-w-md w-full">
-            <div className="p-6 border-b border-border flex items-center justify-between">
-              <div>
+      {
+        showBulkActionsModal && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div className="bg-background-secondary rounded-2xl border border-border max-w-md w-full">
+              <div className="p-6 border-b border-border">
                 <h2 className="text-lg font-semibold text-foreground">
-                  Add to List
+                  Bulk Actions
                 </h2>
                 <p className="text-sm text-foreground-muted mt-1">
-                  Add {selectedLeads.size} selected leads to a list
+                  Apply action to {selectedLeads.size} selected leads
                 </p>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setShowLeadListsModal(false);
-                  setShowCreateListModal(true);
-                }}>
-                <Plus className="h-4 w-4" />
-                New List
-              </Button>
-            </div>
-            <div className="p-6 max-h-[400px] overflow-y-auto">
-              {isLoadingLists ? (
-                <div className="text-center py-4 text-foreground-muted">
-                  Loading lists...
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-foreground-muted mb-2">
+                    Action Type
+                  </label>
+                  <select
+                    value={bulkActionType || ""}
+                    onChange={(e) => {
+                      setBulkActionType(
+                        e.target.value as "status" | "tags" | null
+                      );
+                      setBulkActionValue("");
+                    }}
+                    className="w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground">
+                    <option value="">Select action...</option>
+                    <option value="status">Update Status</option>
+                    <option value="tags">Add Tags</option>
+                  </select>
                 </div>
-              ) : leadLists.length === 0 ? (
-                <div className="text-center py-8">
-                  <List className="h-12 w-12 text-foreground-subtle mx-auto mb-3" />
-                  <p className="text-foreground-muted mb-4">No lists yet</p>
-                  <Button
-                    onClick={() => {
-                      setShowLeadListsModal(false);
-                      setShowCreateListModal(true);
-                    }}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create First List
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {leadLists.map((list: any) => (
-                    <button
-                      key={list.id}
-                      onClick={() => handleAddToList(list.id)}
-                      className="w-full p-3 rounded-lg bg-background-elevated hover:bg-background border border-border text-left transition-colors">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-foreground">
-                            {list.name}
-                          </p>
-                          {list.description && (
-                            <p className="text-xs text-foreground-muted mt-1">
-                              {list.description}
-                            </p>
-                          )}
-                          <p className="text-xs text-foreground-subtle mt-1">
-                            {list.members?.length || 0} leads
-                          </p>
-                        </div>
-                        <Plus className="h-4 w-4 text-foreground-muted" />
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="p-6 border-t border-border">
-              <Button
-                variant="secondary"
-                className="w-full"
-                onClick={() => setShowLeadListsModal(false)}>
-                Cancel
-              </Button>
+
+                {bulkActionType === "status" && (
+                  <div>
+                    <label className="block text-sm font-medium text-foreground-muted mb-2">
+                      New Status
+                    </label>
+                    <select
+                      value={bulkActionValue}
+                      onChange={(e) => setBulkActionValue(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-background border border-border text-foreground">
+                      <option value="">Select status...</option>
+                      <option value="new">New</option>
+                      <option value="contacted">Contacted</option>
+                      <option value="replied">Replied</option>
+                      <option value="converted">Converted</option>
+                      <option value="unsubscribed">Unsubscribed</option>
+                    </select>
+                  </div>
+                )}
+
+                {bulkActionType === "tags" && (
+                  <div>
+                    <label className="block text-sm font-medium text-foreground-muted mb-2">
+                      Tags (comma-separated)
+                    </label>
+                    <Input
+                      value={bulkActionValue}
+                      onChange={(e) => setBulkActionValue(e.target.value)}
+                      placeholder="tag1, tag2, tag3"
+                    />
+                    <p className="text-xs text-foreground-subtle mt-1">
+                      Separate multiple tags with commas
+                    </p>
+                  </div>
+                )}
+              </div>
+              <div className="p-6 border-t border-border flex gap-3">
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() => {
+                    setShowBulkActionsModal(false);
+                    setBulkActionType(null);
+                    setBulkActionValue("");
+                  }}>
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={handleBulkAction}
+                  disabled={
+                    !bulkActionType ||
+                    !bulkActionValue.trim() ||
+                    isPerformingBulkAction
+                  }>
+                  {isPerformingBulkAction ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Apply"
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
+
+      {/* Bulk DM Modal */}
+      {
+        showBulkDmModal && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div className="bg-background-secondary rounded-2xl border border-border max-w-md w-full">
+              <div className="p-6 border-b border-border">
+                <h2 className="text-lg font-semibold text-foreground">
+                  Send Bulk DM
+                </h2>
+                <p className="text-sm text-foreground-muted mt-1">
+                  Send a message to {selectedLeads.size} selected leads
+                </p>
+              </div>
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-foreground-muted mb-2">
+                    Message
+                  </label>
+                  <textarea
+                    value={bulkDmMessage}
+                    onChange={(e) => setBulkDmMessage(e.target.value)}
+                    placeholder="Hi {{name}}, I noticed you're in the business space..."
+                    rows={5}
+                    className="w-full px-4 py-2.5 rounded-lg bg-background border border-border text-foreground placeholder-foreground-subtle focus:border-accent outline-none resize-none"
+                  />
+                  <p className="text-xs text-foreground-subtle mt-1">
+                    Use {"{{name}}"} to personalize with their name
+                  </p>
+                </div>
+              </div>
+              <div className="p-6 border-t border-border flex gap-3">
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() => setShowBulkDmModal(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={handleSendBulkDm}
+                  disabled={!bulkDmMessage.trim() || isSendingBulkDm}>
+                  {isSendingBulkDm ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                  {isSendingBulkDm
+                    ? "Sending..."
+                    : `Send to ${selectedLeads.size} leads`}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      {/* Lead Lists Modal */}
+      {
+        showLeadListsModal && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div className="bg-background-secondary rounded-2xl border border-border max-w-md w-full">
+              <div className="p-6 border-b border-border flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground">
+                    Add to List
+                  </h2>
+                  <p className="text-sm text-foreground-muted mt-1">
+                    Add {selectedLeads.size} selected leads to a list
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowLeadListsModal(false);
+                    setShowCreateListModal(true);
+                  }}>
+                  <Plus className="h-4 w-4" />
+                  New List
+                </Button>
+              </div>
+              <div className="p-6 max-h-[400px] overflow-y-auto">
+                {isLoadingLists ? (
+                  <div className="text-center py-4 text-foreground-muted">
+                    Loading lists...
+                  </div>
+                ) : leadLists.length === 0 ? (
+                  <div className="text-center py-8">
+                    <List className="h-12 w-12 text-foreground-subtle mx-auto mb-3" />
+                    <p className="text-foreground-muted mb-4">No lists yet</p>
+                    <Button
+                      onClick={() => {
+                        setShowLeadListsModal(false);
+                        setShowCreateListModal(true);
+                      }}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create First List
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {leadLists.map((list: any) => (
+                      <button
+                        key={list.id}
+                        onClick={() => handleAddToList(list.id)}
+                        className="w-full p-3 rounded-lg bg-background-elevated hover:bg-background border border-border text-left transition-colors">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-foreground">
+                              {list.name}
+                            </p>
+                            {list.description && (
+                              <p className="text-xs text-foreground-muted mt-1">
+                                {list.description}
+                              </p>
+                            )}
+                            <p className="text-xs text-foreground-subtle mt-1">
+                              {list.members?.length || 0} leads
+                            </p>
+                          </div>
+                          <Plus className="h-4 w-4 text-foreground-muted" />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="p-6 border-t border-border">
+                <Button
+                  variant="secondary"
+                  className="w-full"
+                  onClick={() => setShowLeadListsModal(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        )
+      }
 
       {/* Create List Modal */}
-      {showCreateListModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-background-secondary rounded-2xl border border-border max-w-md w-full">
-            <div className="p-6 border-b border-border flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-foreground">
-                Create Lead List
-              </h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setShowCreateListModal(false);
-                  setNewListName("");
-                  setNewListDescription("");
-                }}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-foreground-muted mb-2">
-                  List Name
-                </label>
-                <Input
-                  value={newListName}
-                  onChange={(e) => setNewListName(e.target.value)}
-                  placeholder="My Lead List"
-                />
+      {
+        showCreateListModal && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div className="bg-background-secondary rounded-2xl border border-border max-w-md w-full">
+              <div className="p-6 border-b border-border flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-foreground">
+                  Create Lead List
+                </h2>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setShowCreateListModal(false);
+                    setNewListName("");
+                    setNewListDescription("");
+                  }}>
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground-muted mb-2">
-                  Description (optional)
-                </label>
-                <textarea
-                  value={newListDescription}
-                  onChange={(e) => setNewListDescription(e.target.value)}
-                  placeholder="Description of this list..."
-                  rows={3}
-                  className="w-full px-4 py-2.5 rounded-lg bg-background border border-border text-foreground placeholder-foreground-subtle focus:border-accent outline-none resize-none"
-                />
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-foreground-muted mb-2">
+                    List Name
+                  </label>
+                  <Input
+                    value={newListName}
+                    onChange={(e) => setNewListName(e.target.value)}
+                    placeholder="My Lead List"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground-muted mb-2">
+                    Description (optional)
+                  </label>
+                  <textarea
+                    value={newListDescription}
+                    onChange={(e) => setNewListDescription(e.target.value)}
+                    placeholder="Description of this list..."
+                    rows={3}
+                    className="w-full px-4 py-2.5 rounded-lg bg-background border border-border text-foreground placeholder-foreground-subtle focus:border-accent outline-none resize-none"
+                  />
+                </div>
               </div>
-            </div>
-            <div className="p-6 border-t border-border flex gap-3">
-              <Button
-                variant="secondary"
-                className="flex-1"
-                onClick={() => {
-                  setShowCreateListModal(false);
-                  setNewListName("");
-                  setNewListDescription("");
-                }}>
-                Cancel
-              </Button>
-              <Button
-                className="flex-1"
-                onClick={handleCreateList}
-                disabled={!newListName.trim()}>
-                Create List
-              </Button>
+              <div className="p-6 border-t border-border flex gap-3">
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() => {
+                    setShowCreateListModal(false);
+                    setNewListName("");
+                    setNewListDescription("");
+                  }}>
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={handleCreateList}
+                  disabled={!newListName.trim()}>
+                  Create List
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Profile Modal */}
-      {showProfileModal && selectedProfile && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-background-secondary rounded-2xl border border-border max-w-lg w-full max-h-[80vh] overflow-y-auto">
-            <div className="p-6 border-b border-border flex items-center gap-4">
-              <Avatar
-                src={selectedProfile.profilePicUrl}
-                name={selectedProfile.igUsername}
-                size="xl"
-              />
-              <div>
-                <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                  @{selectedProfile.igUsername}
-                  {selectedProfile.isVerified && (
-                    <CheckCircle2 className="h-5 w-5 text-accent" />
-                  )}
-                </h2>
-                <p className="text-foreground-muted">
-                  {selectedProfile.fullName}
-                </p>
-              </div>
-            </div>
-            <div className="p-6 space-y-4">
-              {isLoadingProfile ? (
-                <div className="text-center py-4 text-foreground-muted">
-                  Loading profile...
-                </div>
-              ) : (
-                <>
-                  {/* Stats */}
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="text-center p-3 rounded-lg bg-background-elevated">
-                      <p className="text-xl font-bold text-foreground">
-                        {selectedProfile.followerCount?.toLocaleString() || "-"}
-                      </p>
-                      <p className="text-xs text-foreground-muted">Followers</p>
-                    </div>
-                    <div className="text-center p-3 rounded-lg bg-background-elevated">
-                      <p className="text-xl font-bold text-foreground">
-                        {selectedProfile.followingCount?.toLocaleString() ||
-                          "-"}
-                      </p>
-                      <p className="text-xs text-foreground-muted">Following</p>
-                    </div>
-                    <div className="text-center p-3 rounded-lg bg-background-elevated">
-                      <p className="text-xl font-bold text-foreground">
-                        {selectedProfile.postCount?.toLocaleString() || "-"}
-                      </p>
-                      <p className="text-xs text-foreground-muted">Posts</p>
-                    </div>
-                  </div>
-
-                  {/* Lead Score & Engagement */}
-                  {((selectedProfile.leadScore !== undefined &&
-                    selectedProfile.leadScore !== null) ||
-                    (selectedProfile.engagementRate !== undefined &&
-                      selectedProfile.engagementRate !== null)) && (
-                      <div className="grid grid-cols-2 gap-4">
-                        {selectedProfile.leadScore !== undefined &&
-                          selectedProfile.leadScore !== null && (
-                            <div className="p-3 rounded-lg bg-background-elevated">
-                              <p className="text-sm text-foreground-muted mb-1">
-                                Lead Score
-                              </p>
-                              <p
-                                className={cn(
-                                  "text-2xl font-bold",
-                                  selectedProfile.leadScore >= 70
-                                    ? "text-emerald-400"
-                                    : selectedProfile.leadScore >= 50
-                                      ? "text-amber-400"
-                                      : "text-foreground-muted"
-                                )}>
-                                {selectedProfile.leadScore}/100
-                              </p>
-                            </div>
-                          )}
-                        {selectedProfile.engagementRate !== undefined &&
-                          selectedProfile.engagementRate !== null && (
-                            <div className="p-3 rounded-lg bg-background-elevated">
-                              <p className="text-sm text-foreground-muted mb-1">
-                                Engagement Rate
-                              </p>
-                              <p className="text-2xl font-bold text-foreground">
-                                {selectedProfile.engagementRate.toFixed(1)}%
-                              </p>
-                            </div>
-                          )}
-                      </div>
+      {
+        showProfileModal && selectedProfile && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+            <div className="bg-background-secondary rounded-2xl border border-border max-w-lg w-full max-h-[80vh] overflow-y-auto">
+              <div className="p-6 border-b border-border flex items-center gap-4">
+                <Avatar
+                  src={selectedProfile.profilePicUrl}
+                  name={selectedProfile.igUsername}
+                  size="xl"
+                />
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                    @{selectedProfile.igUsername}
+                    {selectedProfile.isVerified && (
+                      <CheckCircle2 className="h-5 w-5 text-accent" />
                     )}
+                  </h2>
+                  <p className="text-foreground-muted">
+                    {selectedProfile.fullName}
+                  </p>
+                </div>
+              </div>
+              <div className="p-6 space-y-4">
+                {isLoadingProfile ? (
+                  <div className="text-center py-4 text-foreground-muted">
+                    Loading profile...
+                  </div>
+                ) : (
+                  <>
+                    {/* Stats */}
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="text-center p-3 rounded-lg bg-background-elevated">
+                        <p className="text-xl font-bold text-foreground">
+                          {selectedProfile.followerCount?.toLocaleString() || "-"}
+                        </p>
+                        <p className="text-xs text-foreground-muted">Followers</p>
+                      </div>
+                      <div className="text-center p-3 rounded-lg bg-background-elevated">
+                        <p className="text-xl font-bold text-foreground">
+                          {selectedProfile.followingCount?.toLocaleString() ||
+                            "-"}
+                        </p>
+                        <p className="text-xs text-foreground-muted">Following</p>
+                      </div>
+                      <div className="text-center p-3 rounded-lg bg-background-elevated">
+                        <p className="text-xl font-bold text-foreground">
+                          {selectedProfile.postCount?.toLocaleString() || "-"}
+                        </p>
+                        <p className="text-xs text-foreground-muted">Posts</p>
+                      </div>
+                    </div>
 
-                  {/* Lead History */}
-                  {(selectedProfile.timesContacted ||
-                    selectedProfile.lastContactedAt ||
-                    selectedProfile.lastInteractionAt) && (
-                      <div className="p-4 rounded-lg bg-background-elevated border border-border">
-                        <h4 className="text-sm font-medium text-foreground-muted mb-3 flex items-center gap-2">
-                          <Clock className="h-4 w-4" />
-                          Interaction History
-                        </h4>
-                        <div className="space-y-2">
-                          {selectedProfile.timesContacted !== undefined &&
-                            selectedProfile.timesContacted > 0 && (
+                    {/* Lead Score & Engagement */}
+                    {((selectedProfile.leadScore !== undefined &&
+                      selectedProfile.leadScore !== null) ||
+                      (selectedProfile.engagementRate !== undefined &&
+                        selectedProfile.engagementRate !== null)) && (
+                        <div className="grid grid-cols-2 gap-4">
+                          {selectedProfile.leadScore !== undefined &&
+                            selectedProfile.leadScore !== null && (
+                              <div className="p-3 rounded-lg bg-background-elevated">
+                                <p className="text-sm text-foreground-muted mb-1">
+                                  Lead Score
+                                </p>
+                                <p
+                                  className={cn(
+                                    "text-2xl font-bold",
+                                    selectedProfile.leadScore >= 70
+                                      ? "text-emerald-400"
+                                      : selectedProfile.leadScore >= 50
+                                        ? "text-amber-400"
+                                        : "text-foreground-muted"
+                                  )}>
+                                  {selectedProfile.leadScore}/100
+                                </p>
+                              </div>
+                            )}
+                          {selectedProfile.engagementRate !== undefined &&
+                            selectedProfile.engagementRate !== null && (
+                              <div className="p-3 rounded-lg bg-background-elevated">
+                                <p className="text-sm text-foreground-muted mb-1">
+                                  Engagement Rate
+                                </p>
+                                <p className="text-2xl font-bold text-foreground">
+                                  {selectedProfile.engagementRate.toFixed(1)}%
+                                </p>
+                              </div>
+                            )}
+                        </div>
+                      )}
+
+                    {/* Lead History */}
+                    {(selectedProfile.timesContacted ||
+                      selectedProfile.lastContactedAt ||
+                      selectedProfile.lastInteractionAt) && (
+                        <div className="p-4 rounded-lg bg-background-elevated border border-border">
+                          <h4 className="text-sm font-medium text-foreground-muted mb-3 flex items-center gap-2">
+                            <Clock className="h-4 w-4" />
+                            Interaction History
+                          </h4>
+                          <div className="space-y-2">
+                            {selectedProfile.timesContacted !== undefined &&
+                              selectedProfile.timesContacted > 0 && (
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-foreground-muted">
+                                    Times Contacted
+                                  </span>
+                                  <span className="font-medium text-foreground">
+                                    {selectedProfile.timesContacted}
+                                  </span>
+                                </div>
+                              )}
+                            {selectedProfile.lastContactedAt && (
                               <div className="flex items-center justify-between text-sm">
                                 <span className="text-foreground-muted">
-                                  Times Contacted
+                                  Last Contacted
                                 </span>
                                 <span className="font-medium text-foreground">
-                                  {selectedProfile.timesContacted}
+                                  {new Date(
+                                    selectedProfile.lastContactedAt
+                                  ).toLocaleDateString()}
                                 </span>
                               </div>
                             )}
-                          {selectedProfile.lastContactedAt && (
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-foreground-muted">
-                                Last Contacted
-                              </span>
-                              <span className="font-medium text-foreground">
-                                {new Date(
-                                  selectedProfile.lastContactedAt
-                                ).toLocaleDateString()}
-                              </span>
-                            </div>
-                          )}
-                          {selectedProfile.lastInteractionAt && (
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-foreground-muted">
-                                Last Interaction
-                              </span>
-                              <span className="font-medium text-foreground">
-                                {new Date(
-                                  selectedProfile.lastInteractionAt
-                                ).toLocaleDateString()}
-                              </span>
-                            </div>
-                          )}
-                          {selectedProfile.dmSentAt && (
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-foreground-muted flex items-center gap-1">
-                                <MessageSquare className="h-3 w-3" />
-                                DM Sent
-                              </span>
-                              <span className="font-medium text-foreground">
-                                {new Date(
-                                  selectedProfile.dmSentAt
-                                ).toLocaleDateString()}
-                              </span>
-                            </div>
-                          )}
-                          {selectedProfile.dmRepliedAt && (
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-foreground-muted flex items-center gap-1">
-                                <MessageSquare className="h-3 w-3" />
-                                Replied
-                              </span>
-                              <span className="font-medium text-emerald-400">
-                                {new Date(
-                                  selectedProfile.dmRepliedAt
-                                ).toLocaleDateString()}
-                              </span>
-                            </div>
-                          )}
+                            {selectedProfile.lastInteractionAt && (
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-foreground-muted">
+                                  Last Interaction
+                                </span>
+                                <span className="font-medium text-foreground">
+                                  {new Date(
+                                    selectedProfile.lastInteractionAt
+                                  ).toLocaleDateString()}
+                                </span>
+                              </div>
+                            )}
+                            {selectedProfile.dmSentAt && (
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-foreground-muted flex items-center gap-1">
+                                  <MessageSquare className="h-3 w-3" />
+                                  DM Sent
+                                </span>
+                                <span className="font-medium text-foreground">
+                                  {new Date(
+                                    selectedProfile.dmSentAt
+                                  ).toLocaleDateString()}
+                                </span>
+                              </div>
+                            )}
+                            {selectedProfile.dmRepliedAt && (
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-foreground-muted flex items-center gap-1">
+                                  <MessageSquare className="h-3 w-3" />
+                                  Replied
+                                </span>
+                                <span className="font-medium text-emerald-400">
+                                  {new Date(
+                                    selectedProfile.dmRepliedAt
+                                  ).toLocaleDateString()}
+                                </span>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                  {/* Enrichment Data */}
-                  {(selectedProfile.email ||
-                    selectedProfile.phone ||
-                    selectedProfile.website ||
-                    selectedProfile.location) && (
+                    {/* Enrichment Data */}
+                    {(selectedProfile.email ||
+                      selectedProfile.phone ||
+                      selectedProfile.website ||
+                      selectedProfile.location) && (
+                        <div>
+                          <h4 className="text-sm font-medium text-foreground-muted mb-2">
+                            Contact Information
+                          </h4>
+                          <div className="space-y-1 text-sm">
+                            {selectedProfile.email && (
+                              <p className="text-foreground">
+                                <span className="text-foreground-muted">
+                                  Email:{" "}
+                                </span>
+                                {selectedProfile.email}
+                              </p>
+                            )}
+                            {selectedProfile.phone && (
+                              <p className="text-foreground">
+                                <span className="text-foreground-muted">
+                                  Phone:{" "}
+                                </span>
+                                {selectedProfile.phone}
+                              </p>
+                            )}
+                            {selectedProfile.website && (
+                              <p className="text-foreground">
+                                <span className="text-foreground-muted">
+                                  Website:{" "}
+                                </span>
+                                <a
+                                  href={selectedProfile.website}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-accent hover:underline">
+                                  {selectedProfile.website}
+                                </a>
+                              </p>
+                            )}
+                            {selectedProfile.location && (
+                              <p className="text-foreground">
+                                <span className="text-foreground-muted">
+                                  Location:{" "}
+                                </span>
+                                {selectedProfile.location}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                    {/* Bio */}
+                    {selectedProfile.bio && (
                       <div>
                         <h4 className="text-sm font-medium text-foreground-muted mb-2">
-                          Contact Information
+                          Bio
                         </h4>
-                        <div className="space-y-1 text-sm">
-                          {selectedProfile.email && (
-                            <p className="text-foreground">
-                              <span className="text-foreground-muted">
-                                Email:{" "}
-                              </span>
-                              {selectedProfile.email}
-                            </p>
-                          )}
-                          {selectedProfile.phone && (
-                            <p className="text-foreground">
-                              <span className="text-foreground-muted">
-                                Phone:{" "}
-                              </span>
-                              {selectedProfile.phone}
-                            </p>
-                          )}
-                          {selectedProfile.website && (
-                            <p className="text-foreground">
-                              <span className="text-foreground-muted">
-                                Website:{" "}
-                              </span>
-                              <a
-                                href={selectedProfile.website}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-accent hover:underline">
-                                {selectedProfile.website}
-                              </a>
-                            </p>
-                          )}
-                          {selectedProfile.location && (
-                            <p className="text-foreground">
-                              <span className="text-foreground-muted">
-                                Location:{" "}
-                              </span>
-                              {selectedProfile.location}
-                            </p>
+                        <p className="text-foreground whitespace-pre-wrap">
+                          {selectedProfile.bio}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Matched Keywords */}
+                    {selectedProfile.matchedKeywords?.length > 0 && (
+                      <div>
+                        <h4 className="text-sm font-medium text-foreground-muted mb-2">
+                          Matched Keywords
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedProfile.matchedKeywords.map(
+                            (kw: string, i: number) => (
+                              <Badge key={i} variant="success">
+                                {kw}
+                              </Badge>
+                            )
                           )}
                         </div>
                       </div>
                     )}
 
-                  {/* Bio */}
-                  {selectedProfile.bio && (
-                    <div>
-                      <h4 className="text-sm font-medium text-foreground-muted mb-2">
-                        Bio
-                      </h4>
-                      <p className="text-foreground whitespace-pre-wrap">
-                        {selectedProfile.bio}
-                      </p>
+                    {/* Tags */}
+                    <div className="flex flex-wrap gap-2">
+                      {selectedProfile.isPrivate && (
+                        <Badge variant="warning">Private</Badge>
+                      )}
+                      {selectedProfile.isBusiness && (
+                        <Badge variant="accent">Business</Badge>
+                      )}
+                      {selectedProfile.isVerified && (
+                        <Badge variant="success">Verified</Badge>
+                      )}
                     </div>
-                  )}
-
-                  {/* Matched Keywords */}
-                  {selectedProfile.matchedKeywords?.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium text-foreground-muted mb-2">
-                        Matched Keywords
-                      </h4>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedProfile.matchedKeywords.map(
-                          (kw: string, i: number) => (
-                            <Badge key={i} variant="success">
-                              {kw}
-                            </Badge>
-                          )
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Tags */}
-                  <div className="flex flex-wrap gap-2">
-                    {selectedProfile.isPrivate && (
-                      <Badge variant="warning">Private</Badge>
-                    )}
-                    {selectedProfile.isBusiness && (
-                      <Badge variant="accent">Business</Badge>
-                    )}
-                    {selectedProfile.isVerified && (
-                      <Badge variant="success">Verified</Badge>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-            <div className="p-6 border-t border-border flex gap-3">
-              <Button
-                variant="secondary"
-                className="flex-1"
-                onClick={() => setShowProfileModal(false)}>
-                Close
-              </Button>
-              <Button
-                className="flex-1"
-                onClick={() =>
-                  window.open(
-                    `https://instagram.com/${selectedProfile.igUsername}`,
-                    "_blank"
-                  )
-                }>
-                <Instagram className="h-4 w-4" />
-                View on Instagram
-              </Button>
+                  </>
+                )}
+              </div>
+              <div className="p-6 border-t border-border flex gap-3">
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() => setShowProfileModal(false)}>
+                  Close
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={() =>
+                    window.open(
+                      `https://instagram.com/${selectedProfile.igUsername}`,
+                      "_blank"
+                    )
+                  }>
+                  <Instagram className="h-4 w-4" />
+                  View on Instagram
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Lead Profile Modal (No-Auth Scraper) */}
       <LeadProfileModal
@@ -3658,7 +3913,7 @@ export default function LeadsPage() {
         }}
         isAlreadyLead={leads.some(l => l.igUsername === profileModalUsername)}
       />
-    </div>
+    </div >
   );
 }
 

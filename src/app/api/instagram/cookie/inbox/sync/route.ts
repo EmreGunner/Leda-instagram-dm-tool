@@ -64,105 +64,136 @@ export async function POST(request: NextRequest) {
     let syncedConversations = 0;
     let syncedMessages = 0;
 
-    for (const thread of threads) {
-      try {
-        // Get the other user (not self)
-        const otherUser = thread.users[0];
-        if (!otherUser) continue;
+    // ✅ OPTIMIZATION 1: Batch contact upserts
+    const contactOperations = threads.map(thread => {
+      const otherUser = thread.users[0];
+      if (!otherUser) return null;
 
-        // Create or update contact
-        const contact = await prisma.contact.upsert({
-          where: {
-            igUserId_workspaceId: {
-              igUserId: otherUser.pk,
-              workspaceId: finalWorkspaceId,
-            },
-          },
-          create: {
-            workspaceId: finalWorkspaceId,
+      return prisma.contact.upsert({
+        where: {
+          igUserId_workspaceId: {
             igUserId: otherUser.pk,
-            igUsername: otherUser.username,
-            name: otherUser.fullName,
-            profilePictureUrl: otherUser.profilePicUrl,
+            workspaceId: finalWorkspaceId,
           },
-          update: {
-            igUsername: otherUser.username,
-            name: otherUser.fullName,
-            profilePictureUrl: otherUser.profilePicUrl,
-          },
-        });
+        },
+        create: {
+          workspaceId: finalWorkspaceId,
+          igUserId: otherUser.pk,
+          igUsername: otherUser.username,
+          name: otherUser.fullName,
+          profilePictureUrl: otherUser.profilePicUrl,
+        },
+        update: {
+          igUsername: otherUser.username,
+          name: otherUser.fullName,
+          profilePictureUrl: otherUser.profilePicUrl,
+        },
+      });
+    }).filter(Boolean);
 
-        // Create or update conversation
-        const conversation = await prisma.conversation.upsert({
-          where: {
-            instagramAccountId_contactId: {
-              instagramAccountId: accountId,
-              contactId: contact.id,
-            },
-          },
-          create: {
+    const contacts = await Promise.all(contactOperations);
+
+    // ✅ OPTIMIZATION 2: Batch conversation upserts  
+    const conversationOperations = threads.map((thread, index) => {
+      const contact = contacts[index];
+      if (!contact) return null;
+
+      return prisma.conversation.upsert({
+        where: {
+          instagramAccountId_contactId: {
             instagramAccountId: accountId,
             contactId: contact.id,
-            status: 'OPEN',
-            lastMessageAt: safeDate(thread.lastActivity),
-            unreadCount: thread.unreadCount,
           },
-          update: {
-            lastMessageAt: safeDate(thread.lastActivity),
-            unreadCount: thread.unreadCount,
-          },
-        });
+        },
+        create: {
+          instagramAccountId: accountId,
+          contactId: contact.id,
+          status: 'OPEN',
+          lastMessageAt: safeDate(thread.lastActivity),
+          unreadCount: thread.unreadCount,
+        },
+        update: {
+          lastMessageAt: safeDate(thread.lastActivity),
+          unreadCount: thread.unreadCount,
+        },
+      });
+    }).filter(Boolean);
 
-        syncedConversations++;
+    const conversations = await Promise.all(conversationOperations);
+    syncedConversations = conversations.length;
 
-        // Fetch and sync messages for this thread
+    // ✅ OPTIMIZATION 3: Parallel message processing with batched duplicate checks
+    const messageProcessingPromises = threads.map(async (thread, index) => {
+      try {
+        const conversation = conversations[index];
+        const contact = contacts[index];
+        const otherUser = thread.users[0];
+
+        if (!conversation || !contact || !otherUser) return 0;
+
+        // Fetch messages for this thread
         const messages = await instagramCookieService.getThreadMessages(
           cookies,
           thread.threadId,
           30
         );
 
+        if (messages.length === 0) return 0;
+
+        // ✅ BATCH: Fetch ALL existing message IDs for this conversation in ONE query
+        const messageIds = messages.map(m => m.itemId);
+        const existingMessages = await prisma.message.findMany({
+          where: {
+            conversationId: conversation.id,
+            igMessageId: { in: messageIds },
+          },
+          select: {
+            id: true,
+            igMessageId: true,
+            direction: true,
+            readAt: true,
+            deliveredAt: true,
+            status: true,
+          },
+        });
+
+        // Create a lookup map for O(1) existence checks
+        const existingMap = new Map(
+          existingMessages.map(m => [m.igMessageId, m])
+        );
+
+        const newMessages = [];
+        const messagesToUpdate = [];
+
         for (const msg of messages) {
           if (!msg.text) continue;
 
-          // Determine if this is from us or from them
           const isFromUs = msg.userId === cookies.dsUserId;
-
-          // Check if message already exists
-          const existing = await prisma.message.findFirst({
-            where: {
-              conversationId: conversation.id,
-              igMessageId: msg.itemId,
-            },
-          });
+          const existing = existingMap.get(msg.itemId);
 
           if (!existing) {
-            // Determine message status
-            // For outbound messages, check if they've been read
+            // New message - prepare for batch insert
             let messageStatus: 'PENDING' | 'SENT' | 'DELIVERED' | 'READ' = 'DELIVERED';
             if (isFromUs) {
-              // Check if message has been read (Instagram provides read receipts)
               messageStatus = (msg as any).readAt ? 'READ' : ((msg as any).deliveredAt ? 'DELIVERED' : 'SENT');
             }
 
-            await prisma.message.create({
-              data: {
-                conversationId: conversation.id,
-                igMessageId: msg.itemId,
-                content: msg.text,
-                messageType: 'TEXT',
-                direction: isFromUs ? 'OUTBOUND' : 'INBOUND',
-                status: messageStatus,
-                sentAt: safeDate(msg.timestamp),
-                deliveredAt: (msg as any).deliveredAt ? safeDate((msg as any).deliveredAt) : null,
-                readAt: (msg as any).readAt ? safeDate((msg as any).readAt) : null,
-                createdAt: safeDate(msg.timestamp),
-              },
+            newMessages.push({
+              conversationId: conversation.id,
+              igMessageId: msg.itemId,
+              content: msg.text,
+              messageType: 'TEXT',
+              direction: isFromUs ? 'OUTBOUND' : 'INBOUND',
+              status: messageStatus,
+              sentAt: safeDate(msg.timestamp),
+              deliveredAt: (msg as any).deliveredAt ? safeDate((msg as any).deliveredAt) : null,
+              readAt: (msg as any).readAt ? safeDate((msg as any).readAt) : null,
+              createdAt: safeDate(msg.timestamp),
             });
 
-            // Trigger Automation (only for new inbound messages)
+            // Trigger automation for new inbound messages (async, don't await)
             if (!isFromUs) {
-              await automationEngine.processMessage({
+              automationEngine.processMessage({
                 workspaceId: finalWorkspaceId,
                 instagramAccountId: accountId,
                 contactId: contact.id,
@@ -170,12 +201,10 @@ export async function POST(request: NextRequest) {
                 contactIgUserId: otherUser.pk,
                 messageContent: msg.text,
                 conversationId: conversation.id,
-              });
+              }).catch(err => console.error('Automation error:', err));
             }
-
-            syncedMessages++;
           } else {
-            // Update existing message status if it's an outbound message
+            // Update existing message status if needed
             if (isFromUs && existing.direction === 'OUTBOUND') {
               const updateData: any = {};
               if ((msg as any).readAt && !existing.readAt) {
@@ -189,8 +218,8 @@ export async function POST(request: NextRequest) {
               }
 
               if (Object.keys(updateData).length > 0) {
-                await prisma.message.update({
-                  where: { id: existing.id },
+                messagesToUpdate.push({
+                  id: existing.id,
                   data: updateData,
                 });
               }
@@ -198,40 +227,39 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Update conversation status - check if user accepted our first message
-        // Find the first outbound message (oldest outbound message)
-        const firstOutboundMessage = await prisma.message.findFirst({
-          where: {
-            conversationId: conversation.id,
-            direction: 'OUTBOUND',
-          },
-          orderBy: {
-            createdAt: 'asc',
-          },
-        });
-
-        if (firstOutboundMessage) {
-          // Check if there are any inbound messages after the first outbound (user accepted)
-          const hasInboundAfterFirst = await prisma.message.findFirst({
-            where: {
-              conversationId: conversation.id,
-              direction: 'INBOUND',
-              createdAt: {
-                gt: firstOutboundMessage.createdAt,
-              },
-            },
+        // ✅ BATCH: Insert all new messages at once
+        let insertedCount = 0;
+        if (newMessages.length > 0) {
+          await prisma.message.createMany({
+            data: newMessages as any,
+            skipDuplicates: true,
           });
-
-          // Note: isRequestPending field doesn't exist in schema, so we skip that update
-          // The conversation status can be used to track this if needed in the future
+          insertedCount = newMessages.length;
         }
 
-        // Small delay to avoid rate limits
-        await new Promise(resolve => setTimeout(resolve, 200));
+        // ✅ BATCH: Update messages in parallel (if needed)
+        if (messagesToUpdate.length > 0) {
+          await Promise.all(
+            messagesToUpdate.map(({ id, data }) =>
+              prisma.message.update({ where: { id }, data })
+            )
+          );
+        }
+
+        return insertedCount;
       } catch (threadError: any) {
         console.error(`Error syncing thread ${thread.threadId}:`, threadError);
-        continue;
+        return 0;
       }
+    });
+
+    // ✅ OPTIMIZATION 4: Process all threads in parallel (with limit to avoid overwhelming)
+    // Process in batches of 5 to avoid overwhelming the database
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < messageProcessingPromises.length; i += BATCH_SIZE) {
+      const batch = messageProcessingPromises.slice(i, i + BATCH_SIZE);
+      const results = await Promise.all(batch);
+      syncedMessages += results.reduce((sum, count) => sum + count, 0);
     }
 
     return NextResponse.json({
@@ -261,4 +289,3 @@ export async function OPTIONS() {
     },
   });
 }
-

@@ -1026,22 +1026,31 @@ export class InstagramCookieService {
 
       console.log('[Post] Fetching by shortcode:', shortcode);
 
-      // Get media ID from shortcode first
-      const mediaId = await (ig.media as any).getIdFromShortcode(shortcode);
-      console.log('[Post] Media ID:', mediaId);
+      // Manual Shortcode to Media ID conversion
+      // Instagram shortcodes are base64 encoded long integers
+      const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+      let mediaId = BigInt(0);
 
-      // Get full media info which includes accurate comment count
-      const mediaInfo = await ig.media.info(mediaId);
+      for (const char of shortcode) {
+        const index = alphabet.indexOf(char);
+        if (index === -1) continue;
+        mediaId = (mediaId * BigInt(64)) + BigInt(index);
+      }
+
+      console.log('[Post] Converted shortcode', shortcode, 'to Media ID:', mediaId.toString());
+
+      // Fetch full media info using the ID
+      const mediaInfo = await ig.media.info(mediaId.toString());
       const item = mediaInfo.items?.[0];
 
       if (!item) {
         throw new Error('Post not found');
       }
 
-      console.log('[Post] Raw data:', {
+      console.log('[Post] Successfully fetched:', {
         id: item.id,
-        comment_count: item.comment_count,
-        has_more_comments: item.has_more_comments
+        code: item.code,
+        comment_count: item.comment_count
       });
 
       const isPost = item.media_type === 1 || item.media_type === 8;
@@ -1054,6 +1063,7 @@ export class InstagramCookieService {
         likeCount: item.like_count || 0,
         commentCount: item.comment_count || 0,
         caption: item.caption?.text || '',
+        displayUrl: item.image_versions2?.candidates?.[0]?.url || '',
         thumbnailUrl: item.image_versions2?.candidates?.[0]?.url || '',
         takenAt: item.taken_at,
         url: `https://www.instagram.com/p/${item.code || shortcode}/`,
