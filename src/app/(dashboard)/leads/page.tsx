@@ -431,6 +431,8 @@ export default function LeadsPage() {
           allMedia = [...allMedia, ...mediaWithUser];
         }
       }
+      console.log('Fetched posts:', allMedia);
+      console.log('Sample post:', allMedia[0]);
       setCtlTargetPosts(allMedia);
       toast.success(`Fetched ${allMedia.length} posts`);
     } catch (e) {
@@ -1537,8 +1539,10 @@ export default function LeadsPage() {
                           {ctlTargetPosts.map((post) => {
                             const isSelected = ctlSelectedPostIds.has(post.id);
                             const isExpanded = ctlExpandedCaptions.has(post.id);
-                            const caption = post.caption?.text || '';
+                            const caption = post.caption?.text || post.caption || '';
                             const truncatedCaption = caption.length > 60 ? caption.substring(0, 60) + '...' : caption;
+                            // Try multiple image URL fields
+                            const imageUrl = post.thumbnailUrl || post.displayUrl || post.thumbnail_url || post.image_versions2?.candidates?.[0]?.url || '';
 
                             return (
                               <div
@@ -1557,11 +1561,21 @@ export default function LeadsPage() {
                               >
                                 {/* Post Image */}
                                 <div className="aspect-square relative">
-                                  <img
-                                    src={post.thumbnailUrl || post.displayUrl}
-                                    alt="Post"
-                                    className="w-full h-full object-cover"
-                                  />
+                                  {imageUrl ? (
+                                    <img
+                                      src={imageUrl}
+                                      alt="Post"
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        console.error('Image load error for post:', post.id, imageUrl);
+                                        e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23333" width="100" height="100"/%3E%3Ctext x="50%" y="50%" fill="%23999" text-anchor="middle" dy=".3em"%3ENo Image%3C/text%3E%3C/svg%3E';
+                                      }}
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full bg-background-elevated flex items-center justify-center text-foreground-muted text-xs">
+                                      No preview
+                                    </div>
+                                  )}
                                   {/* Selection Overlay */}
                                   <div className={cn(
                                     "absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity",
@@ -1597,14 +1611,28 @@ export default function LeadsPage() {
                                 </div>
 
                                 {/* Metadata */}
-                                <div className="px-2 pb-2 flex items-center gap-2 text-xs text-foreground-muted">
-                                  <span>{new Date(post.takenAt * 1000).toLocaleDateString()}</span>
-                                  <span className="flex items-center gap-1">
-                                    ❤️ {post.likeCount?.toLocaleString() || 0}
-                                  </span>
-                                  <span className="flex items-center gap-1">
-                                    💬 {post.commentCount?.toLocaleString() || 0}
-                                  </span>
+                                <div className="px-2 pb-2 space-y-1">
+                                  <div className="flex items-center gap-2 text-xs text-foreground-muted">
+                                    <span>{post.takenAt ? new Date(post.takenAt * 1000).toLocaleDateString() : 'No date'}</span>
+                                    <span className="flex items-center gap-1">
+                                      ❤️ {post.likeCount?.toLocaleString() || post.like_count?.toLocaleString() || 0}
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                      💬 {post.commentCount?.toLocaleString() || post.comment_count?.toLocaleString() || 0}
+                                    </span>
+                                  </div>
+                                  {/* Post URL */}
+                                  {(post.shortcode || post.code) && (
+                                    <a
+                                      href={`https://www.instagram.com/p/${post.shortcode || post.code}/`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="text-xs text-accent hover:underline block truncate"
+                                    >
+                                      instagram.com/p/{post.shortcode || post.code}
+                                    </a>
+                                  )}
                                 </div>
                               </div>
                             );
@@ -1621,9 +1649,62 @@ export default function LeadsPage() {
                   ctlActiveCard === 3 ? "border-accent shadow-lg shadow-accent/20" : "border-border"
                 )}>
                   <h4 className="font-semibold text-foreground mb-2">3. Extract Leads</h4>
-                  <p className="text-xs text-foreground-muted mb-4">Configure and start extraction</p>
+                  <p className="text-xs text-foreground-muted mb-4">Paste post link or configure extraction</p>
 
                   <div className="space-y-4">
+                    {/* Direct Post Paste */}
+                    <div>
+                      <label className="block text-xs font-medium text-foreground-muted mb-2">Or Paste Single Post Link</label>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="https://www.instagram.com/p/DOBY7Y4Eiyr/"
+                          value={ctlPastedPostLinks}
+                          onChange={(e) => {
+                            setCtlPastedPostLinks(e.target.value);
+                            setCtlActiveCard(3);
+                          }}
+                          className="bg-background text-foreground border-border text-sm"
+                        />
+                        <Button
+                          size="sm"
+                          onClick={async () => {
+                            const url = ctlPastedPostLinks.trim();
+                            if (!url) return;
+
+                            // Extract shortcode from URL
+                            const match = url.match(/\/p\/([^\/]+)/);
+                            if (!match) {
+                              toast.error('Invalid Instagram post URL');
+                              return;
+                            }
+
+                            const shortcode = match[1];
+                            setCtlIsParsingPosts(true);
+
+                            try {
+                              const cookies = getCookies();
+                              if (!cookies) {
+                                toast.error('Session expired');
+                                return;
+                              }
+
+                              // TODO: Implement API call to fetch post by shortcode
+                              toast.info('Fetching post details...');
+                              setCtlPastedPostLinks('');
+                            } catch (e) {
+                              console.error(e);
+                              toast.error('Failed to fetch post');
+                            } finally {
+                              setCtlIsParsingPosts(false);
+                            }
+                          }}
+                          disabled={!ctlPastedPostLinks.trim() || ctlIsParsingPosts}
+                        >
+                          {ctlIsParsingPosts ? <RefreshCw className="h-4 w-4 animate-spin" /> : 'Add'}
+                        </Button>
+                      </div>
+                    </div>
+
                     {/* Summary */}
                     {ctlSelectedPostIds.size > 0 ? (
                       <div className="bg-accent/10 border border-accent/20 rounded-lg p-3">
