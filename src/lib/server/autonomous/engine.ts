@@ -229,8 +229,9 @@ export class AutonomousEngine {
     }
 
     private isEmojiOnly(text: string): boolean {
-        const withoutEmojis = text.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]/gu, '').trim();
-        return withoutEmojis.length === 0 && text.length > 0;
+        // Simple check: if text has no alphanumeric characters, it's likely emoji/symbol only
+        const alphanumeric = text.replace(/[^\w\s]/g, '').trim();
+        return alphanumeric.length === 0 && text.length > 0;
     }
 
     private isTagOnly(text: string): boolean {
