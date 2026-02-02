@@ -1,0 +1,103 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { AutonomousEngine } from '@/lib/server/autonomous/engine';
+import { getCookiesFromStorage } from '@/lib/instagram/cookies';
+
+/**
+ * POST /api/autonomous/start
+ * Starts the autonomous lead generation engine
+ */
+export async function POST(req: NextRequest) {
+    try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        // Get workspace
+        const { data: userData } = await supabase
+            .from('users')
+            .select('workspaceId')
+            .eq('supabaseAuthId', user.id)
+            .single();
+
+        if (!userData?.workspaceId) {
+            return NextResponse.json({ error: 'Workspace not found' }, { status: 404 });
+        }
+
+        // Get active Instagram account
+        const { data: accounts } = await supabase
+            .from('instagram_accounts')
+            .select('*')
+            .eq('workspace_id', userData.workspaceId)
+            .eq('is_active', true)
+            .limit(1);
+
+        if (!accounts || accounts.length === 0) {
+            return NextResponse.json({ error: 'No active Instagram account' }, { status: 400 });
+        }
+
+        const account = accounts[0];
+
+        // Get cookies
+        const cookies = getCookiesFromStorage({
+            igUserId: account.ig_user_id,
+            igUsername: account.ig_username
+        });
+
+        if (!cookies) {
+            return NextResponse.json({ error: 'No Instagram session found' }, { status: 400 });
+        }
+
+        // Start the engine in background
+        const engine = new AutonomousEngine();
+
+        // Run in background (don't await)
+        engine.start(cookies, userData.workspaceId).catch(error => {
+            console.error('[Autonomous Engine] Fatal error:', error);
+        });
+
+        return NextResponse.json({
+            success: true,
+            message: 'Autonomous engine started. Check logs at ./autonomous_engine.log'
+        });
+
+    } catch (error: any) {
+        console.error('[Autonomous API] Error:', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}
+
+/**
+ * GET /api/autonomous/status
+ * Check engine status
+ */
+export async function GET(req: NextRequest) {
+    try {
+        const fs = require('fs');
+        const statePath = './autonomous_state.json';
+
+        if (!fs.existsSync(statePath)) {
+            return NextResponse.json({
+                running: false,
+                message: 'Engine not started'
+            });
+        }
+
+        const state = JSON.parse(fs.readFileSync(statePath, 'utf-8'));
+
+        return NextResponse.json({
+            running: true,
+            leadsCollected: state.leadsCollected,
+            cyclesCompleted: state.cyclesCompleted,
+            targetAccounts: state.targetAccounts.length,
+            processedPosts: state.processedPosts?.length || 0,
+            uptime: Date.now() - state.startTime
+        });
+
+    } catch (error: any) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}
