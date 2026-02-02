@@ -7,8 +7,8 @@
  * Usage: npm run autonomous
  */
 
-import { AutonomousEngine } from './src/lib/server/autonomous/engine';
-import { getCookies as getCookiesFromStorage } from './src/lib/instagram-cookie-storage';
+import { AutonomousEngine } from './src/lib/server/autonomous/engine.js';
+import { getCookies as getCookiesFromStorage } from './src/lib/instagram-cookie-storage.js';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();

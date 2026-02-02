@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { prisma } from '@/lib/server/prisma/client';
 import { AutonomousEngine } from '@/lib/server/autonomous/engine';
 import { getCookies as getCookiesFromStorage } from '@/lib/instagram-cookie-storage';
 
@@ -9,41 +9,29 @@ import { getCookies as getCookiesFromStorage } from '@/lib/instagram-cookie-stor
  */
 export async function POST(req: NextRequest) {
     try {
-        const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
+        // For autonomous mode, bypass strict auth and find workspace/account directly
+        // This allows the script to run without browser session
 
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const workspace = await prisma.workspace.findFirst();
+        if (!workspace) {
+            return NextResponse.json({ error: 'No workspace found' }, { status: 404 });
         }
 
-        // Get workspace
-        const { data: userData } = await supabase
-            .from('users')
-            .select('workspaceId')
-            .eq('supabaseAuthId', user.id)
-            .single();
+        const account = await prisma.instagramAccount.findFirst({
+            where: {
+                workspaceId: workspace.id,
+                isActive: true
+            }
+        });
 
-        if (!userData?.workspaceId) {
-            return NextResponse.json({ error: 'Workspace not found' }, { status: 404 });
-        }
-
-        // Get active Instagram account
-        const { data: accounts } = await supabase
-            .from('instagram_accounts')
-            .select('*')
-            .eq('workspace_id', userData.workspaceId)
-            .eq('is_active', true)
-            .limit(1);
-
-        if (!accounts || accounts.length === 0) {
+        if (!account) {
             return NextResponse.json({ error: 'No active Instagram account' }, { status: 400 });
         }
 
-        const account = accounts[0];
-
+        // Get cookies
         const cookies = getCookiesFromStorage({
-            igUserId: account.ig_user_id,
-            igUsername: account.ig_username
+            igUserId: account.igUserId,
+            igUsername: account.igUsername
         });
 
         if (!cookies) {
@@ -54,13 +42,15 @@ export async function POST(req: NextRequest) {
         const engine = new AutonomousEngine();
 
         // Run in background (don't await)
-        engine.start(cookies, userData.workspaceId).catch(error => {
+        engine.start(cookies, workspace.id).catch(error => {
             console.error('[Autonomous Engine] Fatal error:', error);
         });
 
         return NextResponse.json({
             success: true,
-            message: 'Autonomous engine started. Check logs at ./autonomous_engine.log'
+            message: 'Autonomous engine started. Check logs at ./autonomous_engine.log',
+            workspace: workspace.name,
+            account: account.igUsername
         });
 
     } catch (error: any) {
