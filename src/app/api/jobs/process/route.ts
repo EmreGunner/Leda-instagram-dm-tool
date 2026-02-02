@@ -184,20 +184,39 @@ export async function POST(req: NextRequest) {
 
                     // Re-fetch lead lists or insert logic here...
                     for (const lead of leadsFound) {
-                        // Try to insert if not exists
-                        const { error } = await supabase.from('leads').insert({
-                            igUserId: lead.igUserId,
-                            igUsername: lead.igUsername,
-                            fullName: lead.fullName || '',
-                            profilePicUrl: lead.profilePicUrl || '',
-                            workspaceId: job.workspaceId,
-                            status: 'new',
-                            sourceQuery: `Post: ${mediaId} (@${targetUsername})`,
-                            matchedKeywords: [lead.matchedKeyword],
-                            notes: lead.notes || `Auto-found: "${lead.commentText}"`,
-                            leadScore: lead.leadScore
-                        });
-                        if (error) console.error('Error saving lead:', error.message);
+                        try {
+                            const { error } = await supabase.from('leads').upsert({
+                                igUserId: lead.igUserId,
+                                igUsername: lead.igUsername,
+                                fullName: lead.fullName || '',
+                                profilePicUrl: lead.profilePicUrl || '',
+                                workspaceId: job.workspaceId,
+                                // status: 'new', // Don't reset status on upsert? Or do we? Let's keep existing status if upserting.
+                                // Actually upsert overwrites. We should probably use onConflict.
+                                // But Supabase JS upsert works well. Let's merge certain fields.
+                                // Strategies: 
+                                // 1. If new, set status 'new'.
+                                // 2. If exists, keep status, update 'lastInteractionAt', 'notes', etc.
+                                // For simplicity and robustness, we upsert core fields.
+                                source: 'auto-comment-mining',
+                                sourceQuery: `Post: ${mediaId} (@${targetUsername})`,
+                                matchedKeywords: [lead.matchedKeyword], // strict array
+                                notes: lead.notes || `Auto-found: "${lead.commentText}"`,
+                                leadScore: lead.leadScore,
+                                updatedAt: new Date()
+                            }, {
+                                onConflict: 'ig_user_id, workspace_id', // Must match the unique constraint in DB
+                                ignoreDuplicates: false // We want to UPDATE if exists
+                            });
+
+                            if (error) {
+                                console.error('[CTL-System] Error upserting lead:', error.message);
+                            } else {
+                                // console.log(`[CTL-System] Saved/Updated lead: ${lead.igUsername}`);
+                            }
+                        } catch (upsertError) {
+                            console.error('[CTL-System] Upsert exception:', upsertError);
+                        }
                     }
                 }
 

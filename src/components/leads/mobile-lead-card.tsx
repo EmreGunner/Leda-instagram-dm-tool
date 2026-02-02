@@ -83,7 +83,7 @@ export function MobileLeadCard({ lead, isSelected, onSelect, onViewProfile }: Mo
         {lead.followerCount !== undefined && (
           <div>
             <span className="text-foreground-muted">Followers: </span>
-            <span className="font-medium text-foreground">{lead.followerCount.toLocaleString()}</span>
+            <span className="font-medium text-foreground">{lead.followerCount?.toLocaleString() ?? 'N/A'}</span>
           </div>
         )}
         {lead.leadScore !== undefined && lead.leadScore !== null && (
@@ -92,7 +92,7 @@ export function MobileLeadCard({ lead, isSelected, onSelect, onViewProfile }: Mo
             <span className={cn(
               'font-medium',
               lead.leadScore >= 70 ? 'text-emerald-400' :
-              lead.leadScore >= 50 ? 'text-amber-400' : 'text-foreground-muted'
+                lead.leadScore >= 50 ? 'text-amber-400' : 'text-foreground-muted'
             )}>
               {lead.leadScore}
             </span>
