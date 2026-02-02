@@ -85,13 +85,6 @@ interface Lead {
   postCaption?: string;
   commentDate?: string;
   commentLink?: string;
-  matchedKeywords?: string[];
-  tags?: string[];
-  leadScore?: number;
-  engagementRate?: number;
-  accountAge?: number;
-  postFrequency?: number;
-  email?: string;
 }
 
 interface InstagramAccount {
@@ -373,19 +366,7 @@ export default function LeadsPage() {
         postCaption: l.post_caption || l.postCaption,
         commentDate: l.comment_date || l.commentDate,
         commentLink: l.comment_link || l.commentLink,
-        matchedKeywords: l.matched_keywords || l.matchedKeywords,
-        tags: l.tags,
-        leadScore: l.lead_score,
-        engagementRate: l.engagement_rate,
-        accountAge: l.account_age,
-        postFrequency: l.post_frequency,
-        email: l.email,
-        phone: l.phone,
-        website: l.website,
-        location: l.location,
-        timesContacted: l.times_contacted,
-
-        notes: l.source === 'comment-to-lead' && l.source_post_caption ? l.source_post_caption : l.notes,
+        notes: (l.source === 'comment-to-lead' && (l.post_caption || l.postCaption || l.source_post_caption)) ? (l.post_caption || l.postCaption || l.source_post_caption) : l.notes,
       })));
     } catch (error) {
       console.error('Error fetching leads:', error);
