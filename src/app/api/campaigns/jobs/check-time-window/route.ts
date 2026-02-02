@@ -22,7 +22,7 @@ function createDateInTimezone(
 ): Date {
   // Create a date string in ISO format (YYYY-MM-DDTHH:mm:ss)
   const dateStr = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00`;
-  
+
   // Use Intl to format this as if it were in the target timezone, then parse back
   // We'll use a roundabout method: create dates and compare
   const formatter = new Intl.DateTimeFormat("en-US", {
@@ -35,30 +35,30 @@ function createDateInTimezone(
     second: "2-digit",
     hour12: false,
   });
-  
+
   // Try different UTC times until we find one that matches our desired local time
   // Start with assuming the time is the same in UTC (will be wrong, but gives us a starting point)
   let testDate = new Date(`${dateStr}Z`);
   let attempts = 0;
   const maxAttempts = 10;
-  
+
   while (attempts < maxAttempts) {
     const parts = formatter.formatToParts(testDate);
     const tzHour = parseInt(parts.find((p) => p.type === "hour")?.value || "0");
     const tzMinute = parseInt(parts.find((p) => p.type === "minute")?.value || "0");
-    
+
     if (tzHour === hour && tzMinute === minute) {
       // Found the right UTC time!
       return testDate;
     }
-    
+
     // Adjust: if timezone hour is less than desired, we need to go back in UTC
     // If timezone hour is more than desired, we need to go forward in UTC
     const diffMinutes = (hour * 60 + minute) - (tzHour * 60 + tzMinute);
     testDate = new Date(testDate.getTime() + diffMinutes * 60 * 1000);
     attempts++;
   }
-  
+
   // Fallback: return the test date (should be close)
   return testDate;
 }
@@ -96,6 +96,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { success: false, error: "Job not found" },
         { status: 404 }
+      );
+    }
+
+    if (!job.campaignId) {
+      return NextResponse.json(
+        { success: false, error: "Job has no associated campaign" },
+        { status: 400 }
       );
     }
 
@@ -163,7 +170,7 @@ export async function POST(req: NextRequest) {
 
     // Get current time in campaign's timezone
     const now = new Date();
-    
+
     // Format current time in campaign timezone to get local date/time components
     const formatter = new Intl.DateTimeFormat("en-US", {
       timeZone: timezone,
@@ -214,7 +221,7 @@ export async function POST(req: NextRequest) {
         0,
         timezone
       );
-      
+
       const todayEndOfDay = createDateInTimezone(
         currentYear,
         currentMonth + 1,
@@ -226,14 +233,14 @@ export async function POST(req: NextRequest) {
       // Count jobs sent today for this campaign
       jobsSentToday = await prisma.jobQueue.count({
         where: {
-          campaignId: job.campaignId,
+          campaignId: job.campaignId, // TypeScript knows this is non-null due to check above
           sentAt: {
             gte: todayStartOfDay,
             lte: todayEndOfDay,
           },
         },
       });
-      
+
       // Check if daily limit reached
       if (jobsSentToday >= campaign.messagesPerDay) {
         dailyLimitReached = true;
@@ -273,7 +280,7 @@ export async function POST(req: NextRequest) {
           reason: `Current time is within the send window (${startHours}:${String(startMinutes).padStart(2, "0")} - ${endHours}:${String(endMinutes).padStart(2, "0")})`,
         });
       }
-      
+
       // Daily limit reached, schedule for next day's start time
       const tomorrowStart = new Date(todayStartUTC);
       tomorrowStart.setDate(tomorrowStart.getDate() + 1);
