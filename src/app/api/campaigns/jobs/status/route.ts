@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
       // This ensures the date is stored as '2026-01-21' format, not '2026-01-21T00:00:00.000Z'
       const todayStr = now.toISOString().split("T")[0]; // YYYY-MM-DD format
       const today = new Date(todayStr);
-      
+
       await tx.accountDailyMessageCount.upsert({
         where: {
           instagramAccountId_date: {
@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
       if (!contact) {
         throw new Error("Contact not found for given Instagram user ID");
       }
-      
+
       // 2.3.1 UPDATE LEAD STATUS TO CONTACTED (if lead exists)
       const lead = await tx.lead.findUnique({
         where: {
@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
           },
         },
       });
-      
+
       if (lead) {
         await tx.lead.update({
           where: { id: lead.id },
@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
           },
         });
       }
-      
+
       const conversation = await tx.conversation.upsert({
         where: {
           instagramAccountId_contactId: {
@@ -179,12 +179,14 @@ export async function POST(req: NextRequest) {
       });
 
       // 2.5 UPDATE RECIPIENT
-      await tx.campaignRecipient.update({
-        where: { id: job.leadId },
-        data: {
-          lastProcessedAt: now,
-        },
-      });
+      if (job.leadId) {
+        await tx.campaignRecipient.update({
+          where: { id: job.leadId },
+          data: {
+            lastProcessedAt: now,
+          },
+        });
+      }
 
       // 2.6 UPDATE CAMPAIGN COUNTERS
       await tx.campaign.update({
