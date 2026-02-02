@@ -1,5 +1,4 @@
 import { InstagramCookieService } from '@/lib/server/instagram/cookie-service';
-import { AIAgentService } from '@/lib/server/ai/ai-agent-service';
 import { prisma } from '@/lib/server/prisma/client';
 import fs from 'fs';
 import path from 'path';
@@ -11,7 +10,7 @@ const execAsync = promisify(exec);
 /**
  * AUTONOMOUS LEAD GENERATION ENGINE
  * Runs continuously until 4000 real estate leads are collected
- * Uses cookie-based Instagram scraping + AI agent for scoring
+ * Uses caption filtering to find real estate posts + keyword matching for buyer intent
  */
 
 interface EngineState {
@@ -25,7 +24,6 @@ interface EngineState {
 
 export class AutonomousEngine {
     private instagram: InstagramCookieService;
-    private aiAgent: AIAgentService;
     private state: EngineState;
     private statePath = './autonomous_state.json';
     private logPath = './autonomous_engine.log';
@@ -42,7 +40,6 @@ export class AutonomousEngine {
 
     constructor() {
         this.instagram = new InstagramCookieService();
-        this.aiAgent = new AIAgentService();
         this.state = this.loadState();
     }
 
@@ -106,13 +103,17 @@ export class AutonomousEngine {
 
         try {
             // Fetch recent posts
-            const posts = await this.instagram.getUserRecentMedia(cookies, targetUsername, 12, 'posts');
+            const posts = await this.instagram.getUserRecentMedia(cookies, targetUsername, 25, 'posts');
             this.log(`Found ${posts.length} posts`);
+
+            // Filter posts by caption - ONLY real estate related
+            const realEstatePosts = posts.filter(post => this.isRealEstatePost(post));
+            this.log(`  🏠 ${realEstatePosts.length} real estate posts found`);
 
             let newLeadsThisCycle = 0;
 
-            // Process each post
-            for (const post of posts) {
+            // Process each real estate post
+            for (const post of realEstatePosts) {
                 const postId = post.id;
 
                 // Skip if already processed
@@ -120,10 +121,10 @@ export class AutonomousEngine {
                     continue;
                 }
 
-                this.log(`  📄 Post ${postId.substring(0, 8)}... (${post.comment_count || 0} comments)`);
+                this.log(`  📄 Post ${postId.substring(0, 8)}... "${post.caption?.text?.substring(0, 50) || 'no caption'}"`);
 
                 // Fetch comments
-                const comments = await this.instagram.getPostComments(cookies, postId, 50);
+                const comments = await this.instagram.getPostComments(cookies, postId, 100);
                 this.log(`    Fetched ${comments.length} comments`);
 
                 if (comments.length === 0) {
@@ -131,24 +132,9 @@ export class AutonomousEngine {
                     continue;
                 }
 
-                // Score comments using AI agent
-                const commentData = comments.map(c => ({
-                    username: c.user.username,
-                    text: c.text || ''
-                }));
-
-                const scores = await this.aiAgent.scoreComments(commentData);
-
-                // Filter high-intent comments (score >= 70)
-                const highIntentComments = scores
-                    .filter((s: any) => s.score >= 70)
-                    .map((s: any) => ({
-                        ...comments[s.index],
-                        score: s.score,
-                        reason: s.reason
-                    }));
-
-                this.log(`    ✅ ${highIntentComments.length} high-intent comments`);
+                // Filter comments by intent keywords (simple filtering)
+                const highIntentComments = this.filterIntentComments(comments);
+                this.log(`    ✅ ${highIntentComments.length} interested commenters`);
 
                 // Extract leads
                 for (const comment of highIntentComments) {
@@ -162,7 +148,7 @@ export class AutonomousEngine {
 
                         if (lead) {
                             newLeadsThisCycle++;
-                            this.log(`      💎 Lead saved: @${comment.user.username} (score: ${comment.score})`);
+                            this.log(`      💎 Lead saved: @${comment.user.username} - "${comment.matchedKeyword}"`);
                         }
                     } catch (error: any) {
                         if (error.code === '23505' || error.message?.includes('duplicate')) {
@@ -176,7 +162,7 @@ export class AutonomousEngine {
                 this.state.processedPosts.add(postId);
 
                 // Rate limiting
-                await this.sleep(2000);
+                await this.sleep(3000);
             }
 
             this.log(`✨ Cycle complete: +${newLeadsThisCycle} new leads`);
@@ -184,6 +170,72 @@ export class AutonomousEngine {
         } catch (error: any) {
             this.log(`❌ Error processing @${targetUsername}: ${error.message}`, true);
         }
+    }
+
+    /**
+     * Check if post is real estate related based on caption
+     */
+    private isRealEstatePost(post: any): boolean {
+        const caption = (post.caption?.text || '').toLowerCase();
+
+        // Turkish real estate keywords
+        const realEstateKeywords = [
+            'satılık', 'satilik', 'kiralık', 'kiralik',
+            'daire', 'villa', 'arsa', 'ofis',
+            'residence', 'lüks', 'emlak', 'gayrimenkul',
+            'for sale', 'for rent', 'property', 'real estate',
+            'apartment', 'luxury', 'penthouse', 'studio'
+        ];
+
+        return realEstateKeywords.some(keyword => caption.includes(keyword));
+    }
+
+    /**
+     * Filter comments by buyer intent keywords
+     */
+    private filterIntentComments(comments: any[]) {
+        const intentKeywords = [
+            // Turkish
+            'fiyat', 'fiyatı', 'fiat', 'ne kadar', 'kaç', 'kaça',
+            'detay', 'bilgi', 'iletişim', 'konum', 'nerede',
+            'müsait', 'uygun', 'dm', 'whatsapp',
+            // English
+            'price', 'how much', 'cost', 'details', 'info',
+            'location', 'available', 'interested', 'contact'
+        ];
+
+        const filtered = [];
+
+        for (const comment of comments) {
+            const text = (comment.text || '').toLowerCase();
+
+            // Skip emoji-only or tag-only comments
+            if (this.isEmojiOnly(text) || this.isTagOnly(text)) {
+                continue;
+            }
+
+            // Find matching keyword
+            const matchedKeyword = intentKeywords.find(kw => text.includes(kw));
+
+            if (matchedKeyword) {
+                filtered.push({
+                    ...comment,
+                    matchedKeyword
+                });
+            }
+        }
+
+        return filtered;
+    }
+
+    private isEmojiOnly(text: string): boolean {
+        const withoutEmojis = text.replace(/[\u{1F300}-\u{1F9FF}]|[\u{2600}-\u{26FF}]/gu, '').trim();
+        return withoutEmojis.length === 0 && text.length > 0;
+    }
+
+    private isTagOnly(text: string): boolean {
+        const withoutTags = text.replace(/@[\w.]+/g, '').trim();
+        return withoutTags.length === 0;
     }
 
     /**
@@ -203,9 +255,9 @@ export class AutonomousEngine {
                 status: 'new',
                 source: 'autonomous-comment-mining',
                 sourceQuery: `@${targetUsername}/post/${postId.substring(0, 8)}`,
-                matchedKeywords: [comment.reason || 'high-intent'],
-                notes: `Score: ${comment.score}/100. Comment: "${comment.text?.substring(0, 100)}"`,
-                leadScore: comment.score,
+                matchedKeywords: [comment.matchedKeyword],
+                notes: `Comment: "${comment.text?.substring(0, 150)}"`,
+                leadScore: 75, // Default score for keyword matches
                 isVerified: comment.user.isVerified || false,
                 isPrivate: comment.user.isPrivate || false
             }
