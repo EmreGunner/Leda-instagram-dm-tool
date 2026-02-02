@@ -59,15 +59,17 @@ export async function POST(req: NextRequest) {
       });
 
       // 2.2 MARK RECIPIENT FAILED
-      await tx.campaignRecipient.update({
-        where: { id: job.leadId },
-        data: {
-          status: "FAILED",
-          errorMessage: errMsg,
-          lastProcessedAt: now,
-          updatedAt: now,
-        },
-      });
+      if (job.leadId) {
+        await tx.campaignRecipient.update({
+          where: { id: job.leadId },
+          data: {
+            status: "FAILED",
+            errorMessage: errMsg,
+            lastProcessedAt: now,
+            updatedAt: now,
+          },
+        });
+      }
 
       // 2.3 UPDATE CAMPAIGN COUNTERS
       await tx.campaign.update({
