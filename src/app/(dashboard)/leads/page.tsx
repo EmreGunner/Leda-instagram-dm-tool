@@ -179,8 +179,8 @@ export default function LeadsPage() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [targetUserId, setTargetUserId] = useState<string | null>(null); // For followers search
 
-  // Comment-to-Lead configuration state (Wizard)
-  const [ctlStep, setCtlStep] = useState<1 | 2 | 3>(1);
+  // Comment-to-Lead configuration state (Card-based)
+  const [ctlActiveCard, setCtlActiveCard] = useState<1 | 2 | 3 | null>(null);
   const [ctlTargetAccounts, setCtlTargetAccounts] = useState<any[]>([]);
   const [ctlUsernameInput, setCtlUsernameInput] = useState('');
   const [ctlIsAddingAccount, setCtlIsAddingAccount] = useState(false);
@@ -189,10 +189,17 @@ export default function LeadsPage() {
   const [ctlSelectedPostIds, setCtlSelectedPostIds] = useState<Set<string>>(new Set());
   const [ctlIsFetchingPosts, setCtlIsFetchingPosts] = useState(false);
 
+  // Post paste support
+  const [ctlPastedPostLinks, setCtlPastedPostLinks] = useState('');
+  const [ctlIsParsingPosts, setCtlIsParsingPosts] = useState(false);
+  const [ctlExpandedCaptions, setCtlExpandedCaptions] = useState<Set<string>>(new Set());
+
+  // Comment extraction filters
   const [commentLocation, setCommentLocation] = useState('');
   const [commentListingKeywords, setCommentListingKeywords] = useState('satılık, kiralık, daire, konut');
   const [commentIntentKeywords, setCommentIntentKeywords] = useState('fiyat, fiat, ne kadar, kaç tl');
-  const [commentDateRange, setCommentDateRange] = useState(30);
+  const [commentDateFrom, setCommentDateFrom] = useState('');
+  const [commentDateTo, setCommentDateTo] = useState('');
   const [ctlScrapingStatus, setCtlScrapingStatus] = useState('');
 
   // Hashtag search now defaults to bio only (posts option removed)
@@ -425,7 +432,7 @@ export default function LeadsPage() {
         }
       }
       setCtlTargetPosts(allMedia);
-      setCtlStep(2);
+      toast.success(`Fetched ${allMedia.length} posts`);
     } catch (e) {
       console.error(e);
       toast.error('Failed to fetch posts');
@@ -550,12 +557,10 @@ export default function LeadsPage() {
           body.limit = currentLimit;
           break;
         case 'comment-to-lead':
-          endpoint = '/api/leads/comment-search';
-          body.location = commentLocation;
-          body.listingKeywords = commentListingKeywords.split(',').map(k => k.trim()).filter(Boolean);
-          body.intentKeywords = commentIntentKeywords.split(',').map(k => k.trim()).filter(Boolean);
-          body.dateRange = commentDateRange;
-          break;
+          // This flow now uses dedicated card-based handlers
+          toast.info('Please use the cards below to configure extraction');
+          setIsSearching(false);
+          return;
       }
 
       console.log('Making request to:', endpoint, body);
@@ -1396,157 +1401,314 @@ export default function LeadsPage() {
           {/* Search Input */}
           {/* Search Input & Wizard */}
           {searchType === 'comment-to-lead' ? (
-            <div className="bg-background-elevated rounded-xl p-4 border border-border mb-4 space-y-4">
-              {/* Wizard Steps Indicator */}
-              <div className="flex items-center justify-between mb-6 px-4">
-                {[1, 2, 3].map((step) => (
-                  <div key={step} className={cn("flex flex-col items-center gap-2", ctlStep >= step ? "text-accent" : "text-foreground-muted")}>
-                    <div className={cn("w-8 h-8 rounded-full flex items-center justify-center font-bold border-2",
-                      ctlStep >= step ? "border-accent bg-accent/10" : "border-border bg-background")}>
-                      {step}
-                    </div>
-                    <span className="text-xs font-medium">
-                      {step === 1 ? "Target" : step === 2 ? "Select Posts" : "Extract"}
-                    </span>
-                  </div>
-                ))}
-                {/* Progress Lines */}
-                <div className="absolute left-[20%] right-[20%] top-[calc(2rem)] h-[2px] bg-border -z-10 hidden md:block" />
+            <div className="space-y-6 mb-4">
+              {/* Header */}
+              <div className="bg-background-elevated rounded-xl p-4 border border-border">
+                <h3 className="text-lg font-semibold text-foreground mb-2">Lead Extraction</h3>
+                <p className="text-sm text-foreground-muted">Start from any card below. Paste links directly or fetch from accounts.</p>
               </div>
 
-              {/* Step 1: Target Accounts */}
-              {ctlStep === 1 && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground-muted mb-2">Target Accounts (Competitors/Influencers)</label>
+              {/* Three Cards Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+                {/* CARD 1: Account Management */}
+                <div className={cn(
+                  "bg-background-elevated rounded-xl border-2 p-6 transition-all",
+                  ctlActiveCard === 1 ? "border-accent shadow-lg shadow-accent/20" : "border-border"
+                )}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="font-semibold text-foreground">1. Target Accounts</h4>
+                    <Badge variant="secondary" className="text-xs">Optional</Badge>
+                  </div>
+                  <p className="text-xs text-foreground-muted mb-4">Add accounts to fetch their posts, or skip to Card 2</p>
+
+                  {/* Account Input */}
+                  <div className="space-y-3">
                     <div className="flex gap-2">
                       <Input
-                        placeholder="Enter username (e.g. @besiktasrealtor)"
+                        placeholder="@username"
                         value={ctlUsernameInput}
-                        onChange={(e) => setCtlUsernameInput(e.target.value)}
+                        onChange={(e) => {
+                          setCtlUsernameInput(e.target.value);
+                          setCtlActiveCard(1);
+                        }}
                         onKeyDown={(e) => e.key === 'Enter' && handleAddTarget()}
+                        className="bg-background text-foreground border-border"
                       />
-                      <Button variant="secondary" onClick={handleAddTarget} disabled={ctlIsAddingAccount}>
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        onClick={handleAddTarget}
+                        disabled={ctlIsAddingAccount || !ctlUsernameInput.trim()}
+                      >
                         {ctlIsAddingAccount ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                       </Button>
                     </div>
-                  </div>
 
-                  {ctlTargetAccounts.length > 0 && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-40 overflow-y-auto">
-                      {ctlTargetAccounts.map((acc) => (
-                        <div key={acc.pk} className="flex items-center gap-2 p-2 bg-background rounded-lg border border-border">
-                          <Avatar src={acc.profilePicUrl} name={acc.username} className="h-8 w-8" />
-                          <div className="flex-1 overflow-hidden">
-                            <p className="text-sm font-medium truncate">@{acc.username}</p>
-                            <p className="text-xs text-foreground-muted truncate">{acc.fullName}</p>
+                    {/* Added Accounts */}
+                    {ctlTargetAccounts.length > 0 && (
+                      <div className="space-y-2 max-h-56 overflow-y-auto">
+                        {ctlTargetAccounts.map((acc) => (
+                          <div key={acc.pk} className="flex items-center gap-2 p-2 bg-background rounded-lg border border-border">
+                            <Avatar src={acc.profilePicUrl} name={acc.username} className="h-8 w-8" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-foreground truncate">@{acc.username}</p>
+                              <p className="text-xs text-foreground-muted">{acc.followerCount?.toLocaleString() || 0} followers</p>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 flex-shrink-0"
+                              onClick={() => setCtlTargetAccounts(prev => prev.filter(a => a.pk !== acc.pk))}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
                           </div>
-                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setCtlTargetAccounts(prev => prev.filter(a => a.pk !== acc.pk))}>
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                        ))}
+                      </div>
+                    )}
 
-                  <div className="pt-2 flex justify-end">
-                    <Button
-                      onClick={handleFetchPosts}
-                      disabled={ctlTargetAccounts.length === 0 || ctlIsFetchingPosts}
-                    >
-                      {ctlIsFetchingPosts ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : "Next: Fetch Posts"}
-                    </Button>
+                    {/* Fetch Posts Button */}
+                    {ctlTargetAccounts.length > 0 && (
+                      <Button
+                        onClick={handleFetchPosts}
+                        disabled={ctlIsFetchingPosts}
+                        className="w-full bg-accent hover:bg-accent/90 text-white"
+                        size="sm"
+                      >
+                        {ctlIsFetchingPosts ? (
+                          <><RefreshCw className="h-4 w-4 animate-spin mr-2" /> Fetching...</>
+                        ) : (
+                          <>Fetch Posts from {ctlTargetAccounts.length} Account{ctlTargetAccounts.length > 1 ? 's' : ''}</>
+                        )}
+                      </Button>
+                    )}
                   </div>
                 </div>
-              )}
 
-              {/* Step 2: Select Posts */}
-              {ctlStep === 2 && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Button variant="ghost" size="sm" onClick={() => setCtlStep(1)}>← Back</Button>
-                    <span className="text-sm text-foreground-muted">{ctlSelectedPostIds.size} posts selected</span>
+                {/* CARD 2: Post Selection */}
+                <div className={cn(
+                  "bg-background-elevated rounded-xl border-2 p-6 transition-all",
+                  ctlActiveCard === 2 ? "border-accent shadow-lg shadow-accent/20" : "border-border"
+                )}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="font-semibold text-foreground">2. Select Posts</h4>
+                    {ctlSelectedPostIds.size > 0 && (
+                      <Badge className="bg-accent text-white">{ctlSelectedPostIds.size} selected</Badge>
+                    )}
                   </div>
+                  <p className="text-xs text-foreground-muted mb-4">Paste links or select from fetched posts</p>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-h-96 overflow-y-auto p-1">
-                    {ctlTargetPosts.map((post) => (
-                      <div
-                        key={post.id}
-                        onClick={() => {
-                          const newSet = new Set(ctlSelectedPostIds);
-                          if (newSet.has(post.id)) newSet.delete(post.id);
-                          else newSet.add(post.id);
-                          setCtlSelectedPostIds(newSet);
+                  {/* Post Paste Textarea */}
+                  <div className="space-y-3">
+                    <textarea
+                      placeholder="Paste Instagram post URLs (one per line)..."
+                      value={ctlPastedPostLinks}
+                      onChange={(e) => {
+                        setCtlPastedPostLinks(e.target.value);
+                        setCtlActiveCard(2);
+                      }}
+                      rows={3}
+                      className="w-full px-3 py-2 bg-background text-foreground border border-border rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-accent"
+                    />
+                    {ctlPastedPostLinks.trim() && (
+                      <Button
+                        onClick={async () => {
+                          setCtlIsParsingPosts(true);
+                          // TODO: Implement post parsing
+                          toast.info('Post parsing will be implemented');
+                          setCtlIsParsingPosts(false);
                         }}
-                        className={cn("cursor-pointer relative group rounded-lg overflow-hidden border-2 aspect-square",
-                          ctlSelectedPostIds.has(post.id) ? "border-accent" : "border-transparent"
-                        )}
+                        disabled={ctlIsParsingPosts}
+                        size="sm"
+                        className="w-full"
                       >
-                        <img src={post.thumbnailUrl} alt="Post" className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          {ctlSelectedPostIds.has(post.id) ? <CheckCircle2 className="text-accent h-8 w-8" /> : <div className="w-4 h-4 rounded-full border-2 border-white" />}
+                        {ctlIsParsingPosts ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : 'Parse Posts'}
+                      </Button>
+                    )}
+
+                    {/* Fetched Posts Grid */}
+                    {ctlTargetPosts.length > 0 && (
+                      <>
+                        <div className="border-t border-border pt-3 mt-3">
+                          <p className="text-xs text-foreground-muted mb-2">{ctlTargetPosts.length} posts fetched</p>
                         </div>
-                        <div className="absolute bottom-0 left-0 right-0 p-1 bg-black/60 text-[10px] text-white truncate">
-                          {new Date(post.takenAt * 1000).toLocaleDateString()}
+                        <div className="grid grid-cols-2 gap-2 max-h-96 overflow-y-auto">
+                          {ctlTargetPosts.map((post) => {
+                            const isSelected = ctlSelectedPostIds.has(post.id);
+                            const isExpanded = ctlExpandedCaptions.has(post.id);
+                            const caption = post.caption?.text || '';
+                            const truncatedCaption = caption.length > 60 ? caption.substring(0, 60) + '...' : caption;
+
+                            return (
+                              <div
+                                key={post.id}
+                                className={cn(
+                                  "cursor-pointer relative group rounded-lg overflow-hidden border-2 transition-all",
+                                  isSelected ? "border-accent ring-2 ring-accent/50" : "border-border hover:border-accent/50"
+                                )}
+                                onClick={() => {
+                                  const newSet = new Set(ctlSelectedPostIds);
+                                  if (newSet.has(post.id)) newSet.delete(post.id);
+                                  else newSet.add(post.id);
+                                  setCtlSelectedPostIds(newSet);
+                                  setCtlActiveCard(2);
+                                }}
+                              >
+                                {/* Post Image */}
+                                <div className="aspect-square relative">
+                                  <img
+                                    src={post.thumbnailUrl || post.displayUrl}
+                                    alt="Post"
+                                    className="w-full h-full object-cover"
+                                  />
+                                  {/* Selection Overlay */}
+                                  <div className={cn(
+                                    "absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity",
+                                    isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                                  )}>
+                                    {isSelected ? (
+                                      <CheckCircle2 className="text-accent h-8 w-8" />
+                                    ) : (
+                                      <div className="w-6 h-6 rounded-full border-2 border-white" />
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Caption */}
+                                <div className="p-2 bg-background">
+                                  <p className="text-xs text-foreground leading-tight">
+                                    {isExpanded ? caption : truncatedCaption}
+                                  </p>
+                                  {caption.length > 60 && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const newSet = new Set(ctlExpandedCaptions);
+                                        if (newSet.has(post.id)) newSet.delete(post.id);
+                                        else newSet.add(post.id);
+                                        setCtlExpandedCaptions(newSet);
+                                      }}
+                                      className="text-xs text-accent mt-1 hover:underline"
+                                    >
+                                      {isExpanded ? 'Show less' : 'Show more'}
+                                    </button>
+                                  )}
+                                </div>
+
+                                {/* Metadata */}
+                                <div className="px-2 pb-2 flex items-center gap-2 text-xs text-foreground-muted">
+                                  <span>{new Date(post.takenAt * 1000).toLocaleDateString()}</span>
+                                  <span className="flex items-center gap-1">
+                                    ❤️ {post.likeCount?.toLocaleString() || 0}
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    💬 {post.commentCount?.toLocaleString() || 0}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* CARD 3: Comment Extraction */}
+                <div className={cn(
+                  "bg-background-elevated rounded-xl border-2 p-6 transition-all",
+                  ctlActiveCard === 3 ? "border-accent shadow-lg shadow-accent/20" : "border-border"
+                )}>
+                  <h4 className="font-semibold text-foreground mb-2">3. Extract Leads</h4>
+                  <p className="text-xs text-foreground-muted mb-4">Configure and start extraction</p>
+
+                  <div className="space-y-4">
+                    {/* Summary */}
+                    {ctlSelectedPostIds.size > 0 ? (
+                      <div className="bg-accent/10 border border-accent/20 rounded-lg p-3">
+                        <p className="text-sm font-medium text-foreground">
+                          {ctlSelectedPostIds.size} post{ctlSelectedPostIds.size > 1 ? 's' : ''} selected
+                        </p>
+                        <p className="text-xs text-foreground-muted mt-1">
+                          ~{ctlTargetPosts.filter(p => ctlSelectedPostIds.has(p.id)).reduce((sum, p) => sum + (p.commentCount || 0), 0).toLocaleString()} comments
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
+                        <p className="text-sm text-yellow-600 dark:text-yellow-400">Select posts in Card 2</p>
+                      </div>
+                    )}
+
+                    {/* Comment Date Filters */}
+                    <div>
+                      <label className="block text-xs font-medium text-foreground-muted mb-2">Comment Date Range</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <input
+                            type="date"
+                            value={commentDateFrom}
+                            onChange={(e) => {
+                              setCommentDateFrom(e.target.value);
+                              setCtlActiveCard(3);
+                            }}
+                            className="w-full px-2 py-1 bg-background text-foreground border border-border rounded text-xs"
+                          />
+                          <p className="text-xs text-foreground-muted mt-1">From</p>
+                        </div>
+                        <div>
+                          <input
+                            type="date"
+                            value={commentDateTo}
+                            onChange={(e) => {
+                              setCommentDateTo(e.target.value);
+                              setCtlActiveCard(3);
+                            }}
+                            className="w-full px-2 py-1 bg-background text-foreground border border-border rounded text-xs"
+                          />
+                          <p className="text-xs text-foreground-muted mt-1">To</p>
                         </div>
                       </div>
-                    ))}
-                  </div>
-
-                  <div className="pt-2 flex justify-end">
-                    <Button
-                      onClick={() => setCtlStep(3)}
-                      disabled={ctlSelectedPostIds.size === 0}
-                    >
-                      Next: Configure Extraction
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 3: Extraction */}
-              {ctlStep === 3 && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <Button variant="ghost" size="sm" onClick={() => setCtlStep(2)}>← Back</Button>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-foreground-muted mb-2">Intent Keywords</label>
-                    <Input
-                      value={commentIntentKeywords}
-                      onChange={(e) => setCommentIntentKeywords(e.target.value)}
-                    />
-                    <p className="text-xs text-foreground-subtle mt-1">Comma separated (e.g. price, cost, how much)</p>
-                  </div>
-
-                  <div className="bg-accent/10 p-4 rounded-lg">
-                    <p className="text-sm font-medium mb-1">Ready to Scrape</p>
-                    <ul className="text-xs text-foreground-muted list-disc list-inside">
-                      <li>{ctlTargetAccounts.length} Target Account(s)</li>
-                      <li>{ctlSelectedPostIds.size} Selected Post(s)</li>
-                      <li>High-intent keyword filtering enabled</li>
-                    </ul>
-                  </div>
-
-                  {ctlScrapingStatus && (
-                    <div className="p-2 bg-background border border-border rounded text-sm text-center">
-                      {ctlScrapingStatus}
                     </div>
-                  )}
 
-                  <div className="pt-2">
+                    {/* Intent Keywords */}
+                    <div>
+                      <label className="block text-xs font-medium text-foreground-muted mb-2">Intent Keywords</label>
+                      <Input
+                        value={commentIntentKeywords}
+                        onChange={(e) => {
+                          setCommentIntentKeywords(e.target.value);
+                          setCtlActiveCard(3);
+                        }}
+                        placeholder="price, fiyat, details, ne kadar"
+                        className="bg-background text-foreground border-border text-sm"
+                      />
+                      <p className="text-xs text-foreground-muted mt-1">Comma separated</p>
+                    </div>
+
+                    {/* Status */}
+                    {ctlScrapingStatus && (
+                      <div className="p-2 bg-background border border-border rounded text-sm text-foreground text-center">
+                        {ctlScrapingStatus}
+                      </div>
+                    )}
+
+                    {/* Extract Button */}
                     <Button
                       onClick={handleScrapeComments}
-                      disabled={isSearching}
-                      className="w-full"
+                      disabled={ctlSelectedPostIds.size === 0 || isSearching}
+                      className="w-full bg-accent hover:bg-accent/90 text-white"
                     >
-                      {isSearching ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
-                      Start Surgical Extraction
+                      {isSearching ? (
+                        <><RefreshCw className="h-4 w-4 animate-spin mr-2" /> Extracting...</>
+                      ) : (
+                        <><MessageSquare className="h-4 w-4 mr-2" /> Extract Leads</>
+                      )}
                     </Button>
                   </div>
                 </div>
-              )}
+
+              </div>
             </div>
           ) : (
             <div className="flex flex-col sm:flex-row gap-3 mb-4">
