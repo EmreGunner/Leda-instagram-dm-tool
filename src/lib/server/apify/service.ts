@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 
 // Types for Apify Input
 interface ApifySearchInput {
-    search: string;
+    search: string; // Reverted to string
     searchType: 'user' | 'hashtag' | 'place';
     resultsLimit?: number;
     searchLimit?: number;
@@ -37,16 +37,18 @@ interface ApifyInstagramProfile {
 }
 
 export class ApifyService {
-    private readonly API_TOKEN = process.env.APIFY_TOKEN;
+    private get API_TOKEN() {
+        return process.env.APIFY_TOKEN;
+    }
     private readonly ACTOR_ID = 'apify/instagram-search-scraper'; // Or 'apify~instagram-search-scraper'
     private readonly API_URL = `https://api.apify.com/v2/acts/apify~instagram-search-scraper/runs`;
 
     /**
      * Search for Instagram users via Apify
-     * @param query Search keywords (comma separated)
+     * @param query Search keywords (comma separated or array)
      * @param limit limit per search term
      */
-    async searchUsers(query: string, limit: number = 50) {
+    async searchUsers(query: string | string[], limit: number = 50) {
         if (!this.API_TOKEN) {
             throw new Error('APIFY_TOKEN is not configured');
         }
@@ -55,7 +57,7 @@ export class ApifyService {
 
         // 1. Start the Actor Run
         const run = await this.startActorRun({
-            search: query,
+            search: Array.isArray(query) ? query.join(',') : query, // Join array to string
             searchType: 'user',
             searchLimit: limit,
             enhanceUserSearchWithFacebookPage: true
@@ -103,6 +105,30 @@ export class ApifyService {
         } while (run.data.status === 'RUNNING' || run.data.status === 'READY');
 
         return run.data;
+    }
+
+    async startSearch(query: string | string[], limit: number = 50) {
+        return this.startActorRun({
+            search: Array.isArray(query) ? query.join(',') : query,
+            searchType: 'user',
+            searchLimit: limit,
+            enhanceUserSearchWithFacebookPage: true
+        });
+    }
+
+    async getRun(runId: string) {
+        const response = await fetch(`https://api.apify.com/v2/actor-runs/${runId}?token=${this.API_TOKEN}`);
+        const data = await response.json();
+        return data.data;
+    }
+
+    async getDatasetItems(datasetId: string, offset: number = 0, limit: number = 50): Promise<ApifyInstagramProfile[]> {
+        const url = `https://api.apify.com/v2/datasets/${datasetId}/items?token=${this.API_TOKEN}&offset=${offset}&limit=${limit}`;
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error('Failed to fetch dataset items');
+        }
+        return await response.json();
     }
 
     private async fetchRunResults(datasetId: string): Promise<ApifyInstagramProfile[]> {

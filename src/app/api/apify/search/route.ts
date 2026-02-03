@@ -6,35 +6,128 @@ import { cookies } from 'next/headers';
 export async function POST(options: NextRequest) {
     try {
         const body = await options.json();
-        const { searchTerms, searchType = 'user', limit = 50 } = body;
+        const { searchTerms, searchType = 'user', limit = 50, action, runId, datasetId, offset = 0 } = body;
 
-        if (!searchTerms) {
-            return NextResponse.json({ error: 'Search terms required' }, { status: 400 });
+        if (!searchTerms && !runId) {
+            return NextResponse.json({ error: 'Search terms or runId required' }, { status: 400 });
         }
 
-        const supabase = await createClient(); // Fixed: await and no args
+        const supabase = await createClient();
         const { data: { user }, error: authError } = await supabase.auth.getUser();
 
         if (authError || !user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Get workspace (assuming single workspace for now or logic to get it)
-        // For now, let's fetch the first workspace or use a default if available
-        // In a real multi-tenant app, we'd pick from headers or user metadata
-        const { data: workspaceData } = await supabase
-            .from('workspaces')
-            .select('id')
-            .limit(1)
-            .single();
+        // Fetch user's workspace
+        let { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('workspace_id')
+            .eq('supabase_auth_id', user.id)
+            .maybeSingle();
 
-        if (!workspaceData) {
-            return NextResponse.json({ error: 'No workspace found' }, { status: 404 });
+        // Fallback to email if not found by Auth ID
+        if (!userData && user.email) {
+            const { data: userDataByEmail } = await supabase
+                .from('users')
+                .select('workspace_id')
+                .eq('email', user.email)
+                .maybeSingle();
+
+            if (userDataByEmail) {
+                userData = userDataByEmail;
+                userError = null;
+            }
         }
 
-        const workspaceId = workspaceData.id;
+        if (userError || !userData) {
+            return NextResponse.json({ error: 'User profile not found. Please checks your database sync.' }, { status: 404 });
+        }
 
-        // Run Search
+        const workspaceId = userData.workspace_id;
+
+        // --- ACTION: START ---
+        if (action === 'start') {
+            const run = await apifyService.startSearch(searchTerms, limit);
+            return NextResponse.json({
+                success: true,
+                runId: run.data.id,
+                datasetId: run.data.defaultDatasetId,
+                status: run.data.status
+            });
+        }
+
+        // --- ACTION: POLL ---
+        if (action === 'poll') {
+            if (!runId || !datasetId) {
+                return NextResponse.json({ error: 'Missing runId or datasetId for poll' }, { status: 400 });
+            }
+
+            const runStatus = await apifyService.getRun(runId);
+            const status = runStatus.status;
+
+            // Fetch new items since offset
+            // Typically fetch a batch, e.g. 50?
+            // The frontend should ask for items starting from 'offset'.
+            // Apify API offset is 0-indexed. function getDatasetItems(id, offset, limit)
+            const newItems = await apifyService.getDatasetItems(datasetId, offset, 50);
+
+            let savedCount = 0;
+            const failedItems = [];
+
+            // Transform for DB
+            for (const profile of newItems) {
+                const priority = apifyService.calculatePriority(profile);
+                const { error } = await supabase.from('account_queue').upsert({
+                    username: profile.username,
+                    full_name: profile.fullName,
+                    biography: profile.biography,
+                    external_url: profile.externalUrl,
+                    business_category_name: profile.businessCategoryName,
+                    business_address: JSON.stringify(profile.businessAddress),
+                    is_business_account: profile.isBusinessAccount || false,
+                    follower_count: profile.followersCount,
+                    following_count: profile.followsCount,
+                    post_count: profile.postsCount,
+                    profile_pic_url: profile.profilePicUrl,
+                    is_verified: profile.verified || false,
+                    is_private: profile.private || false,
+                    status: 'pending',
+                    priority: priority,
+                    workspace_id: workspaceId,
+                    updated_at: new Date().toISOString()
+                }, {
+                    onConflict: 'username, workspace_id',
+                    ignoreDuplicates: true
+                });
+
+                if (!error) savedCount++;
+                else failedItems.push(profile.username);
+            }
+
+            return NextResponse.json({
+                success: true,
+                status: status,
+                items: newItems.map(p => ({
+                    pk: p.id,
+                    username: p.username,
+                    fullName: p.fullName,
+                    biography: p.biography,
+                    externalUrl: p.externalUrl,
+                    isBusinessAccount: p.isBusinessAccount,
+                    profilePicUrl: p.profilePicUrl,
+                    isPrivate: p.private,
+                    isVerified: p.verified,
+                    followerCount: p.followersCount,
+                    isNew: true // Just a flag
+                })),
+                savedCount,
+                newOffset: offset + newItems.length
+            });
+        }
+
+        // --- LEGACY BLOCKING (Fallback) ---
+        // Run Search (Blocking)
         const results = await apifyService.searchUsers(searchTerms, limit);
 
         // Process and Save to DB
