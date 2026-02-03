@@ -29,6 +29,7 @@ import {
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from '@/components/ui/badge';
 import { Avatar } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
@@ -192,11 +193,12 @@ export default function LeadsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [searchLimit, setSearchLimit] = useState(50);
+  const [searchLimit, setSearchLimit] = useState(250);
   const [hasMoreResults, setHasMoreResults] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [targetUserId, setTargetUserId] = useState<string | null>(null); // For followers search
   const [discoveryMethod, setDiscoveryMethod] = useState<'cookie' | 'apify'>('apify'); // Default to safe Apify mode
+  const [selectedResultIds, setSelectedResultIds] = useState<Set<string>>(new Set());
 
   // Comment-to-Lead configuration state (Card-based)
   const [ctlActiveCard, setCtlActiveCard] = useState<1 | 2 | 3 | null>(null);
@@ -668,6 +670,31 @@ export default function LeadsPage() {
   // State for search errors
   const [searchError, setSearchError] = useState<string | null>(null);
 
+  const handleToggleResultSelection = (pk: string) => {
+    const newSet = new Set(selectedResultIds);
+    if (newSet.has(pk)) newSet.delete(pk);
+    else newSet.add(pk);
+    setSelectedResultIds(newSet);
+  };
+
+  const handleDismissResult = (pk: string) => {
+    setSearchResults(prev => prev.filter(u => u.pk !== pk));
+    setDisplayedSearchResults(prev => prev.filter(u => u.pk !== pk));
+    if (selectedResultIds.has(pk)) {
+      const newSet = new Set(selectedResultIds);
+      newSet.delete(pk);
+      setSelectedResultIds(newSet);
+    }
+  };
+
+  const handleAddSelectedLeads = async () => {
+    if (selectedResultIds.size === 0) return;
+    const selectedUsers = searchResults.filter(u => selectedResultIds.has(u.pk));
+    await handleAddLeads(selectedUsers);
+    setSelectedResultIds(new Set());
+    toast.success(`Added ${selectedUsers.length} leads`);
+  };
+
   // Search users
   const handleSearch = async (loadMore = false, overrideQuery?: string, overrideType?: 'username' | 'hashtag' | 'followers') => {
     const query = overrideQuery || searchQuery;
@@ -708,11 +735,11 @@ export default function LeadsPage() {
     } else {
       setIsSearching(true);
       setSearchResults([]);
-      setSearchLimit(50);
+      setSearchLimit(250);
       setTargetUserId(null);
     }
 
-    const currentLimit = loadMore ? searchLimit + 50 : 50;
+    const currentLimit = loadMore ? searchLimit + 250 : 250;
 
     try {
       let endpoint = '';
@@ -1600,6 +1627,7 @@ export default function LeadsPage() {
   }, [leads]);
 
   // Filter, search, and sort leads
+  // Filter, search, and sort leads
   const processedLeads = leads
     .filter(lead => {
       // Status filter
@@ -1692,7 +1720,7 @@ export default function LeadsPage() {
 
   // Reset displayed leads count when filters change
   useEffect(() => {
-    setDisplayedLeadsCount(50); // Reset to initial batch size
+    setDisplayedLeadsCount(50);
   }, [statusFilter, leadsSearchQuery, sortBy, filterKeywords]);
 
   return (
@@ -2390,778 +2418,745 @@ export default function LeadsPage() {
               </div>
             </div>
           ) : (
-            {/* Combined Search Bar & Action Button */ }
-            < div className="flex flex-col sm:flex-row gap-3 mb-4">
-          <div className="flex-1 relative">
-            <Input
-              // Combine placeholder logic
-              placeholder={
-                discoveryMethod === 'apify'
-                  ? "e.g. real estate, broker, istanbul, whatsapp"
-                  : searchType === "username"
-                    ? "Search target audience by name or niche..."
-                    : searchType === "hashtag"
-                      ? "Enter hashtag (e.g., entrepreneur)"
-                      : "Enter username"
-              }
-              // Show combined value or just query?
-              // If we use bioKeywords for Apify mode as the main input, we should sync them?
-              // But handleSearch joins them. 
-              // Let's use `bioKeywords` as the single source of truth for Apify mode custom keywords?
-              // OR valid assumption: 
-              // If Apify: Input -> bioKeywords. searchQuery ignored or synced?
-              // If Cookie: Input -> searchQuery. bioKeywords ignored?
-              // User wants "one input form".
-              value={discoveryMethod === 'apify' ? bioKeywords : searchQuery}
-              onChange={(e) => {
-                const val = e.target.value;
-                if (discoveryMethod === 'apify') {
-                  setBioKeywords(val);
-                  // Also set searchQuery to first keyword for compatibility if needed
-                  setSearchQuery(val.split(',')[0].trim());
-                } else {
-                  setSearchQuery(val);
-                }
-              }}
-              onKeyDown={(e) =>
-                e.key === "Enter" &&
-                (searchType === "followers"
-                  ? handleLookupUser()
-                  : handleSearch())
-              }
-              className="pl-9" // Add padding for icon
-            />
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground-muted pointer-events-none">
-              {searchType === "hashtag" ? <Hash className="h-4 w-4" /> : <Search className="h-4 w-4" />}
-            </div>
-          </div>
-
-          {searchType === "followers" ? (
-            <Button
-              onClick={handleLookupUser}
-              disabled={isLoadingTargetUser || !searchQuery.trim()}
-              variant="secondary"
-              className="w-full sm:w-auto">
-              {isLoadingTargetUser ? (
-                <RefreshCw className="h-4 w-4 animate-spin" />
-              ) : (
-                <Eye className="h-4 w-4" />
-              )}
-              <span className="hidden sm:inline">Lookup User</span>
-              <span className="sm:hidden">Lookup</span>
-            </Button>
-          ) : (
-            <Button
-              data-search-btn
-              onClick={() => handleSearch()}
-              // Disable if empty. For Apify: bioKeywords. For Cookie: searchQuery.
-              disabled={isSearching || (discoveryMethod === 'apify' ? !bioKeywords.trim() : !searchQuery.trim())}
-              className="w-full sm:w-auto">
-              {isSearching ? (
-                <RefreshCw className="h-4 w-4 animate-spin" />
-              ) : (
-                <Search className="h-4 w-4" />
-              )}
-              {isSearching ? "Searching..." : "Search"}
-            </Button>
-          )}
-        </div>
-
-        {/* Helper Text for Apify Mode */}
-        {discoveryMethod === 'apify' && (
-          <p className="text-xs text-foreground-subtle mb-4 -mt-2">
-            Enter multiple keywords separated by commas (e.g. "real estate, istanbul, whatsapp")
-          </p>
-        )}
-        )}
-      </div>
-      {/* End of Find Leads Section */}
-
-      {/* Followers/Following User Card */}
-      {searchType === "followers" && targetUserProfile && (
-        <div
-          className={cn(
-            "mb-4 p-4 rounded-xl border",
-            targetUserProfile.isPrivate
-              ? "bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-500/20"
-              : "bg-gradient-to-r from-accent/10 to-purple-500/10 border-accent/20"
-          )}>
-          <div className="flex items-center gap-4">
-            <Avatar
-              src={targetUserProfile.profilePicUrl}
-              name={targetUserProfile.username}
-              size="lg"
-            />
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <h4 className="font-semibold text-foreground text-lg">
-                  @{targetUserProfile.username}
-                </h4>
-                {targetUserProfile.isVerified && (
-                  <CheckCircle2 className="h-5 w-5 text-accent" />
-                )}
-                {targetUserProfile.isPrivate && (
-                  <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-xs font-medium">
-                    🔒 Private
-                  </span>
-                )}
-              </div>
-              <p className="text-foreground-muted">
-                {targetUserProfile.fullName}
-              </p>
-              {targetUserProfile.bio && (
-                <p className="text-sm text-foreground-subtle mt-1 line-clamp-2">
-                  {targetUserProfile.bio}
-                </p>
-              )}
-            </div>
-            <div className="flex gap-6 text-center">
-              <div>
-                <p className="text-2xl font-bold text-foreground">
-                  {targetUserProfile.followerCount?.toLocaleString() || 0}
-                </p>
-                <p className="text-xs text-foreground-muted">Followers</p>
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-foreground">
-                  {targetUserProfile.followingCount?.toLocaleString() || 0}
-                </p>
-                <p className="text-xs text-foreground-muted">Following</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Private Account Warning */}
-          {targetUserProfile.isPrivate && (
-            <div
-              className={cn(
-                "mt-3 p-3 rounded-lg border",
-                targetUserProfile.followedByViewer
-                  ? "bg-emerald-500/10 border-emerald-500/20"
-                  : "bg-amber-500/10 border-amber-500/20"
-              )}>
-              <div className="flex items-start gap-2">
-                {targetUserProfile.followedByViewer ? (
-                  <>
-                    <CheckCircle2 className="h-5 w-5 text-emerald-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-emerald-400">
-                        Private Account - You Follow Them ✓
-                      </p>
-                      <p className="text-xs text-foreground-muted mt-1">
-                        Your account (@{selectedAccount?.igUsername})
-                        follows this user, so you can access their
-                        followers/following list.
-                      </p>
+            <>
+              <div className="space-y-4 mb-4">
+                <div className="flex flex-col gap-4 mb-2">
+                  {/* Discovery Method & Presets Consolidated */}
+                  <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between bg-background-elevated p-3 rounded-lg border border-border">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="h-4 w-4 text-accent" />
+                      <span className="text-sm font-medium text-foreground">Discovery Method</span>
                     </div>
-                  </>
-                ) : (
-                  <>
-                    <AlertCircle className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-amber-400">
-                        Private Account - Access Restricted
-                      </p>
-                      <p className="text-xs text-foreground-muted mt-1">
-                        Your account (@{selectedAccount?.igUsername})
-                        doesn't follow this user. Instagram will block
-                        access to their followers/following list.
-                        <br />
-                        <span className="text-amber-400">
-                          Tip: Follow this account first to gain access.
-                        </span>
-                      </p>
+                    <div className="flex bg-background rounded-md border border-border p-1">
+                      <button
+                        onClick={() => setDiscoveryMethod('apify')}
+                        className={cn(
+                          "flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-all",
+                          discoveryMethod === 'apify'
+                            ? "bg-emerald-500/10 text-emerald-500 shadow-sm"
+                            : "text-foreground-muted hover:text-foreground"
+                        )}
+                      >
+                        Safe Mode (Apify)
+                      </button>
+                      <button
+                        onClick={() => setDiscoveryMethod('cookie')}
+                        className={cn(
+                          "flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-all",
+                          discoveryMethod === 'cookie'
+                            ? "bg-accent/10 text-accent shadow-sm"
+                            : "text-foreground-muted hover:text-foreground"
+                        )}
+                      >
+                        Cookie Mode
+                      </button>
                     </div>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Followers/Following Toggle */}
-          <div className="mt-4 flex items-center gap-3">
-            <span className="text-sm text-foreground-muted">Get:</span>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setFollowListType("followers")}
-                className={cn(
-                  "px-4 py-2 rounded-lg text-sm font-medium transition-all",
-                  followListType === "followers"
-                    ? "bg-accent text-white"
-                    : "bg-background text-foreground-muted hover:text-foreground"
-                )}>
-                <Users className="h-4 w-4 inline mr-1" />
-                Followers (
-                {targetUserProfile.followerCount?.toLocaleString() || 0})
-              </button>
-              <button
-                onClick={() => setFollowListType("following")}
-                className={cn(
-                  "px-4 py-2 rounded-lg text-sm font-medium transition-all",
-                  followListType === "following"
-                    ? "bg-accent text-white"
-                    : "bg-background text-foreground-muted hover:text-foreground"
-                )}>
-                <UserPlus className="h-4 w-4 inline mr-1" />
-                Following (
-                {targetUserProfile.followingCount?.toLocaleString() || 0})
-              </button>
-            </div>
-            <Button
-              onClick={() => handleSearch()}
-              disabled={
-                isSearching ||
-                (targetUserProfile.isPrivate &&
-                  !targetUserProfile.followedByViewer)
-              }
-              className="ml-auto">
-              {isSearching ? (
-                <RefreshCw className="h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4" />
-              )}
-              {isSearching
-                ? "Loading..."
-                : `Get ${followListType === "followers"
-                  ? "Followers"
-                  : "Following"
-                }`}
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Target Audience Presets */}
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-foreground-muted mb-2">
-          🎯 Quick Select Target Audience
-        </label>
-
-        {/* Discovery Method Selector - Compact */}
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-sm font-medium text-foreground-muted">Discovery Method</h3>
-          </div>
-          <div className="flex bg-background-elevated rounded-md border border-border p-0.5">
-            <button
-              onClick={() => setDiscoveryMethod('apify')}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1 rounded text-xs font-medium transition-all",
-                discoveryMethod === 'apify'
-                  ? "bg-emerald-500/10 text-emerald-500 shadow-sm"
-                  : "text-foreground-muted hover:text-foreground"
-              )}
-            >
-              <ShieldCheck className="h-3 w-3" />
-              Safe Mode (Apify)
-            </button>
-            <button
-              onClick={() => setDiscoveryMethod('cookie')}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1 rounded text-xs font-medium transition-all",
-                discoveryMethod === 'cookie'
-                  ? "bg-accent/10 text-accent shadow-sm"
-                  : "text-foreground-muted hover:text-foreground"
-              )}
-            >
-              <Instagram className="h-3 w-3" />
-              Cookie Mode
-            </button>
-          </div>
-        </div>
-
-        {/* Target Audience Info - Top */}
-        {selectedPreset && (
-          <div className="mb-4 p-3 rounded-lg bg-accent/5 border border-accent/10">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-accent">{KEYWORD_PRESETS.find(p => p.name === selectedPreset)?.icon}</span>
-              <p className="text-sm text-accent font-medium">Target: {selectedPreset}</p>
-            </div>
-            <p className="text-xs text-foreground-muted">
-              Keywords:{" "}
-              {KEYWORD_PRESETS.find((p) => p.name === selectedPreset)
-                ?.keywords.slice(0, 10)
-                .join(", ")}
-              ...
-            </p>
-          </div>
-        )}
-
-        {/* One Search Input */}
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-foreground-muted mb-2">
-            🔍 Search Query / Custom Keywords
-          </label>
-          <div className="flex gap-2">
-            <Input
-              placeholder={
-                discoveryMethod === 'apify'
-                  ? "e.g. real estate, broker, istanbul, whatsapp"
-                  : "Search by username, hashtag, or keyword..."
-              }
-              value={bioKeywords}
-              onChange={(e) => {
-                setBioKeywords(e.target.value);
-                // Also update searchQuery if it's empty to keep logic consistent
-                if (!searchQuery && !selectedPreset) {
-                  setSearchQuery(e.target.value.split(',')[0]);
-                }
-              }}
-              className="flex-1"
-            />
-            {/* Search Button moved here? Or keep bottom? */}
-          </div>
-          <p className="text-xs text-foreground-subtle mt-1">
-            Enter multiple keywords separated by commas (e.g. "realestate, istanbul, whatsapp")
-          </p>
-        </div>
-
-        {/* Presets - Below input now? Or keep above? User said "should be in the top" referring to bio filter keywords... */}
-        {/* Let's keep presets here as "Quick Select" */}
-        <label className="block text-xs font-medium text-foreground-muted mb-2">
-          Quick Select Preset:
-        </label>
-        <div className="flex flex-wrap gap-2 mb-3">
-          {KEYWORD_PRESETS.map((preset) => (
-            <button
-              key={preset.name}
-              onClick={() => {
-                if (selectedPreset === preset.name) {
-                  setSelectedPreset(null);
-                } else {
-                  setSelectedPreset(preset.name);
-                  // Auto-search with the first keyword as hashtag
-                  const firstKeyword = preset.keywords[0].replace(
-                    /\s+/g,
-                    ""
-                  );
-                  setSearchType("hashtag");
-                  // Don't overwrite bioKeywords if user typed there? 
-                  // Actually preset selection usually implies resetting or appending.
-                  // Let's append to bioKeywords for visibility
-                  // setBioKeywords(prev => prev ? `${prev}, ${preset.keywords.join(', ')}` : preset.keywords.join(', '));
-                  // No, that might be too much text.
-                  setSearchQuery(firstKeyword);
-                  // Directly call search with the query ONLY if not in Apify mode (User request)
-                  if (discoveryMethod !== 'apify') {
-                    handleSearch(false, firstKeyword, "hashtag");
-                  }
-                }
-              }}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all",
-                selectedPreset === preset.name
-                  ? "bg-accent text-white shadow-lg shadow-accent/30"
-                  : "bg-background-elevated text-foreground-muted hover:text-foreground hover:bg-background-elevated/80"
-              )}>
-              <span>{preset.icon}</span>
-              {preset.name}
-            </button>
-          ))}
-        </div>
-        {selectedPreset && (
-          <div className="mb-3 p-3 rounded-lg bg-accent/10 border border-accent/20">
-            <p className="text-sm text-accent font-medium mb-1">
-
-
-              {/* Error Message */}
-              {searchError && (
-                <div className="mb-4 p-4 rounded-lg bg-red-500/10 border border-red-500/30">
-                  <div className="flex items-center gap-2 text-red-400">
-                    <AlertCircle className="h-5 w-5 flex-shrink-0" />
-                    <p className="text-sm font-medium">{searchError}</p>
                   </div>
-                  {searchError.includes("session") && (
-                    <div className="mt-2 ml-7">
-                      <a
-                        href="/settings/instagram"
-                        className="text-xs text-red-300 hover:text-red-200 underline">
-                        Go to Instagram Settings to reconnect →
-                      </a>
+
+                  {/* Presets */}
+                  <div>
+                    <label className="block text-xs font-medium text-foreground-muted mb-2">
+                      🎯 Quick Select Target Audience
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {KEYWORD_PRESETS.map((preset) => (
+                        <button
+                          key={preset.name}
+                          onClick={() => {
+                            if (selectedPreset === preset.name) {
+                              setSelectedPreset(null);
+                            } else {
+                              setSelectedPreset(preset.name);
+                              // Auto-populate based on mode
+                              if (discoveryMethod === 'apify') {
+                                setBioKeywords(preset.keywords.join(', '));
+                              } else {
+                                const firstKeyword = preset.keywords[0].replace(/\s+/g, "");
+                                setSearchType("hashtag");
+                                setSearchQuery(firstKeyword);
+                                handleSearch(false, firstKeyword, "hashtag");
+                              }
+                            }
+                          }}
+                          className={cn(
+                            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border",
+                            selectedPreset === preset.name
+                              ? "bg-accent/10 border-accent text-accent"
+                              : "bg-background border-border text-foreground-muted hover:text-foreground"
+                          )}
+                        >
+                          <span>{preset.icon}</span>
+                          {preset.name}
+                        </button>
+                      ))}
                     </div>
+                  </div>
+                </div>
+
+                {/* Combined Search Bar */}
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex-1 relative">
+                    <Input
+                      placeholder={
+                        discoveryMethod === 'apify'
+                          ? "e.g. real estate, broker, istanbul, whatsapp"
+                          : searchType === "username"
+                            ? "Search target audience by name or niche..."
+                            : searchType === "hashtag"
+                              ? "Enter hashtag (e.g., entrepreneur)"
+                              : "Enter username"
+                      }
+                      value={discoveryMethod === 'apify' ? bioKeywords : searchQuery}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (discoveryMethod === 'apify') {
+                          setBioKeywords(val);
+                          setSearchQuery(val.split(',')[0].trim());
+                        } else {
+                          setSearchQuery(val);
+                        }
+                      }}
+                      onKeyDown={(e) =>
+                        e.key === "Enter" &&
+                        (searchType === "followers"
+                          ? handleLookupUser()
+                          : handleSearch())
+                      }
+                      className="pl-9 h-11"
+                    />
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground-muted pointer-events-none">
+                      {searchType === "hashtag" ? <Hash className="h-4 w-4" /> : <Search className="h-4 w-4" />}
+                    </div>
+                  </div>
+
+                  {searchType === "followers" ? (
+                    <Button
+                      onClick={handleLookupUser}
+                      disabled={isLoadingTargetUser || !searchQuery.trim()}
+                      variant="secondary"
+                      className="h-11 px-6 w-full sm:w-auto">
+                      {isLoadingTargetUser ? (
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                      <span className="ml-2 hidden sm:inline">Lookup</span>
+                      <span className="ml-2 sm:hidden">Lookup</span>
+                    </Button>
+                  ) : (
+                    <Button
+                      data-search-btn
+                      onClick={() => handleSearch()}
+                      disabled={isSearching || (discoveryMethod === 'apify' ? !bioKeywords.trim() : !searchQuery.trim())}
+                      className="h-11 px-6 w-full sm:w-auto">
+                      {isSearching ? (
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Search className="h-4 w-4" />
+                      )}
+                      <span className="ml-2">{isSearching ? "Searching..." : "Search"}</span>
+                    </Button>
                   )}
                 </div>
-              )}
 
-              {/* Search Results */}
-              {(searchResults.length > 0 || displayedSearchResults.length > 0) && (
-                <div className="border-t border-border pt-4">
+                {/* Helper Text for Apify Mode */}
+                {discoveryMethod === 'apify' && (
+                  <p className="text-xs text-foreground-subtle -mt-2">
+                    💡 Tip: Enter multiple keywords separated by commas to find specific niche leads (e.g. "real estate, istanbul, whatsapp")
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+        {/* End of Find Leads Section */}
 
-                  {/* Filters Bar */}
-                  <div className="bg-background-elevated rounded-lg p-3 border border-border mb-4 flex flex-wrap gap-4 items-center">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-foreground-muted">Filter:</span>
-                    </div>
-
-                    {/* Followers */}
-                    <div className="flex items-center gap-2">
-                      <Input
-                        placeholder="Min Follow"
-                        type="number"
-                        className="w-24 h-8 text-xs"
-                        value={minFollowersFilter}
-                        onChange={e => setMinFollowersFilter(e.target.value)}
-                      />
-                      <span className="text-foreground-muted">-</span>
-                      <Input
-                        placeholder="Max Follow"
-                        type="number"
-                        className="w-24 h-8 text-xs"
-                        value={maxFollowersFilter}
-                        onChange={e => setMaxFollowersFilter(e.target.value)}
-                      />
-                    </div>
-
-                    {/* Posts */}
-                    <div className="flex items-center gap-2">
-                      <Input
-                        placeholder="Min Posts"
-                        type="number"
-                        className="w-24 h-8 text-xs"
-                        value={minPostsFilter}
-                        onChange={e => setMinPostsFilter(e.target.value)}
-                      />
-                    </div>
-
-                    {/* Business Toggle */}
-                    <button
-                      onClick={() => setIsBusinessFilter(prev => prev === true ? null : true)}
-                      className={cn(
-                        "px-2 py-1 rounded text-xs font-medium border transition-colors",
-                        isBusinessFilter === true
-                          ? "bg-accent/20 text-accent border-accent/30"
-                          : "bg-background border-border text-foreground-muted hover:text-foreground"
-                      )}
-                    >
-                      Only Business
-                    </button>
-
-                    <button
-                      onClick={() => setIsBusinessFilter(prev => prev === false ? null : false)}
-                      className={cn(
-                        "px-2 py-1 rounded text-xs font-medium border transition-colors",
-                        isBusinessFilter === false
-                          ? "bg-accent/20 text-accent border-accent/30"
-                          : "bg-background border-border text-foreground-muted hover:text-foreground"
-                      )}
-                    >
-                      Only Personal
-                    </button>
-
-                    <div className="flex-1"></div>
-                    <div className="text-xs text-foreground-muted">
-                      Showing {filteredSearchResults.length} of {searchResults.length}
-                    </div>
-                  </div>
-                  {/* Search info header */}
-                  {searchResults.length > 0 && displayedSearchResults.length === 0 && !isLoadingBatch && (
-                    <div className="mb-4 p-4 rounded-lg bg-accent/10 border border-accent/20">
-                      <p className="text-sm text-accent font-medium">
-                        ✨ Found {searchResults.length} profiles. Loading first {Math.min(batchSize, searchResults.length)}...
-                      </p>
-                    </div>
+        {/* Followers/Following User Card */}
+        {searchType === "followers" && targetUserProfile && (
+          <div
+            className={cn(
+              "mb-4 p-4 rounded-xl border",
+              targetUserProfile.isPrivate
+                ? "bg-gradient-to-r from-amber-500/10 to-orange-500/10 border-amber-500/20"
+                : "bg-gradient-to-r from-accent/10 to-purple-500/10 border-accent/20"
+            )}>
+            <div className="flex items-center gap-4">
+              <Avatar
+                src={targetUserProfile.profilePicUrl}
+                name={targetUserProfile.username}
+                size="lg"
+              />
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <h4 className="font-semibold text-foreground text-lg">
+                    @{targetUserProfile.username}
+                  </h4>
+                  {targetUserProfile.isVerified && (
+                    <CheckCircle2 className="h-5 w-5 text-accent" />
                   )}
-
-                  {/* Loading indicator */}
-                  {isLoadingBatch && (
-                    <div className="mb-4 p-4 rounded-lg bg-accent/10 border border-accent/20">
-                      <div className="flex items-center gap-3">
-                        <RefreshCw className="h-5 w-5 text-accent animate-spin flex-shrink-0" />
-                        <div className="flex-1">
-                          <p className="text-sm text-accent font-medium">
-                            Loading profile {loadingProgress.current} of {loadingProgress.total}...
-                          </p>
-                          <div className="mt-2 bg-background-muted rounded-full h-2 overflow-hidden">
-                            <div
-                              className="bg-accent h-full transition-all duration-300"
-                              style={{ width: `${(loadingProgress.current / loadingProgress.total) * 100}%` }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                  {targetUserProfile.isPrivate && (
+                    <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-xs font-medium">
+                      🔒 Private
+                    </span>
                   )}
+                </div>
+                <p className="text-foreground-muted">
+                  {targetUserProfile.fullName}
+                </p>
+                {targetUserProfile.bio && (
+                  <p className="text-sm text-foreground-subtle mt-1 line-clamp-2">
+                    {targetUserProfile.bio}
+                  </p>
+                )}
+              </div>
+              <div className="flex gap-6 text-center">
+                <div>
+                  <p className="text-2xl font-bold text-foreground">
+                    {targetUserProfile.followerCount?.toLocaleString() || 0}
+                  </p>
+                  <p className="text-xs text-foreground-muted">Followers</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">
+                    {targetUserProfile.followingCount?.toLocaleString() || 0}
+                  </p>
+                  <p className="text-xs text-foreground-muted">Following</p>
+                </div>
+              </div>
+            </div>
 
-                  {/* Displayed results */}
-                  {displayedSearchResults.length > 0 && (
+            {/* Private Account Warning */}
+            {targetUserProfile.isPrivate && (
+              <div
+                className={cn(
+                  "mt-3 p-3 rounded-lg border",
+                  targetUserProfile.followedByViewer
+                    ? "bg-emerald-500/10 border-emerald-500/20"
+                    : "bg-amber-500/10 border-amber-500/20"
+                )}>
+                <div className="flex items-start gap-2">
+                  {targetUserProfile.followedByViewer ? (
                     <>
-                      <div className="flex items-center justify-between mb-3">
-                        <div>
-                          <h4 className="font-medium text-foreground">
-                            Loaded {filteredSearchResults.length} profiles
-                          </h4>
-                          <div className="flex gap-3 mt-1">
-                            {searchType === "hashtag" && (
-                              <span className="text-xs text-foreground-muted flex items-center gap-1">
-                                <Users className="h-3 w-3" />
-                                {
-                                  displayedSearchResults.filter(
-                                    (u) =>
-                                      u.source === "bio_match" || u.source === "hashtag"
-                                  ).length
-                                }{" "}
-                                from bio search
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <Button size="sm" onClick={() => handleAddLeads(filteredSearchResults)} disabled={isLoadingBatch || filteredSearchResults.length === 0}>
-                          <UserPlus className="h-4 w-4" />
-                          Add All {filteredSearchResults.length} as Leads
-                        </Button>
+                      <CheckCircle2 className="h-5 w-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-emerald-400">
+                          Private Account - You Follow Them ✓
+                        </p>
+                        <p className="text-xs text-foreground-muted mt-1">
+                          Your account (@{selectedAccount?.igUsername})
+                          follows this user, so you can access their
+                          followers/following list.
+                        </p>
                       </div>
-
-                      {/* Results Grid */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[500px] overflow-y-auto">
-                        {filteredSearchResults.map((user, i) => (
-                          <div
-                            key={`${user.pk}-${i}`}
-                            className={cn(
-                              "p-3 rounded-lg border transition-colors",
-                              user.source === "bio_match"
-                                ? "bg-emerald-500/5 border-emerald-500/20 hover:bg-emerald-500/10"
-                                : "bg-background-elevated border-border hover:bg-background-elevated/80"
-                            )}>
-                            <div className="flex items-start gap-3">
-                              <Avatar
-                                src={user.profilePicUrl}
-                                name={user.username}
-                                size="md"
-                              />
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-1.5">
-                                  <p className="text-sm font-medium text-foreground truncate">
-                                    @{user.username}
-                                  </p>
-                                  {user.isVerified && (
-                                    <CheckCircle2 className="h-3.5 w-3.5 text-accent flex-shrink-0" />
-                                  )}
-                                  {user.isPrivate && (
-                                    <span className="text-xs text-amber-400">🔒</span>
-                                  )}
-                                </div>
-                                <p className="text-xs text-foreground-muted truncate">
-                                  {user.fullName}
-                                </p>
-
-                                {/* Follower count */}
-                                {user.followerCount && (
-                                  <p className="text-xs text-foreground-subtle mt-1">
-                                    {user.followerCount.toLocaleString()} followers
-                                  </p>
-                                )}
-
-                                {/* Bio preview */}
-                                {user.bio && (
-                                  <p className="text-xs text-foreground-muted mt-1 line-clamp-2">
-                                    {user.bio}
-                                  </p>
-                                )}
-
-                                {/* Source & Matched keyword badges */}
-                                <div className="flex flex-wrap gap-1 mt-2">
-                                  {user.source && (
-                                    <span
-                                      className={cn(
-                                        "px-1.5 py-0.5 rounded text-[10px] font-medium",
-                                        user.source === "bio_match"
-                                          ? "bg-emerald-500/20 text-emerald-400"
-                                          : "bg-accent/20 text-accent"
-                                      )}>
-                                      {user.source === "bio_match"
-                                        ? "📝 Bio match"
-                                        : "#️⃣ Hashtag"}
-                                    </span>
-                                  )}
-                                  {user.matchedKeyword && (
-                                    <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 text-[10px] font-medium">
-                                      ✓ {user.matchedKeyword}
-                                    </span>
-                                  )}
-                                </div>
-
-                                {/* View Profile Button */}
-                                <Button
-                                  size="sm"
-                                  variant="secondary"
-                                  className="mt-2 w-full text-xs"
-                                  onClick={() => {
-                                    setProfileModalUsername(user.username);
-                                    setShowLeadProfileModal(true);
-                                  }}
-                                >
-                                  <Eye className="h-3 w-3 mr-1" />
-                                  View Profile
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-amber-400">
+                          Private Account - Access Restricted
+                        </p>
+                        <p className="text-xs text-foreground-muted mt-1">
+                          Your account (@{selectedAccount?.igUsername})
+                          doesn't follow this user. Instagram will block
+                          access to their followers/following list.
+                          <br />
+                          <span className="text-amber-400">
+                            Tip: Follow this account first to gain access.
+                          </span>
+                        </p>
                       </div>
-
-                      {/* Load More Button - Hide for Apify or if all filtered. Or just show "Load More" for Cookie mode */}
-                      {discoveryMethod !== 'apify' && currentBatchIndex < searchResults.length && !isLoadingBatch && (
-                        <div className="mt-4 flex flex-col items-center gap-2">
-                          <Button
-                            variant="secondary"
-                            onClick={() => loadNextBatch(moreBatchSize)}
-                            disabled={isLoadingBatch}
-                          >
-                            Load {Math.min(moreBatchSize, searchResults.length - currentBatchIndex)} More
-                            ({searchResults.length - currentBatchIndex} remaining)
-                          </Button>
-                          <p className="text-xs text-foreground-muted">
-                            Each profile loads with 5-15 second delay for safety
-                          </p>
-                        </div>
-                      )}
                     </>
                   )}
                 </div>
-              )}
+              </div>
+            )}
 
-              {/* Old Search Results (shown only when not using batch loading) */}
-              {searchResults.length > 0 && displayedSearchResults.length === 0 && !isLoadingBatch && false && (
-                <div className="border-t border-border pt-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <h4 className="font-medium text-foreground">
-                        Found {searchResults.length} potential leads
-                      </h4>
-                      <div className="flex gap-3 mt-1">
-                        {searchType === "hashtag" && (
-                          <span className="text-xs text-foreground-muted flex items-center gap-1">
-                            <Users className="h-3 w-3" />
-                            {
-                              searchResults.filter(
-                                (u) =>
-                                  u.source === "bio_match" || u.source === "hashtag"
-                              ).length
-                            }{" "}
-                            from bio search
+            {/* Followers/Following Toggle */}
+            <div className="mt-4 flex items-center gap-3">
+              <span className="text-sm text-foreground-muted">Get:</span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setFollowListType("followers")}
+                  className={cn(
+                    "px-4 py-2 rounded-lg text-sm font-medium transition-all",
+                    followListType === "followers"
+                      ? "bg-accent text-white"
+                      : "bg-background text-foreground-muted hover:text-foreground"
+                  )}>
+                  <Users className="h-4 w-4 inline mr-1" />
+                  Followers (
+                  {targetUserProfile.followerCount?.toLocaleString() || 0})
+                </button>
+                <button
+                  onClick={() => setFollowListType("following")}
+                  className={cn(
+                    "px-4 py-2 rounded-lg text-sm font-medium transition-all",
+                    followListType === "following"
+                      ? "bg-accent text-white"
+                      : "bg-background text-foreground-muted hover:text-foreground"
+                  )}>
+                  <UserPlus className="h-4 w-4 inline mr-1" />
+                  Following (
+                  {targetUserProfile.followingCount?.toLocaleString() || 0})
+                </button>
+              </div>
+              <Button
+                onClick={() => handleSearch()}
+                disabled={
+                  isSearching ||
+                  (targetUserProfile.isPrivate &&
+                    !targetUserProfile.followedByViewer)
+                }
+                className="ml-auto">
+                {isSearching ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                {isSearching
+                  ? "Loading..."
+                  : `Get ${followListType === "followers"
+                    ? "Followers"
+                    : "Following"
+                  }`}
+              </Button>
+            </div>
+          </div>
+        )}
+
+
+
+
+
+        {/* Error Message */}
+        {searchError && (
+          <div className="mb-4 p-4 rounded-lg bg-red-500/10 border border-red-500/30">
+            <div className="flex items-center gap-2 text-red-400">
+              <AlertCircle className="h-5 w-5 flex-shrink-0" />
+              <p className="text-sm font-medium">{searchError}</p>
+            </div>
+            {searchError.includes("session") && (
+              <div className="mt-2 ml-7">
+                <a
+                  href="/settings/instagram"
+                  className="text-xs text-red-300 hover:text-red-200 underline">
+                  Go to Instagram Settings to reconnect →
+                </a>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Search Results */}
+        {(searchResults.length > 0 || displayedSearchResults.length > 0) && (
+          <div className="border-t border-border pt-4">
+
+            {/* Filters Bar */}
+            <div className="bg-background-elevated rounded-lg p-3 border border-border mb-4 flex flex-wrap gap-4 items-center">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-foreground-muted">Filter:</span>
+              </div>
+
+              {/* Followers */}
+              <div className="flex items-center gap-2">
+                <Input
+                  placeholder="Min Follow"
+                  type="number"
+                  className="w-24 h-8 text-xs"
+                  value={minFollowersFilter}
+                  onChange={e => setMinFollowersFilter(e.target.value)}
+                />
+                <span className="text-foreground-muted">-</span>
+                <Input
+                  placeholder="Max Follow"
+                  type="number"
+                  className="w-24 h-8 text-xs"
+                  value={maxFollowersFilter}
+                  onChange={e => setMaxFollowersFilter(e.target.value)}
+                />
+              </div>
+
+              {/* Posts */}
+              <div className="flex items-center gap-2">
+                <Input
+                  placeholder="Min Posts"
+                  type="number"
+                  className="w-24 h-8 text-xs"
+                  value={minPostsFilter}
+                  onChange={e => setMinPostsFilter(e.target.value)}
+                />
+              </div>
+
+              {/* Business Toggle */}
+              <button
+                onClick={() => setIsBusinessFilter(prev => prev === true ? null : true)}
+                className={cn(
+                  "px-2 py-1 rounded text-xs font-medium border transition-colors",
+                  isBusinessFilter === true
+                    ? "bg-accent/20 text-accent border-accent/30"
+                    : "bg-background border-border text-foreground-muted hover:text-foreground"
+                )}
+              >
+                Only Business
+              </button>
+
+              <button
+                onClick={() => setIsBusinessFilter(prev => prev === false ? null : false)}
+                className={cn(
+                  "px-2 py-1 rounded text-xs font-medium border transition-colors",
+                  isBusinessFilter === false
+                    ? "bg-accent/20 text-accent border-accent/30"
+                    : "bg-background border-border text-foreground-muted hover:text-foreground"
+                )}
+              >
+                Only Personal
+              </button>
+
+              <div className="flex-1">
+                {selectedResultIds.size > 0 && (
+                  <div className="flex justify-end mr-4">
+                    <Button
+                      size="sm"
+                      onClick={handleAddSelectedLeads}
+                      className="animate-in fade-in zoom-in"
+                    >
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Add {selectedResultIds.size} Leads
+                    </Button>
+                  </div>
+                )}
+              </div>
+              <div className="text-xs text-foreground-muted">
+                Showing {filteredSearchResults.length} of {searchResults.length}
+              </div>
+            </div>
+            {/* Search info header */}
+            {searchResults.length > 0 && displayedSearchResults.length === 0 && !isLoadingBatch && (
+              <div className="mb-4 p-4 rounded-lg bg-accent/10 border border-accent/20">
+                <p className="text-sm text-accent font-medium">
+                  ✨ Found {searchResults.length} profiles. Loading first {Math.min(batchSize, searchResults.length)}...
+                </p>
+              </div>
+            )}
+
+            {/* Loading indicator */}
+            {isLoadingBatch && (
+              <div className="mb-4 p-4 rounded-lg bg-accent/10 border border-accent/20">
+                <div className="flex items-center gap-3">
+                  <RefreshCw className="h-5 w-5 text-accent animate-spin flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm text-accent font-medium">
+                      Loading profile {loadingProgress.current} of {loadingProgress.total}...
+                    </p>
+                    <div className="mt-2 bg-background-muted rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-accent h-full transition-all duration-300"
+                        style={{ width: `${(loadingProgress.current / loadingProgress.total) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Displayed results */}
+            {displayedSearchResults.length > 0 && (
+              <>
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h4 className="font-medium text-foreground">
+                      Loaded {filteredSearchResults.length} profiles
+                    </h4>
+                    <div className="flex gap-3 mt-1">
+                      {searchType === "hashtag" && (
+                        <span className="text-xs text-foreground-muted flex items-center gap-1">
+                          <Users className="h-3 w-3" />
+                          {
+                            displayedSearchResults.filter(
+                              (u) =>
+                                u.source === "bio_match" || u.source === "hashtag"
+                            ).length
+                          }{" "}
+                          from bio search
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <Button size="sm" onClick={() => handleAddLeads(filteredSearchResults)} disabled={isLoadingBatch || filteredSearchResults.length === 0}>
+                    <UserPlus className="h-4 w-4" />
+                    Add All {filteredSearchResults.length} as Leads
+                  </Button>
+                </div>
+
+                {/* Results Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[500px] overflow-y-auto">
+                  {filteredSearchResults.map((user, i) => (
+                    <div
+                      key={`${user.pk}-${i}`}
+                      className={cn(
+                        "p-3 rounded-lg border transition-colors relative group",
+                        user.source === "bio_match"
+                          ? "bg-emerald-500/5 border-emerald-500/20 hover:bg-emerald-500/10"
+                          : "bg-background-elevated border-border hover:bg-background-elevated/80"
+                      )}>
+                      {/* Selection & Dismiss */}
+                      <div className="absolute top-2 right-2 flex gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="bg-background rounded-md border border-border p-0.5" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedResultIds.has(user.pk)}
+                            onCheckedChange={() => handleToggleResultSelection(user.pk)}
+                          />
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 bg-background/80 hover:bg-destructive/10 hover:text-destructive border border-transparent hover:border-destructive/20"
+                          onClick={(e) => { e.stopPropagation(); handleDismissResult(user.pk); }}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <Avatar
+                          src={user.profilePicUrl}
+                          name={user.username}
+                          size="md"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-sm font-medium text-foreground truncate">
+                              @{user.username}
+                            </p>
+                            {user.isVerified && (
+                              <CheckCircle2 className="h-3.5 w-3.5 text-accent flex-shrink-0" />
+                            )}
+                            {user.isPrivate && (
+                              <span className="text-xs text-amber-400">🔒</span>
+                            )}
+                          </div>
+                          <p className="text-xs text-foreground-muted truncate">
+                            {user.fullName}
+                          </p>
+
+                          {/* Follower count */}
+                          {user.followerCount && (
+                            <p className="text-xs text-foreground-subtle mt-1">
+                              {user.followerCount.toLocaleString()} followers
+                            </p>
+                          )}
+
+                          {/* Bio preview */}
+                          {user.bio && (
+                            <p className="text-xs text-foreground-muted mt-1 line-clamp-2">
+                              {user.bio}
+                            </p>
+                          )}
+
+                          {/* Source & Matched keyword badges */}
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {user.source && (
+                              <span
+                                className={cn(
+                                  "px-1.5 py-0.5 rounded text-[10px] font-medium",
+                                  user.source === "bio_match"
+                                    ? "bg-emerald-500/20 text-emerald-400"
+                                    : "bg-accent/20 text-accent"
+                                )}>
+                                {user.source === "bio_match"
+                                  ? "📝 Bio match"
+                                  : "#️⃣ Hashtag"}
+                              </span>
+                            )}
+                            {user.matchedKeyword && (
+                              <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 text-[10px] font-medium">
+                                ✓ {user.matchedKeyword}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* View Profile Button */}
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            className="mt-2 w-full text-xs"
+                            onClick={() => {
+                              setProfileModalUsername(user.username);
+                              setShowLeadProfileModal(true);
+                            }}
+                          >
+                            <Eye className="h-3 w-3 mr-1" />
+                            View Profile
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Load More Button - Hide for Apify or if all filtered. Or just show "Load More" for Cookie mode */}
+                {discoveryMethod !== 'apify' && currentBatchIndex < searchResults.length && !isLoadingBatch && (
+                  <div className="mt-4 flex flex-col items-center gap-2">
+                    <Button
+                      variant="secondary"
+                      onClick={() => loadNextBatch(moreBatchSize)}
+                      disabled={isLoadingBatch}
+                    >
+                      Load {Math.min(moreBatchSize, searchResults.length - currentBatchIndex)} More
+                      ({searchResults.length - currentBatchIndex} remaining)
+                    </Button>
+                    <p className="text-xs text-foreground-muted">
+                      Each profile loads with 5-15 second delay for safety
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Old Search Results (shown only when not using batch loading) */}
+        {searchResults.length > 0 && displayedSearchResults.length === 0 && !isLoadingBatch && false && (
+          <div className="border-t border-border pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h4 className="font-medium text-foreground">
+                  Found {searchResults.length} potential leads
+                </h4>
+                <div className="flex gap-3 mt-1">
+                  {searchType === "hashtag" && (
+                    <span className="text-xs text-foreground-muted flex items-center gap-1">
+                      <Users className="h-3 w-3" />
+                      {
+                        searchResults.filter(
+                          (u) =>
+                            u.source === "bio_match" || u.source === "hashtag"
+                        ).length
+                      }{" "}
+                      from bio search
+                    </span>
+                  )}
+                  {hasMoreResults && (
+                    <span className="text-xs text-accent">
+                      More available
+                    </span>
+                  )}
+                </div>
+              </div>
+              <Button size="sm" onClick={() => handleAddLeads(searchResults)}>
+                <UserPlus className="h-4 w-4" />
+                Add All {searchResults.length} as Leads
+              </Button>
+            </div>
+
+            {/* Results Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[500px] overflow-y-auto">
+              {searchResults.map((user, i) => (
+                <div
+                  key={`${user.pk}-${i}`}
+                  className={cn(
+                    "p-3 rounded-lg border transition-colors",
+                    user.source === "bio_match"
+                      ? "bg-emerald-500/5 border-emerald-500/20 hover:bg-emerald-500/10"
+                      : "bg-background-elevated border-border hover:bg-background-elevated/80"
+                  )}>
+                  <div className="flex items-start gap-3">
+                    <Avatar
+                      src={user.profilePicUrl}
+                      name={user.username}
+                      size="md"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          @{user.username}
+                        </p>
+                        {user.isVerified && (
+                          <CheckCircle2 className="h-3.5 w-3.5 text-accent flex-shrink-0" />
+                        )}
+                        {user.isPrivate && (
+                          <span className="text-xs text-amber-400">🔒</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-foreground-muted truncate">
+                        {user.fullName}
+                      </p>
+
+                      {/* Follower count */}
+                      {user.followerCount && (
+                        <p className="text-xs text-foreground-subtle mt-1">
+                          {user.followerCount.toLocaleString()} followers
+                        </p>
+                      )}
+
+                      {/* Bio preview */}
+                      {user.bio && (
+                        <p className="text-xs text-foreground-muted mt-1 line-clamp-2">
+                          {user.bio}
+                        </p>
+                      )}
+
+                      {/* Source & Matched keyword badges */}
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {user.source && (
+                          <span
+                            className={cn(
+                              "px-1.5 py-0.5 rounded text-[10px] font-medium",
+                              user.source === "bio_match"
+                                ? "bg-emerald-500/20 text-emerald-400"
+                                : "bg-accent/20 text-accent"
+                            )}>
+                            {user.source === "bio_match"
+                              ? "📝 Bio match"
+                              : "#️⃣ Hashtag"}
                           </span>
                         )}
-                        {hasMoreResults && (
-                          <span className="text-xs text-accent">
-                            More available
+                        {user.matchedKeyword && (
+                          <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 text-[10px] font-medium">
+                            ✓ {user.matchedKeyword}
                           </span>
                         )}
                       </div>
                     </div>
-                    <Button size="sm" onClick={() => handleAddLeads(searchResults)}>
-                      <UserPlus className="h-4 w-4" />
-                      Add All {searchResults.length} as Leads
-                    </Button>
-                  </div>
-
-                  {/* Results Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[500px] overflow-y-auto">
-                    {searchResults.map((user, i) => (
-                      <div
-                        key={`${user.pk}-${i}`}
-                        className={cn(
-                          "p-3 rounded-lg border transition-colors",
-                          user.source === "bio_match"
-                            ? "bg-emerald-500/5 border-emerald-500/20 hover:bg-emerald-500/10"
-                            : "bg-background-elevated border-border hover:bg-background-elevated/80"
-                        )}>
-                        <div className="flex items-start gap-3">
-                          <Avatar
-                            src={user.profilePicUrl}
-                            name={user.username}
-                            size="md"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5">
-                              <p className="text-sm font-medium text-foreground truncate">
-                                @{user.username}
-                              </p>
-                              {user.isVerified && (
-                                <CheckCircle2 className="h-3.5 w-3.5 text-accent flex-shrink-0" />
-                              )}
-                              {user.isPrivate && (
-                                <span className="text-xs text-amber-400">🔒</span>
-                              )}
-                            </div>
-                            <p className="text-xs text-foreground-muted truncate">
-                              {user.fullName}
-                            </p>
-
-                            {/* Follower count */}
-                            {user.followerCount && (
-                              <p className="text-xs text-foreground-subtle mt-1">
-                                {user.followerCount.toLocaleString()} followers
-                              </p>
-                            )}
-
-                            {/* Bio preview */}
-                            {user.bio && (
-                              <p className="text-xs text-foreground-muted mt-1 line-clamp-2">
-                                {user.bio}
-                              </p>
-                            )}
-
-                            {/* Source & Matched keyword badges */}
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {user.source && (
-                                <span
-                                  className={cn(
-                                    "px-1.5 py-0.5 rounded text-[10px] font-medium",
-                                    user.source === "bio_match"
-                                      ? "bg-emerald-500/20 text-emerald-400"
-                                      : "bg-accent/20 text-accent"
-                                  )}>
-                                  {user.source === "bio_match"
-                                    ? "📝 Bio match"
-                                    : "#️⃣ Hashtag"}
-                                </span>
-                              )}
-                              {user.matchedKeyword && (
-                                <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 text-[10px] font-medium">
-                                  ✓ {user.matchedKeyword}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Load More / Stats */}
-                  <div className="mt-4 flex items-center justify-between">
-                    <p className="text-sm text-foreground-muted">
-                      Showing {searchResults.length} users
-                      {searchType !== "username" && ` • Limit: ${searchLimit}`}
-                    </p>
-                    {searchType !== "username" && hasMoreResults && (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => handleSearch(true)}
-                        disabled={isLoadingMore}>
-                        {isLoadingMore ? (
-                          <>
-                            <RefreshCw className="h-4 w-4 animate-spin" />
-                            Loading...
-                          </>
-                        ) : (
-                          <>
-                            <Plus className="h-4 w-4" />
-                            Load 50 More
-                          </>
-                        )}
-                      </Button>
-                    )}
-                    {!hasMoreResults && searchResults.length >= searchLimit && (
-                      <span className="text-sm text-emerald-400">
-                        ✓ All available results loaded
-                      </span>
-                    )}
                   </div>
                 </div>
+              ))}
+            </div>
+
+            {/* Load More / Stats */}
+            <div className="mt-4 flex items-center justify-between">
+              <p className="text-sm text-foreground-muted">
+                Showing {searchResults.length} users
+                {searchType !== "username" && ` • Limit: ${searchLimit}`}
+              </p>
+              {searchType !== "username" && hasMoreResults && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleSearch(true)}
+                  disabled={isLoadingMore}>
+                  {isLoadingMore ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-4 w-4" />
+                      Load 50 More
+                    </>
+                  )}
+                </Button>
               )}
+              {!hasMoreResults && searchResults.length >= searchLimit && (
+                <span className="text-sm text-emerald-400">
+                  ✓ All available results loaded
+                </span>
+              )}
+            </div>
           </div>
+        )}
+
 
         {/* Leads List */}
         <div className="bg-background-secondary rounded-xl border border-border">
@@ -4463,7 +4458,7 @@ export default function LeadsPage() {
         }}
         isAlreadyLead={leads.some(l => l.igUsername === profileModalUsername)}
       />
-    </div >
+    </div>
   );
 }
 

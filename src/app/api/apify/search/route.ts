@@ -48,7 +48,9 @@ export async function POST(options: NextRequest) {
 
         // --- ACTION: START ---
         if (action === 'start') {
-            const run = await apifyService.startSearch(searchTerms, limit);
+            // Ensure searchTerms is a comma-separated string for Apify
+            const termsStr = Array.isArray(searchTerms) ? searchTerms.join(',') : searchTerms;
+            const run = await apifyService.startSearch(termsStr, limit);
             return NextResponse.json({
                 success: true,
                 runId: run.data.id,
