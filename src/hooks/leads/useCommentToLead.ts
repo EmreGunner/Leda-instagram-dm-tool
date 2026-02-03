@@ -31,8 +31,11 @@ export function useCommentToLead({
     const [ctlIsFetchingPosts, setCtlIsFetchingPosts] = useState(false);
     const [ctlFetchProgress, setCtlFetchProgress] = useState('');
     const [ctlPostMinComments, setCtlPostMinComments] = useState(5);
-    const [ctlPostDateFilter, setCtlPostDateFilter] = useState<'all' | '7d' | '30d' | '90d'>('30d');
+    const [ctlPostDateFilter, setCtlPostDateFilter] = useState<'all' | '7d' | '30d' | '90d' | 'custom'>('30d');
     const [ctlPasteInput, setCtlPasteInput] = useState(''); // Valid URL input
+    const [ctlIsParsingPosts, setCtlIsParsingPosts] = useState(false);
+    const [ctlExpandedCaptions, setCtlExpandedCaptions] = useState<Set<string>>(new Set());
+    const [ctlPostCustomDateRange, setCtlPostCustomDateRange] = useState<DateRange | undefined>();
 
     // Wizard State - Step 3 (Extraction)
     const [commentIntentKeywords, setCommentIntentKeywords] = useState('price, how much, details, interested, dmed, sent dm, check dm, buy, cost, info, link, location, where');
@@ -300,6 +303,9 @@ export function useCommentToLead({
         commentIntentKeywords, setCommentIntentKeywords,
         ctlScrapingStatus, setCtlScrapingStatus,
         ctlDateRange, setCtlDateRange,
+        ctlIsParsingPosts, setCtlIsParsingPosts,
+        ctlExpandedCaptions, setCtlExpandedCaptions,
+        ctlPostCustomDateRange, setCtlPostCustomDateRange,
 
         // Derived
         ctlFilteredTargetPosts,
@@ -312,3 +318,5 @@ export function useCommentToLead({
         handleDeleteTarget,
     };
 }
+
+export type CommentToLeadState = ReturnType<typeof useCommentToLead>;

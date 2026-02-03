@@ -420,7 +420,7 @@ export function useLeadSearch({
     return {
         searchType, setSearchType,
         searchQuery, setSearchQuery,
-        isSearching,
+        isSearching, setIsSearching,
         searchResults, setSearchResults,
         searchLimit, setSearchLimit,
         hasMoreResults, setHasMoreResults,
@@ -434,6 +434,7 @@ export function useLeadSearch({
         loadingProgress,
         loadNextBatch,
         handleSearch,
+        currentBatchIndex,
         batchSize
     };
 }
