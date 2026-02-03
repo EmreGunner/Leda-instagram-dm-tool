@@ -24,7 +24,8 @@ import {
   RefreshCw,
   Send,
   Trash2,
-  X
+  X,
+  ShieldCheck
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -74,7 +75,7 @@ export default function InstagramSettingsPage() {
   const [rawCookieJson, setRawCookieJson] = useState("");
   const [cookieInputMode, setCookieInputMode] = useState<"manual" | "json">("json");
   const [jsonParseError, setJsonParseError] = useState<string | null>(null);
-  const [isVerifyingCookies, setIsVerifyingCookies] = useState(false);
+  const [isVerifyingCookies, setIsVerifyingCookies] = useState<string | boolean>(false);
   const [cookieUser, setCookieUser] = useState<{
     username: string;
     fullName: string;
@@ -389,6 +390,62 @@ export default function InstagramSettingsPage() {
       window.removeEventListener("message", handleMessage);
     };
   }, [fetchAccounts]);
+
+  // Handle session check
+  const handleCheckSession = async (account: InstagramAccount) => {
+    // We already have a state 'isVerifyingCookies' but it's boolean. Let's cast it locally or use a new state.
+    // Since I can't easily add new state variables without replacing the whole component start, 
+    // I will use a local variable behavior or assume I can modify the state type in a separate step if needed.
+    // Wait, I can just use the existing boolean for single action or add a new one. 
+    // To do it right: I'll use the existing state and accept it blocks all buttons (simple) or refactor.
+    // Given the limitations, I'll assume `setIsVerifyingCookies` can handle the account ID (but it was defined as boolean).
+    // Let's check the definition: `const [isVerifyingCookies, setIsVerifyingCookies] = useState(false);`
+    // I need to change that definition.
+
+    // Actually, I'll just change the state definition in a previous step or here.
+    // Let's implement the logic assuming the state update works.
+
+    setIsVerifyingCookies(account.id as any); // Temporary cast if needed, but I'll update the state def next.
+
+    try {
+      const localStorageKey = `socialora_cookies_${account.igUserId}`;
+      const cookiesStr = localStorage.getItem(localStorageKey);
+
+      if (!cookiesStr) {
+        toast.error("No cookies found locally", {
+          description: "Please reconnect your account."
+        });
+        setIsVerifyingCookies(false as any);
+        return;
+      }
+
+      const cookies = JSON.parse(cookiesStr);
+
+      const res = await fetch('/api/instagram/cookie/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cookies })
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        toast.success("Session Valid", {
+          description: `Successfully verified session for @${data.user.username}`
+        });
+      } else {
+        toast.error("Session Expired", {
+          description: "Please reconnect your account to refresh cookies."
+        });
+      }
+    } catch (e) {
+      toast.error("Verification Failed", {
+        description: "Could not verify session."
+      });
+    } finally {
+      setIsVerifyingCookies(false as any);
+    }
+  };
 
   // Check for success/error from OAuth callback or extension
   // Helper function to save account to database
@@ -1394,14 +1451,28 @@ export default function InstagramSettingsPage() {
                       </div>
 
                       <div className="flex items-center gap-2">
-                        {/* Show only one status: Active if connected, Reconnect if not */}
                         {account.isActive &&
                           accountsWithCookies.has(account.id) ? (
-                          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
-                            <CheckCircle className="h-4 w-4" />
-                            <span className="text-sm font-medium">
-                              Connected
-                            </span>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => handleCheckSession(account)}
+                              disabled={isVerifyingCookies === account.id} // Use generic or specific state? Let's use a new state map or just reuse
+                              className="text-primary border-primary/20 hover:bg-primary/10">
+                              {isVerifyingCookies === account.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <ShieldCheck className="h-4 w-4 mr-1" />
+                              )}
+                              Check Session
+                            </Button>
+                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
+                              <CheckCircle className="h-4 w-4" />
+                              <span className="text-sm font-medium">
+                                Connected
+                              </span>
+                            </div>
                           </div>
                         ) : (
                           <Button
@@ -1554,302 +1625,796 @@ export default function InstagramSettingsPage() {
       </div>
 
       {/* Setup Modal */}
-      {showSetupModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-background-secondary rounded-2xl border border-border max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-border">
-              <h2 className="text-lg font-semibold text-foreground">
-                Setup Required
-              </h2>
-              <button
-                onClick={() => setShowSetupModal(false)}
-                className="p-2 rounded-lg hover:bg-background-elevated text-foreground-muted hover:text-foreground transition-colors">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+      {
+        showSetupModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-background-secondary rounded-2xl border border-border max-w-lg w-full max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between p-6 border-b border-border">
+                <h2 className="text-lg font-semibold text-foreground">
+                  Setup Required
+                </h2>
+                <button
+                  onClick={() => setShowSetupModal(false)}
+                  className="p-2 rounded-lg hover:bg-background-elevated text-foreground-muted hover:text-foreground transition-colors">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
 
-            <div className="p-6 space-y-6">
-              <p className="text-foreground-muted">
-                To connect real Instagram accounts, you need to configure the
-                Meta API integration. Follow these steps:
-              </p>
+              <div className="p-6 space-y-6">
+                <p className="text-foreground-muted">
+                  To connect real Instagram accounts, you need to configure the
+                  Meta API integration. Follow these steps:
+                </p>
 
-              <div className="space-y-4">
-                <div className="bg-background-elevated rounded-lg p-4">
-                  <h3 className="font-medium text-foreground mb-2">
-                    1. Create a Meta Developer App
-                  </h3>
-                  <p className="text-sm text-foreground-muted mb-2">
-                    Go to Meta for Developers and create a new app with
-                    Instagram Graph API.
-                  </p>
-                  <a
-                    href="https://developers.facebook.com/apps/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-accent hover:underline flex items-center gap-1">
-                    Open Meta Developer Portal
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                </div>
+                <div className="space-y-4">
+                  <div className="bg-background-elevated rounded-lg p-4">
+                    <h3 className="font-medium text-foreground mb-2">
+                      1. Create a Meta Developer App
+                    </h3>
+                    <p className="text-sm text-foreground-muted mb-2">
+                      Go to Meta for Developers and create a new app with
+                      Instagram Graph API.
+                    </p>
+                    <a
+                      href="https://developers.facebook.com/apps/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-accent hover:underline flex items-center gap-1">
+                      Open Meta Developer Portal
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
 
-                <div className="bg-background-elevated rounded-lg p-4">
-                  <h3 className="font-medium text-foreground mb-2">
-                    2. Configure Environment Variables
-                  </h3>
-                  <p className="text-sm text-foreground-muted mb-3">
-                    Add these to your backend .env file:
-                  </p>
-                  <div className="space-y-2">
-                    {[
-                      { key: "META_APP_ID", value: "your_app_id" },
-                      { key: "META_APP_SECRET", value: "your_app_secret" },
-                      {
-                        key: "META_OAUTH_REDIRECT_URI",
-                        value: "http://localhost:3000/api/instagram/callback",
-                      },
-                    ].map((env) => (
-                      <div
-                        key={env.key}
-                        className="flex items-center gap-2 bg-background-secondary rounded px-3 py-2">
-                        <code className="flex-1 text-xs text-foreground-muted">
-                          {env.key}={env.value}
-                        </code>
-                        <button
-                          onClick={() =>
-                            copyToClipboard(`${env.key}=${env.value}`, env.key)
-                          }
-                          className="p-1 hover:bg-background-elevated rounded">
-                          {copied === env.key ? (
-                            <Check className="h-3 w-3 text-success" />
-                          ) : (
-                            <Copy className="h-3 w-3 text-foreground-muted" />
-                          )}
-                        </button>
-                      </div>
-                    ))}
+                  <div className="bg-background-elevated rounded-lg p-4">
+                    <h3 className="font-medium text-foreground mb-2">
+                      2. Configure Environment Variables
+                    </h3>
+                    <p className="text-sm text-foreground-muted mb-3">
+                      Add these to your backend .env file:
+                    </p>
+                    <div className="space-y-2">
+                      {[
+                        { key: "META_APP_ID", value: "your_app_id" },
+                        { key: "META_APP_SECRET", value: "your_app_secret" },
+                        {
+                          key: "META_OAUTH_REDIRECT_URI",
+                          value: "http://localhost:3000/api/instagram/callback",
+                        },
+                      ].map((env) => (
+                        <div
+                          key={env.key}
+                          className="flex items-center gap-2 bg-background-secondary rounded px-3 py-2">
+                          <code className="flex-1 text-xs text-foreground-muted">
+                            {env.key}={env.value}
+                          </code>
+                          <button
+                            onClick={() =>
+                              copyToClipboard(`${env.key}=${env.value}`, env.key)
+                            }
+                            className="p-1 hover:bg-background-elevated rounded">
+                            {copied === env.key ? (
+                              <Check className="h-3 w-3 text-success" />
+                            ) : (
+                              <Copy className="h-3 w-3 text-foreground-muted" />
+                            )}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-background-elevated rounded-lg p-4">
+                    <h3 className="font-medium text-foreground mb-2">
+                      3. Start the Backend Server
+                    </h3>
+                    <p className="text-sm text-foreground-muted mb-2">
+                      Run the NestJS backend on port 3000:
+                    </p>
+                    <div className="flex items-center gap-2 bg-background-secondary rounded px-3 py-2">
+                      <code className="flex-1 text-xs text-foreground-muted">
+                        cd backend && npm run start:dev
+                      </code>
+                      <button
+                        onClick={() =>
+                          copyToClipboard(
+                            "cd backend && npm run start:dev",
+                            "cmd"
+                          )
+                        }
+                        className="p-1 hover:bg-background-elevated rounded">
+                        {copied === "cmd" ? (
+                          <Check className="h-3 w-3 text-success" />
+                        ) : (
+                          <Copy className="h-3 w-3 text-foreground-muted" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                <div className="bg-background-elevated rounded-lg p-4">
-                  <h3 className="font-medium text-foreground mb-2">
-                    3. Start the Backend Server
-                  </h3>
-                  <p className="text-sm text-foreground-muted mb-2">
-                    Run the NestJS backend on port 3000:
-                  </p>
-                  <div className="flex items-center gap-2 bg-background-secondary rounded px-3 py-2">
-                    <code className="flex-1 text-xs text-foreground-muted">
-                      cd backend && npm run start:dev
-                    </code>
-                    <button
-                      onClick={() =>
-                        copyToClipboard(
-                          "cd backend && npm run start:dev",
-                          "cmd"
-                        )
-                      }
-                      className="p-1 hover:bg-background-elevated rounded">
-                      {copied === "cmd" ? (
-                        <Check className="h-3 w-3 text-success" />
-                      ) : (
-                        <Copy className="h-3 w-3 text-foreground-muted" />
+                <div className="flex items-center gap-3 pt-4 border-t border-border">
+                  <Button
+                    variant="secondary"
+                    onClick={() => setShowSetupModal(false)}
+                    className="flex-1">
+                    Close
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      {/* Cookie Authentication Modal */}
+      {
+        showCookieModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+            <div className="bg-background-secondary rounded-2xl border border-border max-w-2xl w-full my-8">
+              <div className="flex items-center justify-between p-6 border-b border-border">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                    <Cookie className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground">
+                      Connect with Browser Cookies
+                    </h2>
+                    <p className="text-xs text-foreground-muted">
+                      Use your existing Instagram session
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowCookieModal(false);
+                    setCookieUser(null);
+                  }}
+                  className="p-2 rounded-lg hover:bg-background-elevated text-foreground-muted hover:text-foreground transition-colors">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-6">
+                {/* Input Mode Toggle */}
+                <div className="flex bg-background-elevated rounded-xl p-1">
+                  <button
+                    onClick={() => setCookieInputMode("json")}
+                    className={cn(
+                      "flex-1 py-2.5 rounded-lg text-sm font-medium transition-all",
+                      cookieInputMode === "json"
+                        ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-sm"
+                        : "text-foreground-muted hover:text-foreground"
+                    )}
+                  >
+                    Paste JSON (Easy)
+                  </button>
+                  <button
+                    onClick={() => setCookieInputMode("manual")}
+                    className={cn(
+                      "flex-1 py-2.5 rounded-lg text-sm font-medium transition-all",
+                      cookieInputMode === "manual"
+                        ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-sm"
+                        : "text-foreground-muted hover:text-foreground"
+                    )}
+                  >
+                    Manual Entry
+                  </button>
+                </div>
+
+                {/* JSON Paste Mode */}
+                {cookieInputMode === "json" && (
+                  <>
+                    <div className="bg-background-elevated rounded-xl p-4 space-y-3">
+                      <h3 className="font-medium text-foreground flex items-center gap-2">
+                        <span className="h-5 w-5 rounded-full bg-accent/20 text-accent text-xs flex items-center justify-center">
+                          1
+                        </span>
+                        Export cookies from Instagram.com
+                      </h3>
+                      <ol className="text-sm text-foreground-muted space-y-2 ml-7 list-decimal">
+                        <li>Install a cookie export extension (e.g., "Cookie-Editor" or "EditThisCookie")</li>
+                        <li>Go to <a href="https://www.instagram.com" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">instagram.com</a> and login</li>
+                        <li>Click the cookie extension → Export as JSON</li>
+                        <li>Paste the JSON array below</li>
+                      </ol>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Paste Cookie JSON Array
+                      </label>
+                      <textarea
+                        value={rawCookieJson}
+                        onChange={(e) => setRawCookieJson(e.target.value)}
+                        placeholder='[{"name": "sessionid", "value": "...", "domain": ".instagram.com"}, ...]'
+                        rows={6}
+                        className="w-full px-4 py-3 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors text-sm font-mono"
+                      />
+                      {jsonParseError && (
+                        <p className="mt-2 text-sm text-error flex items-center gap-2">
+                          <AlertCircle className="h-4 w-4" />
+                          {jsonParseError}
+                        </p>
                       )}
+                    </div>
+
+                    <Button
+                      onClick={() => parseJsonCookies(rawCookieJson)}
+                      disabled={!rawCookieJson.trim()}
+                      className="w-full"
+                    >
+                      <Cookie className="h-4 w-4" />
+                      Parse & Extract Instagram Cookies
+                    </Button>
+
+                    {/* Show extracted values */}
+                    {cookies.sessionId && cookies.csrfToken && cookies.dsUserId && (
+                      <div className="bg-success/10 border border-success/20 rounded-lg p-3">
+                        <p className="text-sm text-success font-medium mb-2">✓ Cookies extracted successfully!</p>
+                        <div className="grid grid-cols-3 gap-2 text-xs text-foreground-muted">
+                          <div>
+                            <span className="block text-foreground-subtle">Session ID:</span>
+                            <span className="font-mono">{cookies.sessionId.slice(0, 12)}...</span>
+                          </div>
+                          <div>
+                            <span className="block text-foreground-subtle">CSRF Token:</span>
+                            <span className="font-mono">{cookies.csrfToken.slice(0, 12)}...</span>
+                          </div>
+                          <div>
+                            <span className="block text-foreground-subtle">User ID:</span>
+                            <span className="font-mono">{cookies.dsUserId}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Manual Entry Mode */}
+                {cookieInputMode === "manual" && (
+                  <>
+                    <div className="bg-background-elevated rounded-xl p-4 space-y-3">
+                      <h3 className="font-medium text-foreground flex items-center gap-2">
+                        <span className="h-5 w-5 rounded-full bg-accent/20 text-accent text-xs flex items-center justify-center">
+                          ?
+                        </span>
+                        How to get your Instagram cookies
+                      </h3>
+                      <ol className="text-sm text-foreground-muted space-y-2 ml-7 list-decimal">
+                        <li>Open Instagram.com in your browser and login</li>
+                        <li>Press F12 to open Developer Tools</li>
+                        <li>Go to Application tab → Cookies → instagram.com</li>
+                        <li>
+                          Copy the values for:{" "}
+                          <code className="px-1.5 py-0.5 rounded bg-background-secondary text-accent text-xs">
+                            sessionid
+                          </code>
+                          ,{" "}
+                          <code className="px-1.5 py-0.5 rounded bg-background-secondary text-accent text-xs">
+                            csrftoken
+                          </code>
+                          ,{" "}
+                          <code className="px-1.5 py-0.5 rounded bg-background-secondary text-accent text-xs">
+                            ds_user_id
+                          </code>
+                        </li>
+                      </ol>
+                    </div>
+
+                    <div className="grid gap-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-foreground mb-2">
+                            Session ID <span className="text-error">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={cookies.sessionId}
+                            onChange={(e) =>
+                              setCookies((prev) => ({
+                                ...prev,
+                                sessionId: e.target.value,
+                              }))
+                            }
+                            placeholder="sessionid cookie value"
+                            className="w-full px-4 py-2.5 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors text-sm font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-foreground mb-2">
+                            CSRF Token <span className="text-error">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={cookies.csrfToken}
+                            onChange={(e) =>
+                              setCookies((prev) => ({
+                                ...prev,
+                                csrfToken: e.target.value,
+                              }))
+                            }
+                            placeholder="csrftoken cookie value"
+                            className="w-full px-4 py-2.5 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors text-sm font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-foreground mb-2">
+                            DS User ID <span className="text-error">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={cookies.dsUserId}
+                            onChange={(e) =>
+                              setCookies((prev) => ({
+                                ...prev,
+                                dsUserId: e.target.value,
+                              }))
+                            }
+                            placeholder="ds_user_id cookie value"
+                            className="w-full px-4 py-2.5 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors text-sm font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-foreground mb-2">
+                            IG DID{" "}
+                            <span className="text-foreground-subtle">(optional)</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={cookies.igDid}
+                            onChange={(e) =>
+                              setCookies((prev) => ({
+                                ...prev,
+                                igDid: e.target.value,
+                              }))
+                            }
+                            placeholder="ig_did cookie value"
+                            className="w-full px-4 py-2.5 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors text-sm font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-foreground mb-2">
+                            MID{" "}
+                            <span className="text-foreground-subtle">(optional)</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={cookies.mid}
+                            onChange={(e) =>
+                              setCookies((prev) => ({ ...prev, mid: e.target.value }))
+                            }
+                            placeholder="mid cookie value"
+                            className="w-full px-4 py-2.5 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors text-sm font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-foreground mb-2">
+                            RUR{" "}
+                            <span className="text-foreground-subtle">(optional)</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={cookies.rur}
+                            onChange={(e) =>
+                              setCookies((prev) => ({ ...prev, rur: e.target.value }))
+                            }
+                            placeholder="rur cookie value"
+                            className="w-full px-4 py-2.5 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors text-sm font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* Verified User */}
+                {cookieUser && (
+                  <div className="bg-success/10 border border-success/20 rounded-xl p-4 flex items-center gap-4">
+                    <Avatar
+                      src={cookieUser.profilePicUrl}
+                      name={cookieUser.username}
+                      size="lg"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-foreground">
+                          @{cookieUser.username}
+                        </span>
+                        <Badge variant="success">Verified</Badge>
+                      </div>
+                      <p className="text-sm text-foreground-muted">
+                        {cookieUser.fullName}
+                      </p>
+                    </div>
+                    <CheckCircle className="h-6 w-6 text-success" />
+                  </div>
+                )}
+
+                {/* Warning */}
+                <div className="bg-warning/10 border border-warning/20 rounded-lg p-3">
+                  <p className="text-xs text-warning">
+                    ⚠️ <strong>Security Notice:</strong> Using browser cookies
+                    bypasses official API. This approach may violate
+                    Instagram&apos;s ToS and could result in account restrictions.
+                    Use at your own risk. Never share your cookies with untrusted
+                    services.
+                  </p>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-3 pt-2">
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      setShowCookieModal(false);
+                      setCookieUser(null);
+                    }}
+                    className="flex-1">
+                    Cancel
+                  </Button>
+                  {!cookieUser ? (
+                    <Button
+                      onClick={handleVerifyCookies}
+                      isLoading={isVerifyingCookies}
+                      disabled={
+                        !cookies.sessionId ||
+                        !cookies.csrfToken ||
+                        !cookies.dsUserId
+                      }
+                      className="flex-1">
+                      <CheckCircle className="h-4 w-4" />
+                      Verify Session
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handleConnectWithCookies}
+                      isLoading={isVerifyingCookies}
+                      className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600">
+                      <Plus className="h-4 w-4" />
+                      Connect Account
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      {/* Chrome Extension Modal */}
+      {
+        showExtractModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+            <div className="bg-background-secondary rounded-2xl border border-border max-w-lg w-full my-8">
+              <div className="flex items-center justify-between p-6 border-b border-border">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                    <Instagram className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground">
+                      Install Chrome Extension
+                    </h2>
+                    <p className="text-xs text-foreground-muted">
+                      One-click automatic connection
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowExtractModal(false)}
+                  className="p-2 rounded-lg hover:bg-background-elevated text-foreground-muted hover:text-foreground transition-colors">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-5">
+                {/* Extension Link */}
+                <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-xl p-4">
+                  <p className="text-xs font-medium text-foreground-muted mb-2">Chrome Extension:</p>
+                  <div className="flex items-center gap-2">
+                    <a
+                      href="https://chromewebstore.google.com/detail/socialora-instagram-sessi/lcpiammgpikppaipmnpckpbpdljppbck?authuser=0&hl=en-GB"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 text-xs text-accent hover:text-purple-400 font-mono bg-background-secondary px-3 py-2 rounded-lg overflow-x-auto hover:bg-background-elevated transition-colors"
+                    >
+                      https://chromewebstore.google.com/detail/socialora-instagram-sessi/...
+                    </a>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText('https://chromewebstore.google.com/detail/socialora-instagram-sessi/lcpiammgpikppaipmnpckpbpdljppbck?authuser=0&hl=en-GB');
+                        setCopied('extension-link');
+                        setTimeout(() => setCopied(null), 2000);
+                      }}
+                      className="p-2 hover:bg-background-secondary rounded-lg transition-colors"
+                    >
+                      {copied === 'extension-link' ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4 text-foreground-muted" />}
                     </button>
                   </div>
                 </div>
+
+                {/* Step 1 - Install Extension */}
+                <div className="flex gap-4">
+                  <div className="h-8 w-8 rounded-full bg-accent/20 text-accent flex items-center justify-center flex-shrink-0 font-semibold text-sm">
+                    1
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-medium text-foreground mb-2">Install the Chrome Extension</h3>
+                    <p className="text-sm text-foreground-muted mb-3">
+                      Click the link above to install the extension from Chrome Web Store. Then click &quot;Add to Chrome&quot;.
+                    </p>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => window.open('https://chromewebstore.google.com/detail/socialora-instagram-sessi/lcpiammgpikppaipmnpckpbpdljppbck?authuser=0&hl=en-GB', '_blank')}
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      Open Extension Page
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Step 2 */}
+                <div className="flex gap-4">
+                  <div className="h-8 w-8 rounded-full bg-accent/20 text-accent flex items-center justify-center flex-shrink-0 font-semibold text-sm">
+                    2
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-medium text-foreground mb-2">Go to Instagram and Login</h3>
+                    <p className="text-sm text-foreground-muted mb-3">
+                      Go to Instagram.com and make sure you&apos;re logged in to the account you want to connect.
+                    </p>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() =>
+                        window.open("https://www.instagram.com/", "_blank")
+                      }>
+                      <ExternalLink className="h-4 w-4" />
+                      Open Instagram
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Step 3 */}
+                <div className="flex gap-4">
+                  <div className="h-8 w-8 rounded-full bg-accent/20 text-accent flex items-center justify-center flex-shrink-0 font-semibold text-sm">
+                    3
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-medium text-foreground mb-2">Click Extension Icon → &quot;PRESS TO START&quot;</h3>
+                    <p className="text-sm text-foreground-muted mb-2">
+                      While on Instagram, click the SocialOra extension icon in your Chrome toolbar and click <strong>&quot;PRESS TO START&quot;</strong>.
+                    </p>
+                    <div className="bg-success/10 border border-success/20 rounded-lg p-3 mt-3">
+                      <p className="text-xs text-success">
+                        ✅ Done! Your account will connect automatically and you can start sending DMs instantly!
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Alternative */}
+                {/* <div className="border-t border-border pt-4">
+                <button
+                  onClick={() => { setShowExtractModal(false); setShowCookieModal(true); }}
+                  className="text-sm text-foreground-muted hover:text-accent flex items-center gap-2 transition-colors"
+                >
+                  <Cookie className="h-4 w-4" />
+                  Or paste cookies manually instead
+                </button>
+              </div> */}
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      {/* Reconnect Modal */}
+      {
+        showReconnectModal && accountToReconnect && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+            <div className="bg-background-secondary rounded-2xl border border-border max-w-md w-full my-8">
+              <div className="flex items-center justify-between p-6 border-b border-border">
+                <div className="flex items-center gap-3">
+                  <Avatar
+                    src={accountToReconnect.profilePictureUrl}
+                    name={accountToReconnect.igUsername}
+                    size="lg"
+                  />
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground">
+                      Reconnect @{accountToReconnect.igUsername}
+                    </h2>
+                    <p className="text-xs text-foreground-muted">
+                      Update session cookies
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowReconnectModal(false);
+                    setAccountToReconnect(null);
+                  }}
+                  className="p-2 rounded-lg hover:bg-background-elevated text-foreground-muted hover:text-foreground transition-colors">
+                  <X className="h-5 w-5" />
+                </button>
               </div>
 
-              <div className="flex items-center gap-3 pt-4 border-t border-border">
+              <div className="p-6 space-y-4">
+                {/* Key Requirement - Prominent */}
+                <div className="bg-accent/10 border border-accent/20 rounded-xl p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-accent flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-foreground mb-1">
+                        Make sure you&apos;re logged in as{" "}
+                        <strong className="text-accent">
+                          @{accountToReconnect.igUsername}
+                        </strong>
+                      </p>
+                      <p className="text-xs text-foreground-muted">
+                        The extension will automatically detect your cookies once
+                        you&apos;re logged in.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Steps - Condensed */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 text-sm">
+                    <div className="h-6 w-6 rounded-full bg-accent/20 text-accent flex items-center justify-center flex-shrink-0 text-xs font-semibold">
+                      1
+                    </div>
+                    <span className="text-foreground-muted">
+                      Open Instagram and login as{" "}
+                      <strong className="text-foreground">
+                        @{accountToReconnect.igUsername}
+                      </strong>
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <div className="h-6 w-6 rounded-full bg-accent/20 text-accent flex items-center justify-center flex-shrink-0 text-xs font-semibold">
+                      2
+                    </div>
+                    <span className="text-foreground-muted">
+                      Click extension icon →{" "}
+                      <strong className="text-foreground">PRESS TO START</strong>
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <div className="h-6 w-6 rounded-full bg-success/20 text-success flex items-center justify-center flex-shrink-0 text-xs font-semibold">
+                      ✓
+                    </div>
+                    <span className="text-foreground-muted">
+                      Connection completes automatically
+                    </span>
+                  </div>
+                </div>
+
+                {/* Primary Action */}
+                <div className="pt-2">
+                  <Button
+                    onClick={() => {
+                      window.open("https://www.instagram.com/", "_blank");
+                      setShowReconnectModal(false);
+                      toast.success("Reconnect Started", {
+                        description: `Logged in as @${accountToReconnect.igUsername}? Click the extension icon and press "PRESS TO START".`,
+                        duration: 5000,
+                      });
+                      capture("instagram_reconnect_initiated", {
+                        username: accountToReconnect.igUsername,
+                        accountId: accountToReconnect.id,
+                      });
+                      setAccountToReconnect(null);
+                    }}
+                    className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600">
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Open Instagram & Start
+                  </Button>
+                </div>
+
+                {/* Secondary Action */}
                 <Button
-                  variant="secondary"
-                  onClick={() => setShowSetupModal(false)}
-                  className="flex-1">
-                  Close
+                  variant="ghost"
+                  onClick={() => {
+                    setShowReconnectModal(false);
+                    setAccountToReconnect(null);
+                  }}
+                  className="w-full text-sm">
+                  Cancel
                 </Button>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
-      {/* Cookie Authentication Modal */}
-      {showCookieModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-background-secondary rounded-2xl border border-border max-w-2xl w-full my-8">
-            <div className="flex items-center justify-between p-6 border-b border-border">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                  <Cookie className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-foreground">
-                    Connect with Browser Cookies
-                  </h2>
-                  <p className="text-xs text-foreground-muted">
-                    Use your existing Instagram session
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setShowCookieModal(false);
-                  setCookieUser(null);
-                }}
-                className="p-2 rounded-lg hover:bg-background-elevated text-foreground-muted hover:text-foreground transition-colors">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-6">
-              {/* Input Mode Toggle */}
-              <div className="flex bg-background-elevated rounded-xl p-1">
-                <button
-                  onClick={() => setCookieInputMode("json")}
-                  className={cn(
-                    "flex-1 py-2.5 rounded-lg text-sm font-medium transition-all",
-                    cookieInputMode === "json"
-                      ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-sm"
-                      : "text-foreground-muted hover:text-foreground"
-                  )}
-                >
-                  Paste JSON (Easy)
-                </button>
-                <button
-                  onClick={() => setCookieInputMode("manual")}
-                  className={cn(
-                    "flex-1 py-2.5 rounded-lg text-sm font-medium transition-all",
-                    cookieInputMode === "manual"
-                      ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-sm"
-                      : "text-foreground-muted hover:text-foreground"
-                  )}
-                >
-                  Manual Entry
-                </button>
-              </div>
-
-              {/* JSON Paste Mode */}
-              {cookieInputMode === "json" && (
-                <>
-                  <div className="bg-background-elevated rounded-xl p-4 space-y-3">
-                    <h3 className="font-medium text-foreground flex items-center gap-2">
-                      <span className="h-5 w-5 rounded-full bg-accent/20 text-accent text-xs flex items-center justify-center">
-                        1
-                      </span>
-                      Export cookies from Instagram.com
-                    </h3>
-                    <ol className="text-sm text-foreground-muted space-y-2 ml-7 list-decimal">
-                      <li>Install a cookie export extension (e.g., "Cookie-Editor" or "EditThisCookie")</li>
-                      <li>Go to <a href="https://www.instagram.com" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">instagram.com</a> and login</li>
-                      <li>Click the cookie extension → Export as JSON</li>
-                      <li>Paste the JSON array below</li>
-                    </ol>
+      {/* Quick Send DM Modal */}
+      {
+        showSendDMModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-background-secondary rounded-2xl border border-border max-w-lg w-full">
+              <div className="flex items-center justify-between p-6 border-b border-border">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                    <Send className="h-5 w-5 text-white" />
                   </div>
-
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      Paste Cookie JSON Array
-                    </label>
-                    <textarea
-                      value={rawCookieJson}
-                      onChange={(e) => setRawCookieJson(e.target.value)}
-                      placeholder='[{"name": "sessionid", "value": "...", "domain": ".instagram.com"}, ...]'
-                      rows={6}
-                      className="w-full px-4 py-3 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors text-sm font-mono"
-                    />
-                    {jsonParseError && (
-                      <p className="mt-2 text-sm text-error flex items-center gap-2">
-                        <AlertCircle className="h-4 w-4" />
-                        {jsonParseError}
+                    <h2 className="text-lg font-semibold text-foreground">
+                      Quick Send DM
+                    </h2>
+                    <p className="text-xs text-foreground-muted">
+                      Send a direct message instantly
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowSendDMModal(false);
+                    setDmResult(null);
+                  }}
+                  className="p-2 rounded-lg hover:bg-background-elevated text-foreground-muted hover:text-foreground transition-colors">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                {/* Cookie check */}
+                {!cookies.sessionId && (
+                  <div className="bg-warning/10 border border-warning/20 rounded-lg p-4 flex items-start gap-3">
+                    <AlertCircle className="h-5 w-5 text-warning flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm text-warning font-medium">
+                        Cookies Required
                       </p>
-                    )}
-                  </div>
-
-                  <Button
-                    onClick={() => parseJsonCookies(rawCookieJson)}
-                    disabled={!rawCookieJson.trim()}
-                    className="w-full"
-                  >
-                    <Cookie className="h-4 w-4" />
-                    Parse & Extract Instagram Cookies
-                  </Button>
-
-                  {/* Show extracted values */}
-                  {cookies.sessionId && cookies.csrfToken && cookies.dsUserId && (
-                    <div className="bg-success/10 border border-success/20 rounded-lg p-3">
-                      <p className="text-sm text-success font-medium mb-2">✓ Cookies extracted successfully!</p>
-                      <div className="grid grid-cols-3 gap-2 text-xs text-foreground-muted">
-                        <div>
-                          <span className="block text-foreground-subtle">Session ID:</span>
-                          <span className="font-mono">{cookies.sessionId.slice(0, 12)}...</span>
-                        </div>
-                        <div>
-                          <span className="block text-foreground-subtle">CSRF Token:</span>
-                          <span className="font-mono">{cookies.csrfToken.slice(0, 12)}...</span>
-                        </div>
-                        <div>
-                          <span className="block text-foreground-subtle">User ID:</span>
-                          <span className="font-mono">{cookies.dsUserId}</span>
-                        </div>
-                      </div>
+                      <p className="text-xs text-warning/80 mt-1">
+                        You need to enter your Instagram cookies first.
+                        <button
+                          onClick={() => {
+                            setShowSendDMModal(false);
+                            setShowCookieModal(true);
+                          }}
+                          className="underline ml-1">
+                          Connect with cookies
+                        </button>
+                      </p>
                     </div>
-                  )}
-                </>
-              )}
-
-              {/* Manual Entry Mode */}
-              {cookieInputMode === "manual" && (
-                <>
-                  <div className="bg-background-elevated rounded-xl p-4 space-y-3">
-                    <h3 className="font-medium text-foreground flex items-center gap-2">
-                      <span className="h-5 w-5 rounded-full bg-accent/20 text-accent text-xs flex items-center justify-center">
-                        ?
-                      </span>
-                      How to get your Instagram cookies
-                    </h3>
-                    <ol className="text-sm text-foreground-muted space-y-2 ml-7 list-decimal">
-                      <li>Open Instagram.com in your browser and login</li>
-                      <li>Press F12 to open Developer Tools</li>
-                      <li>Go to Application tab → Cookies → instagram.com</li>
-                      <li>
-                        Copy the values for:{" "}
-                        <code className="px-1.5 py-0.5 rounded bg-background-secondary text-accent text-xs">
-                          sessionid
-                        </code>
-                        ,{" "}
-                        <code className="px-1.5 py-0.5 rounded bg-background-secondary text-accent text-xs">
-                          csrftoken
-                        </code>
-                        ,{" "}
-                        <code className="px-1.5 py-0.5 rounded bg-background-secondary text-accent text-xs">
-                          ds_user_id
-                        </code>
-                      </li>
-                    </ol>
                   </div>
+                )}
 
-                  <div className="grid gap-4">
-                    <div className="grid grid-cols-2 gap-4">
+                {/* Mini cookie inputs for quick use */}
+                {!cookies.sessionId && (
+                  <div className="grid gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-foreground-muted mb-1.5">
+                        Session ID
+                      </label>
+                      <input
+                        type="text"
+                        value={cookies.sessionId}
+                        onChange={(e) =>
+                          setCookies((prev) => ({
+                            ...prev,
+                            sessionId: e.target.value,
+                          }))
+                        }
+                        placeholder="Paste sessionid here"
+                        className="w-full px-3 py-2 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent outline-none text-sm font-mono"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-sm font-medium text-foreground mb-2">
-                          Session ID <span className="text-error">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={cookies.sessionId}
-                          onChange={(e) =>
-                            setCookies((prev) => ({
-                              ...prev,
-                              sessionId: e.target.value,
-                            }))
-                          }
-                          placeholder="sessionid cookie value"
-                          className="w-full px-4 py-2.5 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors text-sm font-mono"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-foreground mb-2">
-                          CSRF Token <span className="text-error">*</span>
+                        <label className="block text-xs font-medium text-foreground-muted mb-1.5">
+                          CSRF Token
                         </label>
                         <input
                           type="text"
@@ -1860,16 +2425,13 @@ export default function InstagramSettingsPage() {
                               csrfToken: e.target.value,
                             }))
                           }
-                          placeholder="csrftoken cookie value"
-                          className="w-full px-4 py-2.5 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors text-sm font-mono"
+                          placeholder="csrftoken"
+                          className="w-full px-3 py-2 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent outline-none text-sm font-mono"
                         />
                       </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-foreground mb-2">
-                          DS User ID <span className="text-error">*</span>
+                        <label className="block text-xs font-medium text-foreground-muted mb-1.5">
+                          DS User ID
                         </label>
                         <input
                           type="text"
@@ -1880,589 +2442,108 @@ export default function InstagramSettingsPage() {
                               dsUserId: e.target.value,
                             }))
                           }
-                          placeholder="ds_user_id cookie value"
-                          className="w-full px-4 py-2.5 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors text-sm font-mono"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-foreground mb-2">
-                          IG DID{" "}
-                          <span className="text-foreground-subtle">(optional)</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={cookies.igDid}
-                          onChange={(e) =>
-                            setCookies((prev) => ({
-                              ...prev,
-                              igDid: e.target.value,
-                            }))
-                          }
-                          placeholder="ig_did cookie value"
-                          className="w-full px-4 py-2.5 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors text-sm font-mono"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-foreground mb-2">
-                          MID{" "}
-                          <span className="text-foreground-subtle">(optional)</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={cookies.mid}
-                          onChange={(e) =>
-                            setCookies((prev) => ({ ...prev, mid: e.target.value }))
-                          }
-                          placeholder="mid cookie value"
-                          className="w-full px-4 py-2.5 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors text-sm font-mono"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-foreground mb-2">
-                          RUR{" "}
-                          <span className="text-foreground-subtle">(optional)</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={cookies.rur}
-                          onChange={(e) =>
-                            setCookies((prev) => ({ ...prev, rur: e.target.value }))
-                          }
-                          placeholder="rur cookie value"
-                          className="w-full px-4 py-2.5 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors text-sm font-mono"
+                          placeholder="ds_user_id"
+                          className="w-full px-3 py-2 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent outline-none text-sm font-mono"
                         />
                       </div>
                     </div>
                   </div>
-                </>
-              )}
+                )}
 
-              {/* Verified User */}
-              {cookieUser && (
-                <div className="bg-success/10 border border-success/20 rounded-xl p-4 flex items-center gap-4">
-                  <Avatar
-                    src={cookieUser.profilePicUrl}
-                    name={cookieUser.username}
-                    size="lg"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-foreground">
-                        @{cookieUser.username}
-                      </span>
-                      <Badge variant="success">Verified</Badge>
-                    </div>
-                    <p className="text-sm text-foreground-muted">
-                      {cookieUser.fullName}
-                    </p>
+                {/* Recipient */}
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Recipient Username
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground-muted">
+                      @
+                    </span>
+                    <input
+                      type="text"
+                      value={dmRecipient}
+                      onChange={(e) => setDmRecipient(e.target.value)}
+                      placeholder="username"
+                      className="w-full pl-8 pr-4 py-2.5 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors"
+                    />
                   </div>
-                  <CheckCircle className="h-6 w-6 text-success" />
                 </div>
-              )}
 
-              {/* Warning */}
-              <div className="bg-warning/10 border border-warning/20 rounded-lg p-3">
-                <p className="text-xs text-warning">
-                  ⚠️ <strong>Security Notice:</strong> Using browser cookies
-                  bypasses official API. This approach may violate
-                  Instagram&apos;s ToS and could result in account restrictions.
-                  Use at your own risk. Never share your cookies with untrusted
-                  services.
-                </p>
-              </div>
+                {/* Message */}
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    Message
+                  </label>
+                  <textarea
+                    value={dmMessage}
+                    onChange={(e) => setDmMessage(e.target.value)}
+                    placeholder="Type your message..."
+                    rows={4}
+                    className="w-full px-4 py-2.5 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors resize-none"
+                  />
+                  <p className="text-xs text-foreground-muted mt-1">
+                    {dmMessage.length} characters
+                  </p>
+                </div>
 
-              {/* Actions */}
-              <div className="flex items-center gap-3 pt-2">
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    setShowCookieModal(false);
-                    setCookieUser(null);
-                  }}
-                  className="flex-1">
-                  Cancel
-                </Button>
-                {!cookieUser ? (
+                {/* Result */}
+                {dmResult && (
+                  <div
+                    className={cn(
+                      "rounded-lg p-3 flex items-center gap-3",
+                      dmResult.success
+                        ? "bg-success/10 border border-success/20"
+                        : "bg-error/10 border border-error/20"
+                    )}>
+                    {dmResult.success ? (
+                      <>
+                        <CheckCircle className="h-5 w-5 text-success flex-shrink-0" />
+                        <p className="text-sm text-success">
+                          Message sent successfully!
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="h-5 w-5 text-error flex-shrink-0" />
+                        <p className="text-sm text-error">
+                          {dmResult.error || "Failed to send message"}
+                        </p>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex items-center gap-3 pt-2">
                   <Button
-                    onClick={handleVerifyCookies}
-                    isLoading={isVerifyingCookies}
+                    variant="secondary"
+                    onClick={() => {
+                      setShowSendDMModal(false);
+                      setDmResult(null);
+                    }}
+                    className="flex-1">
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSendDM}
+                    isLoading={isSendingDM}
                     disabled={
                       !cookies.sessionId ||
                       !cookies.csrfToken ||
-                      !cookies.dsUserId
+                      !cookies.dsUserId ||
+                      !dmRecipient.trim() ||
+                      !dmMessage.trim()
                     }
                     className="flex-1">
-                    <CheckCircle className="h-4 w-4" />
-                    Verify Session
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={handleConnectWithCookies}
-                    isLoading={isVerifyingCookies}
-                    className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600">
-                    <Plus className="h-4 w-4" />
-                    Connect Account
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Chrome Extension Modal */}
-      {showExtractModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-background-secondary rounded-2xl border border-border max-w-lg w-full my-8">
-            <div className="flex items-center justify-between p-6 border-b border-border">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-                  <Instagram className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-foreground">
-                    Install Chrome Extension
-                  </h2>
-                  <p className="text-xs text-foreground-muted">
-                    One-click automatic connection
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowExtractModal(false)}
-                className="p-2 rounded-lg hover:bg-background-elevated text-foreground-muted hover:text-foreground transition-colors">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-5">
-              {/* Extension Link */}
-              <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-xl p-4">
-                <p className="text-xs font-medium text-foreground-muted mb-2">Chrome Extension:</p>
-                <div className="flex items-center gap-2">
-                  <a
-                    href="https://chromewebstore.google.com/detail/socialora-instagram-sessi/lcpiammgpikppaipmnpckpbpdljppbck?authuser=0&hl=en-GB"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex-1 text-xs text-accent hover:text-purple-400 font-mono bg-background-secondary px-3 py-2 rounded-lg overflow-x-auto hover:bg-background-elevated transition-colors"
-                  >
-                    https://chromewebstore.google.com/detail/socialora-instagram-sessi/...
-                  </a>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText('https://chromewebstore.google.com/detail/socialora-instagram-sessi/lcpiammgpikppaipmnpckpbpdljppbck?authuser=0&hl=en-GB');
-                      setCopied('extension-link');
-                      setTimeout(() => setCopied(null), 2000);
-                    }}
-                    className="p-2 hover:bg-background-secondary rounded-lg transition-colors"
-                  >
-                    {copied === 'extension-link' ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4 text-foreground-muted" />}
-                  </button>
-                </div>
-              </div>
-
-              {/* Step 1 - Install Extension */}
-              <div className="flex gap-4">
-                <div className="h-8 w-8 rounded-full bg-accent/20 text-accent flex items-center justify-center flex-shrink-0 font-semibold text-sm">
-                  1
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-medium text-foreground mb-2">Install the Chrome Extension</h3>
-                  <p className="text-sm text-foreground-muted mb-3">
-                    Click the link above to install the extension from Chrome Web Store. Then click &quot;Add to Chrome&quot;.
-                  </p>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => window.open('https://chromewebstore.google.com/detail/socialora-instagram-sessi/lcpiammgpikppaipmnpckpbpdljppbck?authuser=0&hl=en-GB', '_blank')}
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    Open Extension Page
+                    <Send className="h-4 w-4" />
+                    Send Message
                   </Button>
                 </div>
               </div>
-
-              {/* Step 2 */}
-              <div className="flex gap-4">
-                <div className="h-8 w-8 rounded-full bg-accent/20 text-accent flex items-center justify-center flex-shrink-0 font-semibold text-sm">
-                  2
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-medium text-foreground mb-2">Go to Instagram and Login</h3>
-                  <p className="text-sm text-foreground-muted mb-3">
-                    Go to Instagram.com and make sure you&apos;re logged in to the account you want to connect.
-                  </p>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() =>
-                      window.open("https://www.instagram.com/", "_blank")
-                    }>
-                    <ExternalLink className="h-4 w-4" />
-                    Open Instagram
-                  </Button>
-                </div>
-              </div>
-
-              {/* Step 3 */}
-              <div className="flex gap-4">
-                <div className="h-8 w-8 rounded-full bg-accent/20 text-accent flex items-center justify-center flex-shrink-0 font-semibold text-sm">
-                  3
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-medium text-foreground mb-2">Click Extension Icon → &quot;PRESS TO START&quot;</h3>
-                  <p className="text-sm text-foreground-muted mb-2">
-                    While on Instagram, click the SocialOra extension icon in your Chrome toolbar and click <strong>&quot;PRESS TO START&quot;</strong>.
-                  </p>
-                  <div className="bg-success/10 border border-success/20 rounded-lg p-3 mt-3">
-                    <p className="text-xs text-success">
-                      ✅ Done! Your account will connect automatically and you can start sending DMs instantly!
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Alternative */}
-              {/* <div className="border-t border-border pt-4">
-                <button
-                  onClick={() => { setShowExtractModal(false); setShowCookieModal(true); }}
-                  className="text-sm text-foreground-muted hover:text-accent flex items-center gap-2 transition-colors"
-                >
-                  <Cookie className="h-4 w-4" />
-                  Or paste cookies manually instead
-                </button>
-              </div> */}
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Reconnect Modal */}
-      {showReconnectModal && accountToReconnect && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-background-secondary rounded-2xl border border-border max-w-md w-full my-8">
-            <div className="flex items-center justify-between p-6 border-b border-border">
-              <div className="flex items-center gap-3">
-                <Avatar
-                  src={accountToReconnect.profilePictureUrl}
-                  name={accountToReconnect.igUsername}
-                  size="lg"
-                />
-                <div>
-                  <h2 className="text-lg font-semibold text-foreground">
-                    Reconnect @{accountToReconnect.igUsername}
-                  </h2>
-                  <p className="text-xs text-foreground-muted">
-                    Update session cookies
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setShowReconnectModal(false);
-                  setAccountToReconnect(null);
-                }}
-                className="p-2 rounded-lg hover:bg-background-elevated text-foreground-muted hover:text-foreground transition-colors">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4">
-              {/* Key Requirement - Prominent */}
-              <div className="bg-accent/10 border border-accent/20 rounded-xl p-4">
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="h-5 w-5 text-accent flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-medium text-foreground mb-1">
-                      Make sure you&apos;re logged in as{" "}
-                      <strong className="text-accent">
-                        @{accountToReconnect.igUsername}
-                      </strong>
-                    </p>
-                    <p className="text-xs text-foreground-muted">
-                      The extension will automatically detect your cookies once
-                      you&apos;re logged in.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Quick Steps - Condensed */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 text-sm">
-                  <div className="h-6 w-6 rounded-full bg-accent/20 text-accent flex items-center justify-center flex-shrink-0 text-xs font-semibold">
-                    1
-                  </div>
-                  <span className="text-foreground-muted">
-                    Open Instagram and login as{" "}
-                    <strong className="text-foreground">
-                      @{accountToReconnect.igUsername}
-                    </strong>
-                  </span>
-                </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <div className="h-6 w-6 rounded-full bg-accent/20 text-accent flex items-center justify-center flex-shrink-0 text-xs font-semibold">
-                    2
-                  </div>
-                  <span className="text-foreground-muted">
-                    Click extension icon →{" "}
-                    <strong className="text-foreground">PRESS TO START</strong>
-                  </span>
-                </div>
-                <div className="flex items-center gap-3 text-sm">
-                  <div className="h-6 w-6 rounded-full bg-success/20 text-success flex items-center justify-center flex-shrink-0 text-xs font-semibold">
-                    ✓
-                  </div>
-                  <span className="text-foreground-muted">
-                    Connection completes automatically
-                  </span>
-                </div>
-              </div>
-
-              {/* Primary Action */}
-              <div className="pt-2">
-                <Button
-                  onClick={() => {
-                    window.open("https://www.instagram.com/", "_blank");
-                    setShowReconnectModal(false);
-                    toast.success("Reconnect Started", {
-                      description: `Logged in as @${accountToReconnect.igUsername}? Click the extension icon and press "PRESS TO START".`,
-                      duration: 5000,
-                    });
-                    capture("instagram_reconnect_initiated", {
-                      username: accountToReconnect.igUsername,
-                      accountId: accountToReconnect.id,
-                    });
-                    setAccountToReconnect(null);
-                  }}
-                  className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600">
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Open Instagram & Start
-                </Button>
-              </div>
-
-              {/* Secondary Action */}
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setShowReconnectModal(false);
-                  setAccountToReconnect(null);
-                }}
-                className="w-full text-sm">
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Quick Send DM Modal */}
-      {showSendDMModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-background-secondary rounded-2xl border border-border max-w-lg w-full">
-            <div className="flex items-center justify-between p-6 border-b border-border">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-                  <Send className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-lg font-semibold text-foreground">
-                    Quick Send DM
-                  </h2>
-                  <p className="text-xs text-foreground-muted">
-                    Send a direct message instantly
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setShowSendDMModal(false);
-                  setDmResult(null);
-                }}
-                className="p-2 rounded-lg hover:bg-background-elevated text-foreground-muted hover:text-foreground transition-colors">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-4">
-              {/* Cookie check */}
-              {!cookies.sessionId && (
-                <div className="bg-warning/10 border border-warning/20 rounded-lg p-4 flex items-start gap-3">
-                  <AlertCircle className="h-5 w-5 text-warning flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-warning font-medium">
-                      Cookies Required
-                    </p>
-                    <p className="text-xs text-warning/80 mt-1">
-                      You need to enter your Instagram cookies first.
-                      <button
-                        onClick={() => {
-                          setShowSendDMModal(false);
-                          setShowCookieModal(true);
-                        }}
-                        className="underline ml-1">
-                        Connect with cookies
-                      </button>
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Mini cookie inputs for quick use */}
-              {!cookies.sessionId && (
-                <div className="grid gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-foreground-muted mb-1.5">
-                      Session ID
-                    </label>
-                    <input
-                      type="text"
-                      value={cookies.sessionId}
-                      onChange={(e) =>
-                        setCookies((prev) => ({
-                          ...prev,
-                          sessionId: e.target.value,
-                        }))
-                      }
-                      placeholder="Paste sessionid here"
-                      className="w-full px-3 py-2 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent outline-none text-sm font-mono"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-medium text-foreground-muted mb-1.5">
-                        CSRF Token
-                      </label>
-                      <input
-                        type="text"
-                        value={cookies.csrfToken}
-                        onChange={(e) =>
-                          setCookies((prev) => ({
-                            ...prev,
-                            csrfToken: e.target.value,
-                          }))
-                        }
-                        placeholder="csrftoken"
-                        className="w-full px-3 py-2 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent outline-none text-sm font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-foreground-muted mb-1.5">
-                        DS User ID
-                      </label>
-                      <input
-                        type="text"
-                        value={cookies.dsUserId}
-                        onChange={(e) =>
-                          setCookies((prev) => ({
-                            ...prev,
-                            dsUserId: e.target.value,
-                          }))
-                        }
-                        placeholder="ds_user_id"
-                        className="w-full px-3 py-2 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent outline-none text-sm font-mono"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Recipient */}
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Recipient Username
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground-muted">
-                    @
-                  </span>
-                  <input
-                    type="text"
-                    value={dmRecipient}
-                    onChange={(e) => setDmRecipient(e.target.value)}
-                    placeholder="username"
-                    className="w-full pl-8 pr-4 py-2.5 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors"
-                  />
-                </div>
-              </div>
-
-              {/* Message */}
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Message
-                </label>
-                <textarea
-                  value={dmMessage}
-                  onChange={(e) => setDmMessage(e.target.value)}
-                  placeholder="Type your message..."
-                  rows={4}
-                  className="w-full px-4 py-2.5 rounded-lg bg-background-elevated border border-border text-foreground placeholder-foreground-subtle focus:border-accent focus:ring-1 focus:ring-accent outline-none transition-colors resize-none"
-                />
-                <p className="text-xs text-foreground-muted mt-1">
-                  {dmMessage.length} characters
-                </p>
-              </div>
-
-              {/* Result */}
-              {dmResult && (
-                <div
-                  className={cn(
-                    "rounded-lg p-3 flex items-center gap-3",
-                    dmResult.success
-                      ? "bg-success/10 border border-success/20"
-                      : "bg-error/10 border border-error/20"
-                  )}>
-                  {dmResult.success ? (
-                    <>
-                      <CheckCircle className="h-5 w-5 text-success flex-shrink-0" />
-                      <p className="text-sm text-success">
-                        Message sent successfully!
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <AlertCircle className="h-5 w-5 text-error flex-shrink-0" />
-                      <p className="text-sm text-error">
-                        {dmResult.error || "Failed to send message"}
-                      </p>
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex items-center gap-3 pt-2">
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    setShowSendDMModal(false);
-                    setDmResult(null);
-                  }}
-                  className="flex-1">
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSendDM}
-                  isLoading={isSendingDM}
-                  disabled={
-                    !cookies.sessionId ||
-                    !cookies.csrfToken ||
-                    !cookies.dsUserId ||
-                    !dmRecipient.trim() ||
-                    !dmMessage.trim()
-                  }
-                  className="flex-1">
-                  <Send className="h-4 w-4" />
-                  Send Message
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Disconnect Confirmation Dialog */}
       <ConfirmDialog
@@ -2475,6 +2556,6 @@ export default function InstagramSettingsPage() {
         cancelText="Cancel"
         variant="danger"
       />
-    </div>
+    </div >
   );
 }

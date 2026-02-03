@@ -5,7 +5,19 @@ import { ChevronLeft, ChevronRight } from "lucide-react"
 import { DayPicker } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
-import { buttonVariants } from "@/components/ui/button"
+
+
+// Helper to mimic buttonVariants since strict shadcn button.tsx is not available
+const buttonVariants = ({ variant }: { variant?: "default" | "outline" | "ghost" }) => {
+    switch (variant) {
+        case "outline":
+            return "bg-background-elevated hover:bg-border text-foreground border border-border";
+        case "ghost":
+            return "hover:bg-background-elevated text-foreground-muted hover:text-foreground";
+        default:
+            return "bg-accent hover:bg-accent-hover text-white shadow-lg shadow-accent/20";
+    }
+}
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
 

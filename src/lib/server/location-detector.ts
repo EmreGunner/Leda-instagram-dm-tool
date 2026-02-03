@@ -64,8 +64,9 @@ export class LocationDetector {
 
             // Create pattern: using word boundaries or start/end of string
             // Note: \b doesn't work well with Turkish chars, so we use a more robust pattern
-            // Matches: (start OR whitespace) + KEY + (end OR whitespace OR punctuation)
-            this.regex = new RegExp(`(^|[\\s.,!?;:()"]+)(${escapedKeys.join('|')})(?=$|[\\s.,!?;:()"]+)`, 'gi');
+            // Matches: (start OR whitespace/punct) + KEY + (end OR whitespace/punct)
+            // Added / + - _ to handle formats like "Bursa/Osmangazi" or "City+District"
+            this.regex = new RegExp(`(^|[\\s.,!?;:()"/+\\-_]+)(${escapedKeys.join('|')})(?=$|[\\s.,!?;:()"/+\\-_]+)`, 'gi');
 
             this.isInitialized = true;
             console.log(`[LocationDetector] Initialized with ${sortedKeys.length} locations`);

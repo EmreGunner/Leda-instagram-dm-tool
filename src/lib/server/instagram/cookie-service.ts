@@ -62,13 +62,15 @@ export class InstagramCookieService {
       return ig;
     } catch (error: any) {
       const errorMsg = error?.message || 'Unknown error';
+      console.error('Instagram session validation failed:', errorMsg);
+
       if (errorMsg.includes('checkpoint')) {
         throw new Error('Instagram requires verification. Please complete security checks.');
       }
       if (errorMsg.includes('login_required')) {
         throw new Error('Session expired. Please re-login to Instagram.');
       }
-      throw new Error('Failed to verify Instagram session.');
+      throw new Error(`Failed to verify Instagram session: ${errorMsg}`);
     }
   }
 

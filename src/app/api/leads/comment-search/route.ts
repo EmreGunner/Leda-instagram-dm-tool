@@ -34,92 +34,114 @@ export async function POST(req: NextRequest) {
         if (fromDate) console.log(`Date From: ${fromDate.toISOString()}`);
         if (toDate) console.log(`Date To: ${toDate.toISOString()}`);
 
-        for (const post of mediaIds) {
-            console.log(`Fetching comments for media: ${post.id} (code: ${post.code})`);
-
-            // Scrape comments for this post
-            const comments = await cookieService.getPostComments(cookies, post.id, 100); // Increased limit for surgical mode
-            console.log(`Found ${comments.length} total comments for post ${post.id}`);
-
-            for (const comment of comments) {
-                // Check date range
-                const commentDate = new Date(comment.createdAt * 1000); // Instagram returns seconds
-                if (fromDate && commentDate < fromDate) continue;
-                if (toDate && commentDate > toDate) continue;
-
-                // Skip author's own comments (assuming we can identify author, or generic check)
-                // If we attached author info to post object, we could check. 
-                // For now, let's skip if matchedKeyword seems like an answer? No, relies on intent.
-
-                const commentText = (comment.text || '').toLowerCase();
-
-                // check if comment matches intent
-                const matchedKeyword = intentLower.find((k: string) => commentText.includes(k));
-
-                if (matchedKeyword) {
-                    console.log(`  Match found! User: ${comment.user.username}, Keyword: ${matchedKeyword}`);
-
-                    // Detect metadata from caption
-                    const detector = LocationDetector.getInstance();
-                    const caption = (post.caption || '').toString();
-
-                    const location = detector.detectLocation(caption);
-                    const propertyType = detector.detectPropertyType(caption);
-                    const propertySubType = detector.detectPropertySubType(caption);
-                    const listingType = detector.detectListingType(caption);
-
-                    // Scoring Logic
-                    const now = new Date(); // Re-declare now (used below)
-                    const commentDate = new Date(comment.createdAt * 1000);
-                    const now = new Date();
-                    const diffDays = (now.getTime() - commentDate.getTime()) / (1000 * 60 * 60 * 24);
-
-                    let leadScore = 50;
-                    if (diffDays < 1) leadScore = 100;
-                    else if (diffDays <= 7) leadScore = 90;
-                    else if (diffDays <= 14) leadScore = 70;
-                    else if (diffDays <= 30) leadScore = 50;
-                    else leadScore = 30;
-
-                    leadsFound.push({
-                        pk: comment.user.pk,
-                        username: comment.user.username,
-                        fullName: comment.user.fullName,
-                        profilePicUrl: comment.user.profilePicUrl,
-                        isPrivate: comment.user.isPrivate || false,
-                        isVerified: comment.user.isVerified || false,
-                        matchedKeyword: matchedKeyword,
-                        sourcePostUrl: `https://instagram.com/p/${post.code}/`,
-                        sourcePostCaption: post.caption,
-
-                        // New Detected Fields
-                        city: location?.city,
-                        town: location?.town,
-                        propertyType: propertyType,
-                        propertySubType: propertySubType,
-                        listingType: listingType,
-
-                        commentText: comment.text,
-                        commentDate: commentDate.toISOString(),
-                        // Construct comment link (approximation as IG doesn't give direct comment URL easily without ID iteration, 
-                        // but we can try linking to post)
-                        commentLink: `https://instagram.com/p/${post.code}/c/${comment.pk}/`,
-
-                        leadScore: leadScore,
-
-                        source: 'comment-to-lead',
-                        sourceQuery: `Comment Match: ${matchedKeyword}`
-                    });
-                }
+        // Helper for chunked parallel execution
+        const processInChunks = async <T, R>(
+            items: T[],
+            batchSize: number,
+            task: (item: T) => Promise<R>
+        ): Promise<R[]> => {
+            const results: R[] = [];
+            for (let i = 0; i < items.length; i += batchSize) {
+                const chunk = items.slice(i, i + batchSize);
+                const chunkResults = await Promise.all(chunk.map(task));
+                results.push(...chunkResults);
             }
-        }
+            return results;
+        };
+
+        // 2. Scraping & Filtering Phase (Parallelized)
+        console.log(`Starting surgical comment extraction for ${mediaIds.length} posts.`);
+        console.log(`Intent keywords: ${intentLower.join(', ')}`);
+
+        const processPost = async (post: any) => {
+            const postLeads: any[] = [];
+            try {
+                console.log(`Fetching comments for media: ${post.id} (code: ${post.code})`);
+
+                // Scrape comments for this post
+                const comments = await cookieService.getPostComments(cookies, post.id, 100);
+                console.log(`Found ${comments.length} total comments for post ${post.id}`);
+
+                for (const comment of comments) {
+                    // Check date range
+                    const commentDate = new Date(comment.createdAt * 1000); // Instagram returns seconds
+                    if (fromDate && commentDate < fromDate) continue;
+                    if (toDate && commentDate > toDate) continue;
+
+                    const commentText = (comment.text || '').toLowerCase();
+
+                    // check if comment matches intent
+                    const matchedKeyword = intentLower.find((k: string) => commentText.includes(k));
+
+                    if (matchedKeyword) {
+                        // Detect metadata from caption
+                        const detector = LocationDetector.getInstance();
+                        const caption = (post.caption || '').toString();
+
+                        const location = detector.detectLocation(caption);
+                        const propertyType = detector.detectPropertyType(caption);
+                        const propertySubType = detector.detectPropertySubType(caption);
+                        const listingType = detector.detectListingType(caption);
+
+                        // Scoring Logic 
+                        const now = new Date();
+                        const diffDays = (now.getTime() - commentDate.getTime()) / (1000 * 60 * 60 * 24);
+
+                        let leadScore = 50;
+                        if (diffDays < 1) leadScore = 100;
+                        else if (diffDays <= 7) leadScore = 90;
+                        else if (diffDays <= 14) leadScore = 70;
+                        else if (diffDays <= 30) leadScore = 50;
+                        else leadScore = 30;
+
+                        postLeads.push({
+                            pk: comment.user.pk,
+                            username: comment.user.username,
+                            fullName: comment.user.fullName,
+                            profilePicUrl: comment.user.profilePicUrl,
+                            isPrivate: comment.user.isPrivate || false,
+                            isVerified: comment.user.isVerified || false,
+                            matchedKeyword: matchedKeyword,
+                            sourcePostUrl: `https://instagram.com/p/${post.code}/`,
+                            sourcePostCaption: post.caption,
+
+                            // New Detected Fields
+                            city: location?.city,
+                            town: location?.town,
+                            propertyType: propertyType,
+                            propertySubType: propertySubType,
+                            listingType: listingType,
+
+                            commentText: comment.text,
+                            commentDate: commentDate.toISOString(),
+                            commentLink: `https://instagram.com/p/${post.code}/c/${comment.pk}/`,
+
+                            leadScore: leadScore,
+                            source: 'comment-to-lead',
+                            sourceQuery: `Comment Match: ${matchedKeyword}`
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error(`Error processing post ${post.id}:`, err);
+            }
+            return postLeads;
+        };
+
+        // Process posts in chunks of 5
+        const allPostLeads = await processInChunks(mediaIds, 5, processPost);
+        // Assign to the previously defined variable or use a new name if needed, 
+        // but since leadsFound was initialized as [], we can just overwrite or concat.
+        // Actually, leadsFound was defined at line 25.
+        // Let's just rename this one to allLeads and use it, or assign back to leadsFound.
+        leadsFound = allPostLeads.flat();
 
         // Deduplicate leads by user PK
         const uniqueLeads = Array.from(new Map(leadsFound.map(item => [item.pk, item])).values());
 
         console.log(`Extracted ${uniqueLeads.length} unique high-intent leads.`);
 
-        // ✅ FIX: Save leads to database
+        // ✅ FIX: Save leads to database (Parallelized)
         const workspaceId = auth.workspaceId;
 
         if (!workspaceId) {
@@ -132,38 +154,31 @@ export async function POST(req: NextRequest) {
 
         console.log(`[Lead Save] Saving ${uniqueLeads.length} leads to workspace: ${workspaceId}`);
 
-        const savedLeads = [];
-        for (const lead of uniqueLeads) {
+        const saveLead = async (lead: any) => {
             try {
                 // Check if lead already exists
                 const { data: existing } = await supabase
                     .from('leads')
                     .select('id, comment_count, city, town, property_type, listing_type, property_sub_type, tags')
-                    .eq('ig_user_id', lead.pk) // Schema uses ig_user_id not pk
+                    .eq('ig_user_id', lead.pk)
                     .eq('workspace_id', workspaceId)
                     .single();
 
                 if (existing) {
-                    console.log(`[Lead Save] Lead ${lead.username} exists. Updating. Date: ${lead.commentDate} (Source: ${lead.commentDate})`);
-
-
                     const updates: any = {
                         updated_at: new Date().toISOString(),
                         comment_count: (existing.comment_count || 1) + 1,
-                        // Update enriched fields if found and currently null
                         city: existing.city || lead.city,
                         town: existing.town || lead.town,
                         property_type: existing.property_type || lead.propertyType,
                         property_sub_type: existing.property_sub_type || lead.propertySubType,
                         listing_type: existing.listing_type || lead.listingType,
-                        lead_score: lead.leadScore, // Always update score for freshness
+                        lead_score: lead.leadScore,
                         comment_date: lead.commentDate,
                         comment_link: lead.commentLink,
-                        // Append 'real_estate_lead' tag if not present
                         tags: existing.tags ? (existing.tags.includes('real_estate_lead') ? existing.tags : [...existing.tags, 'real_estate_lead']) : ['real_estate_lead']
                     };
 
-                    // Generate Smart Note
                     let categoryDisplay = lead.listingType ? (lead.listingType === 'Sale' ? '🏷️ For Sale' : '🏠 For Rent') : '❓ Unknown';
                     if (!lead.listingType && lead.propertyType) categoryDisplay = `❓ Detected: ${lead.propertyType} (Action Unknown)`;
 
@@ -172,64 +187,53 @@ export async function POST(req: NextRequest) {
 
                     updates.notes = `📝 Comment: ${lead.commentText}\n\n🔗 Post: ${lead.sourcePostUrl}\n\n🏠 Type: ${categoryDisplay}\n\n🏗️ Property: ${lead.propertyType || 'N/A'}${subTypeDisplay}\n\n${locationDisplay}\n\n🔑 Keyword: ${lead.matchedKeyword}\n\n📅 Date: ${new Date(lead.commentDate).toLocaleDateString()}\n\n📋 Caption: ${lead.sourcePostCaption || 'N/A'}`;
 
-                    await supabase
-                        .from('leads')
-                        .update(updates)
-                        .eq('id', existing.id);
-
-                    savedLeads.push({ id: existing.id, ...lead, isNew: false });
-                    continue;
-                }
-
-                // Insert new lead
-                const { data: newLead, error } = await supabase
-                    .from('leads')
-                    .insert({
-                        id: crypto.randomUUID(),
-                        workspace_id: workspaceId,
-                        ig_user_id: lead.pk,
-                        ig_username: lead.username,
-                        full_name: lead.fullName,
-                        profile_pic_url: lead.profilePicUrl,
-                        is_private: lead.isPrivate,
-                        is_verified: lead.isVerified,
-                        source: 'comment-to-lead',
-                        source_query: lead.sourceQuery,
-
-                        // New Fields
-                        city: lead.city,
-                        town: lead.town,
-                        property_type: lead.propertyType,
-                        property_sub_type: lead.propertySubType,
-                        listing_type: lead.listingType,
-                        comment_count: 1,
-                        lead_score: lead.leadScore,
-
-                        post_link: lead.sourcePostUrl,
-                        post_caption: lead.sourcePostCaption,
-                        comment_date: lead.commentDate,
-                        comment_link: lead.commentLink,
-
-                        // Default tag for this source
-                        tags: ['real_estate_lead'],
-
-                        updated_at: new Date().toISOString(),
-                        notes: `📝 Comment: ${lead.commentText}\n\n🔗 Post: ${lead.sourcePostUrl}\n\n🏠 Type: ${lead.listingType || 'Unknown'}\n\n🏗️ Property: ${lead.propertyType || 'N/A'}${lead.propertySubType ? ` (${lead.propertySubType})` : ''}\n\n📍 Location: ${lead.city || 'Unknown'}\n\n🔑 Keyword: ${lead.matchedKeyword}\n\n📅 Date: ${new Date(lead.commentDate).toLocaleDateString()}\n\n📋 Caption: ${lead.sourcePostCaption || 'N/A'}`
-                    })
-                    .select('id')
-                    .single();
-
-                if (error) {
-                    console.error(`[Lead Save] Error saving lead ${lead.username}:`, error);
+                    await supabase.from('leads').update(updates).eq('id', existing.id);
+                    return { id: existing.id, ...lead, isNew: false };
                 } else {
-                    console.log(`[Lead Save] ✅ Saved lead: ${lead.username} (ID: ${newLead.id})`);
-                    savedLeads.push({ ...newLead, ...lead, isNew: true });
-                }
+                    // Insert new lead
+                    const { data: newLead, error } = await supabase
+                        .from('leads')
+                        .insert({
+                            id: crypto.randomUUID(),
+                            workspace_id: workspaceId,
+                            ig_user_id: lead.pk,
+                            ig_username: lead.username,
+                            full_name: lead.fullName,
+                            profile_pic_url: lead.profilePicUrl,
+                            is_private: lead.isPrivate,
+                            is_verified: lead.isVerified,
+                            source: 'comment-to-lead',
+                            source_query: lead.sourceQuery,
+                            city: lead.city,
+                            town: lead.town,
+                            property_type: lead.propertyType,
+                            property_sub_type: lead.propertySubType,
+                            listing_type: lead.listingType,
+                            comment_count: 1,
+                            lead_score: lead.leadScore,
+                            post_link: lead.sourcePostUrl,
+                            post_caption: lead.sourcePostCaption,
+                            comment_date: lead.commentDate,
+                            comment_link: lead.commentLink,
+                            tags: ['real_estate_lead'],
+                            updated_at: new Date().toISOString(),
+                            notes: `📝 Comment: ${lead.commentText}\n\n🔗 Post: ${lead.sourcePostUrl}\n\n🏠 Type: ${lead.listingType || 'Unknown'}\n\n🏗️ Property: ${lead.propertyType || 'N/A'}${lead.propertySubType ? ` (${lead.propertySubType})` : ''}\n\n📍 Location: ${lead.city || 'Unknown'}\n\n🔑 Keyword: ${lead.matchedKeyword}\n\n📅 Date: ${new Date(lead.commentDate).toLocaleDateString()}\n\n📋 Caption: ${lead.sourcePostCaption || 'N/A'}`
+                        })
+                        .select('id')
+                        .single();
 
+                    if (error) throw error;
+                    return { ...newLead, ...lead, isNew: true };
+                }
             } catch (saveError) {
                 console.error(`[Lead Save] Exception saving lead ${lead.username}:`, saveError);
+                return null;
             }
-        }
+        };
+
+        // Save leads in chunks of 10
+        const saveResults = await processInChunks(uniqueLeads, 10, saveLead);
+        const savedLeads = saveResults.filter(l => l !== null);
 
         console.log(`[Lead Save] Successfully saved ${savedLeads.length}/${uniqueLeads.length} leads`);
 

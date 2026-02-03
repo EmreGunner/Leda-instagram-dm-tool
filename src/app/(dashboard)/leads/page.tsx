@@ -23,7 +23,9 @@ import {
   List,
   Clock,
   MessageSquare,
-  X
+  MessageSquare,
+  X,
+  ShieldCheck
 } from 'lucide-react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
@@ -195,10 +197,13 @@ export default function LeadsPage() {
   const [hasMoreResults, setHasMoreResults] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [targetUserId, setTargetUserId] = useState<string | null>(null); // For followers search
+  const [discoveryMethod, setDiscoveryMethod] = useState<'cookie' | 'apify'>('apify'); // Default to safe Apify mode
 
   // Comment-to-Lead configuration state (Card-based)
   const [ctlActiveCard, setCtlActiveCard] = useState<1 | 2 | 3 | null>(null);
   const [ctlTargetAccounts, setCtlTargetAccounts] = useState<any[]>([]);
+  const [ctlFetchedAccountIds, setCtlFetchedAccountIds] = useState<Set<string>>(new Set());
+  const [ctlFetchProgress, setCtlFetchProgress] = useState('');
   const [ctlUsernameInput, setCtlUsernameInput] = useState('');
   const [ctlIsAddingAccount, setCtlIsAddingAccount] = useState(false);
 
@@ -212,7 +217,8 @@ export default function LeadsPage() {
   const [ctlExpandedCaptions, setCtlExpandedCaptions] = useState<Set<string>>(new Set());
 
   // Post Selection Filters
-  const [ctlPostDateFilter, setCtlPostDateFilter] = useState<'all' | '7d' | '30d' | '3m'>('all');
+  const [ctlPostDateFilter, setCtlPostDateFilter] = useState<'all' | '7d' | '30d' | '3m' | 'custom'>('all');
+  const [ctlPostCustomDateRange, setCtlPostCustomDateRange] = useState<DateRange | undefined>();
   const [ctlPostMinComments, setCtlPostMinComments] = useState<number>(0);
 
   // Comment extraction filters
@@ -485,35 +491,89 @@ export default function LeadsPage() {
   };
 
   // Wizard Step 2: Fetch Posts
+  // Wizard Step 2: Fetch Posts
   const handleFetchPosts = async () => {
-    if (ctlTargetAccounts.length === 0 || !selectedAccount) return;
+    if (ctlTargetAccounts.length === 0 || !selectedAccount) {
+      toast.warning('Please add target accounts first');
+      return;
+    }
 
     setCtlIsFetchingPosts(true);
+    setCtlActiveCard(2); // Ensure we move to card 2 to see progress
+
     const cookies = getCookies();
-    let allMedia: any[] = [];
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    let newPostsCount = 0;
+
+    // Filter accounts that haven't been fetched yet
+    const accountsToFetch = ctlTargetAccounts.filter(acc => !ctlFetchedAccountIds.has(acc.pk));
+
+    if (accountsToFetch.length === 0) {
+      toast.info("All added accounts have already been fetched.");
+      setCtlIsFetchingPosts(false);
+      return;
+    }
 
     try {
-      for (const account of ctlTargetAccounts) {
-        const res = await fetch('/api/instagram/cookie/users/posts', {
-          method: 'POST',
-          body: JSON.stringify({ cookies, username: account.username, limit: 12 })
-        });
-        const data = await res.json();
-        if (data.success) {
-          // Attach user info to media for display
-          const mediaWithUser = data.media.map((m: any) => ({ ...m, user: account }));
-          allMedia = [...allMedia, ...mediaWithUser];
+      let processed = 0;
+      for (const account of accountsToFetch) {
+        processed++;
+        setCtlFetchProgress(`Fetching ${processed}/${accountsToFetch.length}: @${account.username}`);
+
+        try {
+          const res = await fetch('/api/instagram/cookie/users/posts', {
+            method: 'POST',
+            body: JSON.stringify({
+              cookies,
+              username: account.username,
+              limit: 12,
+              workspaceId: user?.workspace_id
+            })
+          });
+          const data = await res.json();
+
+          if (!data.success) {
+            if (data.error?.includes('session') || res.status === 401 || res.status === 403) {
+              toast.error('Session expired or invalid. Please reconnect your Instagram account in Settings.');
+              setCtlIsFetchingPosts(false);
+              return; // Stop fetching
+            }
+            console.error(`Failed to fetch for @${account.username}: ${data.error}`);
+          }
+
+          if (data.success && data.media) {
+            // Attach user info to media for display
+            const mediaWithUser = data.media.map((m: any) => ({ ...m, user: account }));
+
+            // Append new posts (dedup by ID just in case)
+            setCtlTargetPosts(prev => {
+              const existingIds = new Set(prev.map(p => p.id));
+              const uniqueNew = mediaWithUser.filter((m: any) => !existingIds.has(m.id));
+              return [...prev, ...uniqueNew];
+            });
+
+            // Mark account as fetched
+            setCtlFetchedAccountIds(prev => new Set(prev).add(account.pk));
+
+            newPostsCount += mediaWithUser.length;
+          }
+        } catch (err) {
+          console.error(`Failed to fetch for @${account.username}`, err);
         }
+
+        // Small delay to be nice to API/rate limits
+        if (accountsToFetch.length > 1) await new Promise(r => setTimeout(r, 800));
       }
-      console.log('Fetched posts:', allMedia);
-      console.log('Sample post:', allMedia[0]);
-      setCtlTargetPosts(allMedia);
-      toast.success(`Fetched ${allMedia.length} posts`);
+
+      toast.success(`Broadened search with ${newPostsCount} new posts`);
     } catch (e) {
       console.error(e);
       toast.error('Failed to fetch posts');
     } finally {
       setCtlIsFetchingPosts(false);
+      setCtlFetchProgress('');
     }
   };
 
@@ -588,7 +648,7 @@ export default function LeadsPage() {
       return;
     }
 
-    if (!selectedAccount) {
+    if (!selectedAccount && discoveryMethod === 'cookie') {
       setSearchError('Please select an Instagram account first');
       return;
     }
@@ -596,7 +656,7 @@ export default function LeadsPage() {
     const cookies = getCookies();
     console.log('Cookies found:', !!cookies);
 
-    if (!cookies) {
+    if (!cookies && discoveryMethod === 'cookie') {
       setSearchError('No session found. Please reconnect your Instagram account from Settings > Instagram Accounts. Use the Chrome extension to grab your session.');
       return;
     }
@@ -617,45 +677,58 @@ export default function LeadsPage() {
       let body: any = { cookies };
       let userId = targetUserId;
 
-      switch (type) {
-        case 'username':
-          endpoint = '/api/instagram/cookie/users/search';
-          body.query = query;
-          body.limit = Math.min(currentLimit, 50); // Username search limited to 50
-          break;
-        case 'hashtag':
-          endpoint = `/api/instagram/cookie/hashtag/${query.replace('#', '')}/users`;
-          body.limit = currentLimit;
-          body.searchSource = 'bio'; // Always use bio search for hashtags
-          // Include bio keywords for filtering
-          let keywords: string[] = [];
-          if (selectedPreset) {
-            const preset = KEYWORD_PRESETS.find(p => p.name === selectedPreset);
-            keywords = preset?.keywords || [];
-          }
-          const customKeywords = bioKeywords.split(',').map(k => k.trim()).filter(k => k);
-          body.bioKeywords = [...keywords, ...customKeywords];
-          break;
-        case 'followers':
-          // Use cached user ID from lookup
-          if (!userId) {
-            toast.warning('User lookup required', {
-              description: 'Please lookup the user first to get their profile information.',
-            });
+      // START APIFY INTEGRATION
+      if (discoveryMethod === 'apify' && (type === 'username' || type === 'hashtag')) {
+        endpoint = '/api/apify/search';
+        body = {
+          searchTerms: query,
+          searchType: 'user', // Apify scraper uses 'user' for keyword search
+          limit: currentLimit
+        };
+      } else {
+        // END APIFY INTEGRATION
+
+        switch (type) {
+          case 'username':
+            endpoint = '/api/instagram/cookie/users/search';
+            body.query = query;
+            body.limit = Math.min(currentLimit, 50); // Username search limited to 50
+            break;
+          case 'hashtag':
+            endpoint = `/api/instagram/cookie/hashtag/${query.replace('#', '')}/users`;
+            body.limit = currentLimit;
+            body.searchSource = 'bio'; // Always use bio search for hashtags
+            // Include bio keywords for filtering
+            let keywords: string[] = [];
+            if (selectedPreset) {
+              const preset = KEYWORD_PRESETS.find(p => p.name === selectedPreset);
+              keywords = preset?.keywords || [];
+            }
+            const customKeywords = bioKeywords.split(',').map(k => k.trim()).filter(k => k);
+            body.bioKeywords = [...keywords, ...customKeywords];
+            break;
+          case 'followers':
+            // Use cached user ID from lookup
+            if (!userId) {
+              toast.warning('User lookup required', {
+                description: 'Please lookup the user first to get their profile information.',
+              });
+              setIsSearching(false);
+              setIsLoadingMore(false);
+              return;
+            }
+            // Use followListType to decide followers or following
+            endpoint = `/api/instagram/cookie/user/by-id/${userId}/${followListType}`;
+            body.limit = currentLimit;
+            break;
+          case 'comment-to-lead':
+            // This flow now uses dedicated card-based handlers
+            toast.info('Please use the cards below to configure extraction');
             setIsSearching(false);
-            setIsLoadingMore(false);
             return;
-          }
-          // Use followListType to decide followers or following
-          endpoint = `/api/instagram/cookie/user/by-id/${userId}/${followListType}`;
-          body.limit = currentLimit;
-          break;
-        case 'comment-to-lead':
-          // This flow now uses dedicated card-based handlers
-          toast.info('Please use the cards below to configure extraction');
-          setIsSearching(false);
-          return;
-      }
+        }
+      } // Close else/switch
+      // Both paths converge here
 
       console.log('Making request to:', endpoint, body);
 
@@ -687,9 +760,10 @@ export default function LeadsPage() {
 
           // Automatically trigger loading first batch if we have results
           if (results.length > 0) {
+            // Pass results directly to avoid state race condition
             setTimeout(() => {
-              loadNextBatch(batchSize);
-            }, 500);
+              loadNextBatch(batchSize, results);
+            }, 100);
           }
         } else {
           // For load more, just add to search results
@@ -806,8 +880,11 @@ export default function LeadsPage() {
   };
 
   // Load batch of search results with random delays
-  const loadNextBatch = async (count: number) => {
-    if (!selectedAccount || searchResults.length === 0) return;
+  const loadNextBatch = async (count: number, initialResults?: any[]) => {
+    // Use provided results or fallback to state
+    const sourceResults = initialResults || searchResults;
+
+    if (!selectedAccount || sourceResults.length === 0) return;
 
     const cookies = getCookies();
     if (!cookies) {
@@ -828,8 +905,8 @@ export default function LeadsPage() {
 
     setIsLoadingBatch(true);
     const startIndex = currentBatchIndex;
-    const endIndex = Math.min(startIndex + count, searchResults.length);
-    const batch = searchResults.slice(startIndex, endIndex);
+    const endIndex = Math.min(startIndex + count, sourceResults.length);
+    const batch = sourceResults.slice(startIndex, endIndex);
 
     setLoadingProgress({ current: 0, total: batch.length });
 
@@ -856,7 +933,7 @@ export default function LeadsPage() {
         const matchedKeywords = matchKeywordsInBio(bio, keywords);
 
         // Add to displayed results with full profile data
-        newDisplayedResults.push({
+        const enrichedProfile = {
           ...profile,
           username: profile.username || userProfile.username,
           fullName: profile.fullName || userProfile.fullName,
@@ -864,23 +941,18 @@ export default function LeadsPage() {
           matchedKeywords,
           source: userProfile.source,
           matchedKeyword: userProfile.matchedKeyword,
-        });
+        };
+
+        newDisplayedResults.push(enrichedProfile);
 
         // Update displayed results immediately (incremental display)
-        setDisplayedSearchResults(prev => [...prev, {
-          ...profile,
-          username: profile.username || userProfile.username,
-          fullName: profile.fullName || userProfile.fullName,
-          bio: profile.bio,
-          matchedKeywords,
-          source: userProfile.source,
-          matchedKeyword: userProfile.matchedKeyword,
-        }]);
+        setDisplayedSearchResults(prev => [...prev, enrichedProfile]);
 
         // Random delay between 5-15 seconds (except for the last item)
+        // REDUCED for better UX: 2-5 seconds
         if (i < batch.length - 1) {
-          const delay = getRandomDelay();
-          console.log(`Waiting ${formatDelayTime(delay)} before next profile...`);
+          const delay = Math.floor(Math.random() * 3000) + 2000;
+          // console.log(`Waiting ${formatDelayTime(delay)} before next profile...`);
           await new Promise(resolve => setTimeout(resolve, delay));
         }
       } catch (error) {
@@ -892,7 +964,7 @@ export default function LeadsPage() {
     setIsLoadingBatch(false);
     setLoadingProgress({ current: 0, total: 0 });
 
-    if (endIndex >= searchResults.length) {
+    if (endIndex >= sourceResults.length) {
       toast.success('All profiles loaded!', {
         description: `Loaded ${displayedSearchResults.length + newDisplayedResults.length} profiles`,
       });
@@ -1757,28 +1829,77 @@ export default function LeadsPage() {
                             </p>
 
                             {/* Filter Toolbar */}
-                            <div className="flex items-center gap-2 w-full sm:w-auto">
-                              <select
-                                value={ctlPostDateFilter}
-                                onChange={(e) => setCtlPostDateFilter(e.target.value as any)}
-                                className="h-8 text-xs bg-background border border-border rounded px-2"
-                              >
-                                <option value="all">Any Date</option>
-                                <option value="7d">Last 7 Days</option>
-                                <option value="30d">Last 30 Days</option>
-                                <option value="3m">Last 3 Months</option>
-                              </select>
+                            <div className="flex flex-col gap-2 w-full sm:w-auto">
+                              <div className="flex items-center gap-2">
+                                <select
+                                  value={ctlPostDateFilter}
+                                  onChange={(e) => setCtlPostDateFilter(e.target.value as any)}
+                                  className="h-8 text-xs bg-background border border-border rounded px-2"
+                                >
+                                  <option value="all">Any Date</option>
+                                  <option value="7d">Last 7 Days</option>
+                                  <option value="30d">Last 30 Days</option>
+                                  <option value="3m">Last 3 Months</option>
+                                  <option value="custom">Custom Range</option>
+                                </select>
 
-                              <Input
-                                type="number"
-                                placeholder="Min Comments"
-                                value={ctlPostMinComments || ''}
-                                onChange={(e) => setCtlPostMinComments(parseInt(e.target.value) || 0)}
-                                className="h-8 w-24 text-xs"
-                                min={0}
-                              />
+                                <Input
+                                  type="number"
+                                  placeholder="Min Comments"
+                                  value={ctlPostMinComments || ''}
+                                  onChange={(e) => setCtlPostMinComments(parseInt(e.target.value) || 0)}
+                                  className="h-8 w-24 text-xs"
+                                  min={0}
+                                />
+                              </div>
+
+                              {/* Custom Date Picker */}
+                              {ctlPostDateFilter === 'custom' && (
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      variant={"outline"}
+                                      className={cn(
+                                        "w-[240px] justify-start text-left font-normal h-8 text-xs",
+                                        !ctlPostCustomDateRange && "text-muted-foreground"
+                                      )}
+                                    >
+                                      <CalendarIcon className="mr-2 h-3 w-3" />
+                                      {ctlPostCustomDateRange?.from ? (
+                                        ctlPostCustomDateRange.to ? (
+                                          <>
+                                            {format(ctlPostCustomDateRange.from, "LLL dd, y")} -{" "}
+                                            {format(ctlPostCustomDateRange.to, "LLL dd, y")}
+                                          </>
+                                        ) : (
+                                          format(ctlPostCustomDateRange.from, "LLL dd, y")
+                                        )
+                                      ) : (
+                                        <span>Pick a date range</span>
+                                      )}
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                      initialFocus
+                                      mode="range"
+                                      defaultMonth={ctlPostCustomDateRange?.from}
+                                      selected={ctlPostCustomDateRange}
+                                      onSelect={setCtlPostCustomDateRange}
+                                      numberOfMonths={2}
+                                    />
+                                  </PopoverContent>
+                                </Popover>
+                              )}
                             </div>
                           </div>
+
+                          {/* Progress Indicator */}
+                          {ctlFetchProgress && (
+                            <div className="mb-2 px-1">
+                              <p className="text-xs text-primary animate-pulse">{ctlFetchProgress}</p>
+                            </div>
+                          )}
                         </div>
                         <div className="grid grid-cols-2 gap-2 max-h-96 overflow-y-auto">
                           {ctlFilteredTargetPosts.map((post) => {
@@ -1797,6 +1918,7 @@ export default function LeadsPage() {
                                   isSelected ? "border-accent ring-2 ring-accent/50" : "border-border hover:border-accent/50"
                                 )}
                                 onClick={() => {
+                                  // Toggle selection
                                   const newSet = new Set(ctlSelectedPostIds);
                                   if (newSet.has(post.id)) newSet.delete(post.id);
                                   else newSet.add(post.id);
@@ -1804,6 +1926,22 @@ export default function LeadsPage() {
                                   setCtlActiveCard(2);
                                 }}
                               >
+                                {/* Delete Button */}
+                                <button
+                                  className="absolute top-1 right-1 z-10 p-1 bg-black/50 hover:bg-red-500/80 rounded-full text-white opacity-0 group-hover:opacity-100 transition-all"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setCtlTargetPosts(prev => prev.filter(p => p.id !== post.id));
+                                    setCtlSelectedPostIds(prev => {
+                                      const newSet = new Set(prev);
+                                      newSet.delete(post.id);
+                                      return newSet;
+                                    });
+                                  }}
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+
                                 {/* Post Image */}
                                 <div className="aspect-square relative">
                                   {(() => {
@@ -2313,6 +2451,34 @@ export default function LeadsPage() {
             <label className="block text-sm font-medium text-foreground-muted mb-2">
               🎯 Quick Select Target Audience
             </label>
+
+            {/* Discovery Method Toggle */}
+            <div className="bg-background-elevated rounded-lg p-1 flex mb-3 border border-border">
+              <button
+                onClick={() => setDiscoveryMethod('apify')}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 py-1.5 px-3 rounded-md text-sm font-medium transition-all",
+                  discoveryMethod === 'apify'
+                    ? "bg-emerald-500/10 text-emerald-500 shadow-sm"
+                    : "text-foreground-muted hover:text-foreground"
+                )}
+              >
+                <ShieldCheck className="h-4 w-4" />
+                Safe Mode (Apify)
+              </button>
+              <button
+                onClick={() => setDiscoveryMethod('cookie')}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-2 py-1.5 px-3 rounded-md text-sm font-medium transition-all",
+                  discoveryMethod === 'cookie'
+                    ? "bg-accent/10 text-accent shadow-sm"
+                    : "text-foreground-muted hover:text-foreground"
+                )}
+              >
+                <Instagram className="h-4 w-4" />
+                Cookie Mode
+              </button>
+            </div>
             <div className="flex flex-wrap gap-2 mb-3">
               {KEYWORD_PRESETS.map((preset) => (
                 <button

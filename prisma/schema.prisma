@@ -31,6 +31,8 @@ model Workspace {
   automations            Automation[]
   leads                   Lead[]
   leadLists               LeadList[]
+  targetAccounts          TargetAccount[]
+  accountQueues           AccountQueue[]
 
   @@map("workspaces")
 }
@@ -622,6 +624,38 @@ model JobQueue {
 }
 
 // ============================================================================
+// Target Account Tracking (Agencies/Competitors)
+// ============================================================================
+
+model TargetAccount {
+  id              String   @id @default(uuid())
+  username        String
+  fullName        String?  @map("full_name")
+  biography       String?
+  followerCount   Int?     @map("follower_count")
+  followingCount  Int?     @map("following_count")
+  postCount       Int?     @map("post_count")
+  isVerified      Boolean  @default(false) @map("is_verified")
+  isPrivate       Boolean  @default(false) @map("is_private")
+  
+  isTracked       Boolean  @default(true) @map("is_tracked")
+  tags            String[] // e.g., "real_estate_agency"
+  notes           String?
+  
+  lastScrapedAt   DateTime? @map("last_scraped_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  workspaceId     String    @map("workspace_id")
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([username, workspaceId])
+  @@index([workspaceId])
+  @@index([isTracked])
+  @@map("target_accounts")
+}
+
+// ============================================================================
 // Waiting List Model
 // ================================================== // ============================================================================
 
@@ -636,4 +670,43 @@ model WaitingList {
   createdAt               DateTime  @default(now()) @map("created_at")
 
   @@map("waiting_list")
+}
+
+// ============================================================================
+// Apify Account Queue
+// ============================================================================
+
+model AccountQueue {
+  id                   String   @id @default(uuid())
+  username             String
+  fullName             String?  @map("full_name")
+  biography            String?
+  externalUrl          String?  @map("external_url")
+  
+  businessCategoryName String?  @map("business_category_name")
+  businessAddress      String?  @map("business_address")
+  isBusinessAccount    Boolean  @default(false) @map("is_business_account")
+  
+  followerCount        Int?     @map("follower_count")
+  followingCount       Int?     @map("following_count")
+  postCount            Int?     @map("post_count")
+  
+  profilePicUrl        String?  @map("profile_pic_url")
+  isVerified           Boolean  @default(false) @map("is_verified")
+  isPrivate            Boolean  @default(false) @map("is_private")
+  
+  status               String   @default("pending") // pending, processing, completed, error
+  priority             Int      @default(0)
+  
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  workspaceId          String   @map("workspace_id")
+  workspace            Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([status])
+  @@index([priority])
+  @@index([username])
+  @@map("account_queue")
 }

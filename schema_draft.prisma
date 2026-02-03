@@ -1,0 +1,28 @@
+
+model TargetAccount {
+  id              String   @id @default(uuid())
+  username        String
+  fullName        String?  @map("full_name")
+  biography       String?
+  followerCount   Int?     @map("follower_count")
+  followingCount  Int?     @map("following_count")
+  postCount       Int?     @map("post_count")
+  isVerified      Boolean  @default(false) @map("is_verified")
+  isPrivate       Boolean  @default(false) @map("is_private")
+  
+  isTracked       Boolean  @default(true) @map("is_tracked")
+  tags            String[] // e.g. "real_estate_agency"
+  notes           String?
+  
+  lastScrapedAt   DateTime? @map("last_scraped_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  workspaceId     String    @map("workspace_id")
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([username, workspaceId])
+  @@index([workspaceId])
+  @@index([isTracked])
+  @@map("target_accounts")
+}
