@@ -50,7 +50,7 @@ import { format } from "date-fns";
 import { DateRange } from "react-day-picker";
 import { Calendar as CalendarIcon } from "lucide-react";
 
-import { useInstagramAccounts } from '@/hooks/leads/useInstagramAccounts';
+import { useInstagramAccounts } from '@/hooks/use-supabase';
 import { useLeadFilters } from '@/hooks/leads/useLeadFilters';
 import { useLeadsData } from '@/hooks/leads/useLeadsData';
 import { useLeadSearch } from '@/hooks/leads/useLeadSearch';
@@ -64,15 +64,36 @@ import { KEYWORD_PRESETS, statusColors, Lead, InstagramAccount } from '@/lib/typ
 export default function LeadsPage() {
   const { capture } = usePostHog();
 
-  // 1. Accounts
-  const {
-    accounts,
-    selectedAccount,
-    setSelectedAccount,
-    isLoading: isLoadingAccounts,
-    getCookies,
-    fetchAccounts
-  } = useInstagramAccounts();
+  // 1. Accounts - Use working hook and adapt its structure
+  const { data: accountsData, isLoading: isLoadingAccounts, refetch: refetchAccounts } = useInstagramAccounts();
+
+  // Adapt database structure to match expected InstagramAccount type
+  const accounts: InstagramAccount[] = useMemo(() => {
+    if (!accountsData) return [];
+    return accountsData.map(acc => ({
+      id: acc.id,
+      igUserId: acc.ig_user_id,
+      igUsername: acc.ig_username
+    }));
+  }, [accountsData]) || [];
+
+  const [selectedAccount, setSelectedAccount] = useState<InstagramAccount | null>(null);
+
+  // Auto-select first account when accounts load
+  useEffect(() => {
+    if (accounts.length > 0 && !selectedAccount) {
+      setSelectedAccount(accounts[0]);
+    }
+  }, [accounts, selectedAccount]);
+
+  // Helper function to get cookies for selected account
+  const getCookies = useCallback(async () => {
+    if (!selectedAccount) return null;
+    return await getCookiesFromStorage(selectedAccount.igUsername);
+  }, [selectedAccount]);
+
+  // Alias refetch as fetchAccounts for compatibility
+  const fetchAccounts = refetchAccounts;
 
   // 2. Data
   const {
@@ -368,13 +389,16 @@ export default function LeadsPage() {
       />
 
       <div className="p-4 md:p-6">
-        {/* No Accounts Warning */}
-        {accounts.length === 0 && !isLoading && (
+        {/* No Accounts Warning - Only show for Cookie mode */}
+        {accounts.length === 0 && !isLoading && discoveryMethod === 'cookie' && (
           <div className="mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row items-start sm:items-center gap-3">
             <AlertCircle className="h-5 w-5 text-amber-400 flex-shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-amber-400 font-medium">
-                Connect an Instagram account first
+                Connect an Instagram account to use Cookie mode
+              </p>
+              <p className="text-amber-400/70 text-sm mt-1">
+                Or switch to Safe Mode (Apify) which doesn't require an account
               </p>
             </div>
             <Button

@@ -33,6 +33,10 @@ model Workspace {
   leadLists               LeadList[]
   targetAccounts          TargetAccount[]
   accountQueues           AccountQueue[]
+  scrapingAccounts        ScrapingAccount[]
+  scrapedPosts            ScrapedPost[]
+  scrapingJobs            ScrapingJob[]
+  scrapingConfig          ScrapingConfig?
 
   @@map("workspaces")
 }
@@ -61,6 +65,8 @@ model User {
   role                    UserRole                 @default(MEMBER)
   notificationPreferences NotificationPreference[]
   notifications           Notification[]
+  validatedAccounts       ScrapingAccount[]        @relation("ValidatedAccounts")
+  addedAccounts           ScrapingAccount[]        @relation("AddedAccounts")
 
   @@index([workspaceId])
   @@index([supabaseAuthId])
@@ -709,4 +715,201 @@ model AccountQueue {
   @@index([priority])
   @@index([username])
   @@map("account_queue")
+}
+
+// ============================================================================
+// Autonomous Scraping System
+// ============================================================================
+
+model ScrapingAccount {
+  id                   String    @id @default(uuid())
+  workspaceId          String    @map("workspace_id")
+  workspace            Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  
+  // Instagram Profile
+  username             String
+  fullName             String?   @map("full_name")
+  biography            String?
+  followerCount        Int?      @map("follower_count")
+  followingCount       Int?      @map("following_count")
+  postCount            Int?      @map("post_count")
+  isVerified           Boolean   @default(false) @map("is_verified")
+  isPrivate            Boolean   @default(false) @map("is_private")
+  profilePicUrl        String?   @map("profile_pic_url")
+  
+  // Validation
+  isValidated          Boolean   @default(false) @map("is_validated")
+  isTracked            Boolean   @default(true) @map("is_tracked")
+  validationStatus     String    @default("pending") @map("validation_status") // pending, approved, rejected
+  validatedBy          String?   @map("validated_by")
+  validatedByUser      User?     @relation("ValidatedAccounts", fields: [validatedBy], references: [id], onDelete: SetNull)
+  validatedAt          DateTime? @map("validated_at")
+  
+  // Categorization
+  accountType          String    @default("real_estate_agency") @map("account_type")
+  tags                 String[]
+  notes                String?
+  
+  // Scraping Config
+  scrapingPriority     Int       @default(0) @map("scraping_priority")
+  scrapeFrequencyHours Int       @default(24) @map("scrape_frequency_hours")
+  lastScrapedAt        DateTime? @map("last_scraped_at")
+  lastScrapePostCount  Int       @default(0) @map("last_scrape_post_count")
+  
+  // Source Tracking
+  addedVia             String    @default("manual") @map("added_via") // manual, apify, csv, api, webhook
+  addedBy              String?   @map("added_by")
+  addedByUser          User?     @relation("AddedAccounts", fields: [addedBy], references: [id], onDelete: SetNull)
+  
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+  
+  posts                ScrapedPost[]
+  jobs                 ScrapingJob[]
+  
+  @@unique([username, workspaceId])
+  @@index([workspaceId])
+  @@index([isValidated, isTracked])
+  @@index([validationStatus])
+  @@index([scrapingPriority])
+  @@index([username])
+  @@map("scraping_accounts")
+}
+
+model ScrapedPost {
+  id                    String    @id @default(uuid())
+  workspaceId           String    @map("workspace_id")
+  workspace             Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  
+  scrapingAccountId     String    @map("scraping_account_id")
+  scrapingAccount       ScrapingAccount @relation(fields: [scrapingAccountId], references: [id], onDelete: Cascade)
+  
+  // Post Data
+  igPostId              String    @map("ig_post_id")
+  postUrl               String    @map("post_url")
+  caption               String?
+  mediaType             String?   @map("media_type") // PHOTO, VIDEO, CAROUSEL, REEL
+  mediaUrl              String?   @map("media_url")
+  
+  // Engagement
+  likeCount             Int       @default(0) @map("like_count")
+  commentCount          Int       @default(0) @map("comment_count")
+  postedAt              DateTime? @map("posted_at")
+  
+  // Property Detection
+  detectedPropertyType  String?   @map("detected_property_type")
+  detectedListingType   String?   @map("detected_listing_type")
+  detectedCity          String?   @map("detected_city")
+  detectedTown          String?   @map("detected_town")
+  detectedPrice         String?   @map("detected_price")
+  
+  // Processing
+  status                String    @default("pending") @map("status") // pending, processing, processed, error
+  commentsScraped       Boolean   @default(false) @map("comments_scraped")
+  commentsScrapedAt     DateTime? @map("comments_scraped_at")
+  commentsScrapedCount  Int       @default(0) @map("comments_scraped_count")
+  leadsExtractedCount   Int       @default(0) @map("leads_extracted_count")
+  
+  // Error Tracking
+  errorMessage          String?   @map("error_message")
+  retryCount            Int       @default(0) @map("retry_count")
+  
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+  
+  jobs                  ScrapingJob[]
+  
+  @@unique([igPostId, workspaceId])
+  @@index([workspaceId])
+  @@index([scrapingAccountId])
+  @@index([status])
+  @@index([postedAt])
+  @@map("scraped_posts")
+}
+
+model ScrapingJob {
+  id                  String    @id @default(uuid())
+  workspaceId         String    @map("workspace_id")
+  workspace           Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  
+  // Job Config
+  jobType             String    @map("job_type") // scrape_account_posts, scrape_post_comments, validate_account, enrichment
+  priority            Int       @default(0)
+  
+  // Targets
+  scrapingAccountId   String?   @map("scraping_account_id")
+  scrapingAccount     ScrapingAccount? @relation(fields: [scrapingAccountId], references: [id], onDelete: Cascade)
+  
+  scrapedPostId       String?   @map("scraped_post_id")
+  scrapedPost         ScrapedPost? @relation(fields: [scrapedPostId], references: [id], onDelete: Cascade)
+  
+  // Payload
+  payload             Json      @default("{}")
+  
+  // Scheduling
+  scheduledAt         DateTime  @default(now()) @map("scheduled_at")
+  startedAt           DateTime? @map("started_at")
+  completedAt         DateTime? @map("completed_at")
+  
+  // Status
+  status              String    @default("queued") @map("status") // queued, running, completed, failed, cancelled
+  progress            Int       @default(0)
+  
+  // Results
+  result              Json?
+  errorMessage        String?   @map("error_message")
+  retryCount          Int       @default(0) @map("retry_count")
+  maxRetries          Int       @default(3) @map("max_retries")
+  
+  // Worker
+  workerId            String?   @map("worker_id")
+  
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+  
+  @@index([workspaceId])
+  @@index([status, priority, scheduledAt])
+  @@index([jobType])
+  @@map("scraping_jobs")
+}
+
+model ScrapingConfig {
+  id                              String   @id @default(uuid())
+  workspaceId                     String   @unique @map("workspace_id")
+  workspace                       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  
+  // Settings
+  scrapingEnabled                 Boolean  @default(true) @map("scraping_enabled")
+  autoApproveAccounts             Boolean  @default(false) @map("auto_approve_accounts")
+  autoApproveFollowerThreshold    Int      @default(5000) @map("auto_approve_follower_threshold")
+  
+  // Rate Limits
+  maxAccountsPerDay               Int      @default(100) @map("max_accounts_per_day")
+  maxPostsPerAccount              Int      @default(50) @map("max_posts_per_account")
+  maxCommentsPerPost              Int      @default(500) @map("max_comments_per_post")
+  scrapingDelaySeconds            Int      @default(5) @map("scraping_delay_seconds")
+  
+  // Keywords
+  bioKeywords                     String[] @default([]) @map("bio_keywords")
+  commentKeywords                 String[] @default([]) @map("comment_keywords")
+  excludeKeywords                 String[] @default([]) @map("exclude_keywords")
+  
+  // Property Detection
+  propertyTypeKeywords            Json?    @map("property_type_keywords")
+  listingTypeKeywords             Json?    @map("listing_type_keywords")
+  cityKeywords                    String[] @default([]) @map("city_keywords")
+  
+  // Notifications
+  notifyOnNewLeads                Boolean  @default(true) @map("notify_on_new_leads")
+  notifyOnValidationNeeded        Boolean  @default(true) @map("notify_on_validation_needed")
+  notificationEmail               String?  @map("notification_email")
+  
+  // API
+  webhookUrl                      String?  @map("webhook_url")
+  apiKeyHash                      String?  @map("api_key_hash")
+  
+  createdAt                       DateTime @default(now()) @map("created_at")
+  updatedAt                       DateTime @updatedAt @map("updated_at")
+  
+  @@map("scraping_config")
 }

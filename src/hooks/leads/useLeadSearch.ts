@@ -178,7 +178,11 @@ export function useLeadSearch({
     };
 
     const handleSearch = useCallback(async (loadMore = false) => {
-        if (!selectedAccount) return;
+        // Only require account for cookie mode, Apify works without it
+        if (discoveryMethod === 'cookie' && !selectedAccount) {
+            toast.error('Please connect an Instagram account for Cookie mode');
+            return;
+        }
         if (!searchQuery.trim() && !loadMore && searchType !== 'comment-to-lead') return;
 
         const currentLimit = searchLimit;

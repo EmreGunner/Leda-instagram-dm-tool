@@ -88,7 +88,9 @@ export function useLeadsData() {
     ) => {
         const { selectedAccount, searchType, searchQuery } = context;
 
-        if (!selectedAccount) return;
+        console.log('handleAddLeads called:', { selectedAccount, users: users.length, searchType });
+
+        // NOTE: selectedAccount is optional - leads can be saved without linking to an account
 
         // NOTE: Cookies check moved to UI/Caller for simplicity or can be passed in. 
         // Assuming UI verified cookies exist via useInstagramAccounts.getCookies() if needed.
@@ -121,7 +123,7 @@ export function useLeadsData() {
             toast.loading(`Adding ${users.length} leads to database...`);
 
             const formatForApi = (u: any) => ({
-                instagramAccountId: selectedAccount.id,
+                instagramAccountId: selectedAccount?.id || null, // Optional link to account
                 pk: u.pk || u.id,
                 username: u.username,
                 fullName: u.fullName,
