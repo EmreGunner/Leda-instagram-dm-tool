@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
         const auth = await requireAuth(req);
         if (auth instanceof Response) return auth; // Returns 401 if not authenticated
 
-        const { mediaIds, intentKeywords, cookies } = await req.json();
+        const { mediaIds, intentKeywords, cookies, dateFrom, dateTo } = await req.json();
 
         if (!mediaIds || !Array.isArray(mediaIds) || !intentKeywords || !cookies) {
             return NextResponse.json({ success: false, error: 'Missing required parameters: mediaIds (array) and intentKeywords are required' }, { status: 400 });
@@ -25,8 +25,14 @@ export async function POST(req: NextRequest) {
         let leadsFound: any[] = [];
         const intentLower = intentKeywords.map((k: string) => k.toLowerCase());
 
+        // Parse dates if provided
+        const fromDate = dateFrom ? new Date(dateFrom) : null;
+        const toDate = dateTo ? new Date(dateTo) : null;
+
         console.log(`Starting surgical comment extraction for ${mediaIds.length} posts.`);
         console.log(`Intent keywords: ${intentLower.join(', ')}`);
+        if (fromDate) console.log(`Date From: ${fromDate.toISOString()}`);
+        if (toDate) console.log(`Date To: ${toDate.toISOString()}`);
 
         for (const post of mediaIds) {
             console.log(`Fetching comments for media: ${post.id} (code: ${post.code})`);
@@ -36,6 +42,11 @@ export async function POST(req: NextRequest) {
             console.log(`Found ${comments.length} total comments for post ${post.id}`);
 
             for (const comment of comments) {
+                // Check date range
+                const commentDate = new Date(comment.createdAt * 1000); // Instagram returns seconds
+                if (fromDate && commentDate < fromDate) continue;
+                if (toDate && commentDate > toDate) continue;
+
                 // Skip author's own comments (assuming we can identify author, or generic check)
                 // If we attached author info to post object, we could check. 
                 // For now, let's skip if matchedKeyword seems like an answer? No, relies on intent.
@@ -58,6 +69,7 @@ export async function POST(req: NextRequest) {
                     const listingType = detector.detectListingType(caption);
 
                     // Scoring Logic
+                    const now = new Date(); // Re-declare now (used below)
                     const commentDate = new Date(comment.createdAt * 1000);
                     const now = new Date();
                     const diffDays = (now.getTime() - commentDate.getTime()) / (1000 * 60 * 60 * 24);

@@ -38,6 +38,11 @@ import { MobileLeadCard } from "@/components/leads/mobile-lead-card";
 import { LeadProfileModal } from '@/components/leads/lead-profile-modal';
 import { getRandomDelay, formatDelayTime } from '@/lib/utils/rate-limit';
 import { getCookies as getCookiesFromStorage } from '@/lib/instagram-cookie-storage';
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
+import { DateRange } from "react-day-picker";
+import { Calendar as CalendarIcon } from "lucide-react";
 
 // Use relative URLs since we're on the same domain (Next.js API routes)
 // All API calls use relative URLs since backend and frontend are on the same domain
@@ -206,12 +211,15 @@ export default function LeadsPage() {
   const [ctlIsParsingPosts, setCtlIsParsingPosts] = useState(false);
   const [ctlExpandedCaptions, setCtlExpandedCaptions] = useState<Set<string>>(new Set());
 
+  // Post Selection Filters
+  const [ctlPostDateFilter, setCtlPostDateFilter] = useState<'all' | '7d' | '30d' | '3m'>('all');
+  const [ctlPostMinComments, setCtlPostMinComments] = useState<number>(0);
+
   // Comment extraction filters
   const [commentLocation, setCommentLocation] = useState('');
   const [commentListingKeywords, setCommentListingKeywords] = useState('satılık, kiralık, daire, konut');
   const [commentIntentKeywords, setCommentIntentKeywords] = useState('fiyat, fiat, ne kadar, kaç tl');
-  const [commentDateFrom, setCommentDateFrom] = useState('');
-  const [commentDateTo, setCommentDateTo] = useState('');
+  const [ctlDateRange, setCtlDateRange] = useState<DateRange | undefined>();
   const [ctlScrapingStatus, setCtlScrapingStatus] = useState('');
 
   // Hashtag search now defaults to bio only (posts option removed)
@@ -412,27 +420,65 @@ export default function LeadsPage() {
       return;
     }
 
-    try {
-      const res = await fetch(`/api/instagram/cookie/user/${ctlUsernameInput.replace('@', '')}/profile`, {
-        method: 'POST',
-        body: JSON.stringify({ cookies })
-      });
-      const data = await res.json();
+    // Split input by newlines or commas
+    const usernames = ctlUsernameInput
+      .split(/[\n,]+/)
+      .map(u => u.trim().replace('@', ''))
+      .filter(u => u.length > 0);
 
-      if (data.success && data.profile) {
-        if (ctlTargetAccounts.some(a => a.pk === data.profile.pk)) {
-          toast.warning('Account already added');
-        } else {
-          setCtlTargetAccounts([...ctlTargetAccounts, data.profile]);
-          setCtlUsernameInput('');
-          toast.success('Target account added');
+    if (usernames.length === 0) {
+      setCtlIsAddingAccount(false);
+      return;
+    }
+
+    const uniqueUsernames = Array.from(new Set(usernames));
+    let addedCount = 0;
+    let failedCount = 0;
+
+    toast.info(`Fetching ${uniqueUsernames.length} account(s)...`);
+
+    try {
+      for (const username of uniqueUsernames) {
+        // Skip if already added
+        if (ctlTargetAccounts.some(a => a.username.toLowerCase() === username.toLowerCase())) {
+          continue;
         }
+
+        try {
+          const res = await fetch(`/api/instagram/cookie/user/${username}/profile`, {
+            method: 'POST',
+            body: JSON.stringify({ cookies })
+          });
+          const data = await res.json();
+
+          if (data.success && data.profile) {
+            setCtlTargetAccounts(prev => {
+              if (prev.some(a => a.pk === data.profile.pk)) return prev;
+              return [...prev, data.profile];
+            });
+            addedCount++;
+          } else {
+            console.warn(`User not found: ${username}`);
+            failedCount++;
+          }
+        } catch (e) {
+          console.error(`Error fetching ${username}:`, e);
+          failedCount++;
+        }
+      }
+
+      if (addedCount > 0) {
+        toast.success(`Added ${addedCount} account(s)${failedCount > 0 ? `, ${failedCount} failed` : ''}`);
+        setCtlUsernameInput('');
+      } else if (failedCount > 0) {
+        toast.error(`Failed to add accounts. Please check usernames.`);
       } else {
-        toast.error('User not found');
+        toast.info('All accounts were already added.');
+        setCtlUsernameInput('');
       }
     } catch (e) {
       console.error(e);
-      toast.error('Failed to add user');
+      toast.error('Error processing accounts');
     } finally {
       setCtlIsAddingAccount(false);
     }
@@ -498,7 +544,9 @@ export default function LeadsPage() {
             code: post.code || post.shortcode, // Normalize code field
             caption: post.caption
           })),
-          intentKeywords: commentIntentKeywords.split(',').map(k => k.trim()).filter(Boolean)
+          intentKeywords: commentIntentKeywords.split(',').map(k => k.trim()).filter(Boolean),
+          dateFrom: ctlDateRange?.from ? ctlDateRange.from.toISOString() : undefined,
+          dateTo: ctlDateRange?.to ? ctlDateRange.to.toISOString() : undefined
         })
       });
       const data = await res.json();
@@ -1280,6 +1328,33 @@ export default function LeadsPage() {
     }
   };
 
+  // Filter posts in Wizard Step 2
+  const ctlFilteredTargetPosts = useMemo(() => {
+    return ctlTargetPosts.filter(post => {
+      // Filter by comment count
+      if (ctlPostMinComments > 0) {
+        const count = post.commentCount || post.comment_count || 0;
+        if (count < ctlPostMinComments) return false;
+      }
+
+      // Filter by date
+      if (ctlPostDateFilter !== 'all') {
+        const date = post.takenAt ? new Date(post.takenAt * 1000) : null;
+        if (!date) return true; // Keep posts with no date? Or drop? Let's keep.
+
+        const now = new Date();
+        const diffTime = Math.abs(now.getTime() - date.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (ctlPostDateFilter === '7d' && diffDays > 7) return false;
+        if (ctlPostDateFilter === '30d' && diffDays > 30) return false;
+        if (ctlPostDateFilter === '3m' && diffDays > 90) return false;
+      }
+
+      return true;
+    });
+  }, [ctlTargetPosts, ctlPostDateFilter, ctlPostMinComments]);
+
   // Get unique cities for filter
   const uniqueCities = useMemo(() => {
     const cities = new Set<string>();
@@ -1498,7 +1573,7 @@ export default function LeadsPage() {
                   <div className="space-y-3">
                     <div className="flex gap-2">
                       <Input
-                        placeholder="@username"
+                        placeholder="@username or paste list (comma/newline separated)"
                         value={ctlUsernameInput}
                         onChange={(e) => {
                           setCtlUsernameInput(e.target.value);
@@ -1676,10 +1751,37 @@ export default function LeadsPage() {
                     {ctlTargetPosts.length > 0 && (
                       <>
                         <div className="border-t border-border pt-3 mt-3">
-                          <p className="text-xs text-foreground-muted mb-2">{ctlTargetPosts.length} posts fetched</p>
+                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3">
+                            <p className="text-xs text-foreground-muted">
+                              {ctlFilteredTargetPosts.length} posts shown (of {ctlTargetPosts.length})
+                            </p>
+
+                            {/* Filter Toolbar */}
+                            <div className="flex items-center gap-2 w-full sm:w-auto">
+                              <select
+                                value={ctlPostDateFilter}
+                                onChange={(e) => setCtlPostDateFilter(e.target.value as any)}
+                                className="h-8 text-xs bg-background border border-border rounded px-2"
+                              >
+                                <option value="all">Any Date</option>
+                                <option value="7d">Last 7 Days</option>
+                                <option value="30d">Last 30 Days</option>
+                                <option value="3m">Last 3 Months</option>
+                              </select>
+
+                              <Input
+                                type="number"
+                                placeholder="Min Comments"
+                                value={ctlPostMinComments || ''}
+                                onChange={(e) => setCtlPostMinComments(parseInt(e.target.value) || 0)}
+                                className="h-8 w-24 text-xs"
+                                min={0}
+                              />
+                            </div>
+                          </div>
                         </div>
                         <div className="grid grid-cols-2 gap-2 max-h-96 overflow-y-auto">
-                          {ctlTargetPosts.map((post) => {
+                          {ctlFilteredTargetPosts.map((post) => {
                             const isSelected = ctlSelectedPostIds.has(post.id);
                             const isExpanded = ctlExpandedCaptions.has(post.id);
                             const caption = post.caption?.text || post.caption || '';
@@ -1908,32 +2010,44 @@ export default function LeadsPage() {
                     {/* Comment Date Filters */}
                     <div>
                       <label className="block text-xs font-medium text-foreground-muted mb-2">Comment Date Range</label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <input
-                            type="date"
-                            value={commentDateFrom}
-                            onChange={(e) => {
-                              setCommentDateFrom(e.target.value);
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant={"outline"}
+                            className={cn(
+                              "w-full justify-start text-left font-normal h-9 bg-background border-border text-xs px-3",
+                              !ctlDateRange && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                            {ctlDateRange?.from ? (
+                              ctlDateRange.to ? (
+                                <>
+                                  {format(ctlDateRange.from, "LLL dd, y")} -{" "}
+                                  {format(ctlDateRange.to, "LLL dd, y")}
+                                </>
+                              ) : (
+                                format(ctlDateRange.from, "LLL dd, y")
+                              )
+                            ) : (
+                              <span>Pick a date range</span>
+                            )}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            initialFocus
+                            mode="range"
+                            defaultMonth={ctlDateRange?.from}
+                            selected={ctlDateRange}
+                            onSelect={(range) => {
+                              setCtlDateRange(range);
                               setCtlActiveCard(3);
                             }}
-                            className="w-full px-2 py-1 bg-background text-foreground border border-border rounded text-xs"
+                            numberOfMonths={2}
                           />
-                          <p className="text-xs text-foreground-muted mt-1">From</p>
-                        </div>
-                        <div>
-                          <input
-                            type="date"
-                            value={commentDateTo}
-                            onChange={(e) => {
-                              setCommentDateTo(e.target.value);
-                              setCtlActiveCard(3);
-                            }}
-                            className="w-full px-2 py-1 bg-background text-foreground border border-border rounded text-xs"
-                          />
-                          <p className="text-xs text-foreground-muted mt-1">To</p>
-                        </div>
-                      </div>
+                        </PopoverContent>
+                      </Popover>
                     </div>
 
                     {/* Intent Keywords */}
